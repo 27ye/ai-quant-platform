@@ -23,6 +23,38 @@ def test_pipeline_contract_and_series_shape(synthetic_daily_data):
     ].strftime("%Y-%m-%d")
 
 
+def test_pipeline_exposes_stable_ai_adapter_fields(synthetic_daily_data):
+    result = analyze_quant_dataframe(synthetic_daily_data)
+
+    assert {
+        "trade_date",
+        "ma5",
+        "ma10",
+        "ma20",
+        "ma60",
+        "macd",
+        "macd_signal",
+        "macd_hist",
+        "rsi14",
+        "boll_upper",
+        "boll_middle",
+        "boll_lower",
+    } <= result["latest"].keys()
+    assert {"score", "level", "reasons"} <= result["score"].keys()
+    assert {
+        "strategy_name",
+        "start_date",
+        "end_date",
+        "total_return",
+        "annual_return",
+        "max_drawdown",
+        "sharpe_ratio",
+        "win_rate",
+        "trade_count",
+        "benchmark_return",
+    } <= result["backtest"].keys()
+
+
 def test_indicator_warmups_become_json_null(synthetic_daily_data):
     result = analyze_quant_dataframe(synthetic_daily_data)
     assert result["series"]["indicators"][0]["ma60"] is None
