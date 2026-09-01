@@ -2,6 +2,7 @@ fastapi>=0.110,<0.116
 uvicorn[standard]>=0.29,<0.35
 pydantic>=2.7,<3
 pydantic-settings>=2.2,<3
+httpx>=0.27,<1
 SQLAlchemy>=2.0,<3
 PyMySQL>=1.1,<2
 akshare>=1.13,<2
