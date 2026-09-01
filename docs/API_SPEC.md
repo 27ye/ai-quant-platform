@@ -149,6 +149,45 @@ POST /api/v1/ai/analyze
 
 AI Service 内部调用 Stock、Quant、Backtest、News Service，前端只传 `stock_code`。
 
+请求：
+
+```json
+{
+  "stock_code": "600519"
+}
+```
+
+成功返回：
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "stock_code": "600519",
+    "quant_score": 82,
+    "trend": "bullish",
+    "summary": "...",
+    "technical_analysis": "...",
+    "quant_analysis": "...",
+    "news_analysis": "...",
+    "advantages": ["..."],
+    "risks": ["..."],
+    "conclusion": "...",
+    "model_name": "..."
+  }
+}
+```
+
+字段规则：
+
+- `stock_code` 必须是 6 位字符串。
+- `quant_score` 来自 Quant Service，可为 `null`，AI 不得自行计算。
+- `trend` 只允许 `bullish`、`neutral`、`bearish`。
+- `advantages`、`risks` 为字符串数组。
+- 其余分析字段由 LLM 生成，并且必须通过 Structured Output Schema 校验。
+- 数据不足时返回 `40003`，LLM 调用或输出校验失败时返回 `50005`。
+
 ## 10. 错误码
 
 ```text

@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_base_url: str = ""
     llm_model: str = ""
+    llm_timeout_seconds: float = 30.0
 
     @property
     def cors_origin_list(self) -> List[str]:
