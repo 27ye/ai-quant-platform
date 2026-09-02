@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class StrictSchema(BaseModel):
-    model_config = ConfigDict(extra="forbid", protected_namespaces=())
+    model_config = ConfigDict(extra="forbid", protected_namespaces=(), allow_inf_nan=False)
 
 
 class AIAnalyzeRequest(StrictSchema):
