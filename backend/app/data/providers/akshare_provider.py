@@ -1,5 +1,7 @@
 from datetime import date
-from typing import Dict, Iterable
+from typing import Any, Dict, Iterable, List
+
+import math
 
 import pandas as pd
 
@@ -67,6 +69,97 @@ class AKShareStockProvider(StockDataProvider):
             raise StockDataProviderError(f"AKShare request failed for {stock_code}: {exc}") from exc
 
         return self._normalize_daily_kline(raw_data, stock_code)
+
+    def search_stocks(self, keyword: str) -> List[Dict[str, str]]:
+        """Search A-share stocks by code or name substring (via AKShare spot)."""
+        keyword = keyword.strip()
+        if not keyword:
+            raise StockDataProviderError("search keyword must not be empty")
+        try:
+            import akshare as ak
+
+            raw = ak.stock_zh_a_spot_em()
+        except StockDataProviderError:
+            raise
+        except Exception as exc:
+            raise StockDataProviderError(f"AKShare spot request failed: {exc}") from exc
+
+        code_col = self._pick_column(raw, ("代码", "code", "股票代码"))
+        name_col = self._pick_column(raw, ("名称", "name", "股票简称"))
+        if code_col is None or name_col is None:
+            raise StockDataSchemaError("AKShare spot response missing code/name columns")
+
+        mask = raw[code_col].astype(str).str.contains(
+            keyword, case=False, na=False, regex=False
+        ) | raw[name_col].astype(str).str.contains(
+            keyword, case=False, na=False, regex=False
+        )
+        subset = raw.loc[mask, [code_col, name_col]].head(50)
+
+        result: List[Dict[str, str]] = []
+        for _, row in subset.iterrows():
+            code = str(row[code_col]).strip().zfill(6)
+            if len(code) != 6 or not code.isdigit():
+                continue
+            result.append({"stock_code": code, "stock_name": str(row[name_col]).strip()})
+        return result
+
+    def get_stock_info(self, stock_code: str) -> Dict[str, Any]:
+        """Return basic stock info (name, industry, market caps) via AKShare."""
+        stock_code = self._normalize_stock_code(stock_code)
+        try:
+            import akshare as ak
+
+            raw = ak.stock_individual_info_em(symbol=stock_code)
+        except StockDataProviderError:
+            raise
+        except Exception as exc:
+            raise StockDataProviderError(
+                f"AKShare info request failed for {stock_code}: {exc}"
+            ) from exc
+
+        if raw is None or raw.empty:
+            raise EmptyStockDataError(f"AKShare returned no info for {stock_code}")
+        item_col = self._pick_column(raw, ("item", "项目"))
+        value_col = self._pick_column(raw, ("value", "值"))
+        if item_col is None or value_col is None:
+            raise StockDataSchemaError("AKShare info response missing item/value columns")
+
+        kv: Dict[str, Any] = {}
+        for _, row in raw.iterrows():
+            kv[str(row[item_col]).strip()] = row[value_col]
+
+        return {
+            "stock_code": stock_code,
+            "stock_name": self._cell_text(kv.get("股票简称")) or stock_code,
+            "industry": self._cell_text(kv.get("行业")),
+            "total_market_cap": self._cell_float(kv.get("总市值")),
+            "float_market_cap": self._cell_float(kv.get("流通市值")),
+        }
+
+    @staticmethod
+    def _pick_column(frame: pd.DataFrame, candidates: tuple) -> Any:
+        for candidate in candidates:
+            if candidate in frame.columns:
+                return candidate
+        return None
+
+    @staticmethod
+    def _cell_text(value: Any) -> Any:
+        if value is None or pd.isna(value):
+            return None
+        text = str(value).strip()
+        return text or None
+
+    @staticmethod
+    def _cell_float(value: Any) -> Any:
+        if value is None or pd.isna(value):
+            return None
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return None
+        return number if math.isfinite(number) else None
 
     def _normalize_daily_kline(self, raw_data: pd.DataFrame, stock_code: str) -> pd.DataFrame:
         if raw_data is None or raw_data.empty:

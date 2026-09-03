@@ -12,7 +12,7 @@ from backend.app.data.providers.base import (
     StockDataSchemaError,
 )
 from backend.app.main import app
-from backend.app.schemas.stock import DailyKlineSchema
+from backend.app.schemas.stock import DailyKlineSchema, StockBasicSchema
 from backend.app.services.stock_service import DEFAULT_MIN_KLINE_ROWS, StockService
 
 STOCK_CODE = "600519"
@@ -199,3 +199,64 @@ def test_endpoint_provider_error_returns_50001():
 
     assert response.status_code == 502
     assert response.json()["code"] == 50001
+
+
+def test_search_stocks_returns_list():
+    import backend.app.api.v1.stocks as stocks_module
+
+    class FakeService:
+        def search_stocks(self, keyword):
+            return [StockBasicSchema(stock_code=STOCK_CODE, stock_name="贵州茅台")]
+
+    stocks_module._service = FakeService()
+
+    response = TestClient(app).get("/api/v1/stocks/search?keyword=茅台")
+
+    assert response.status_code == 200
+    assert response.json()["code"] == 0
+    assert response.json()["data"][0]["stock_code"] == STOCK_CODE
+
+
+def test_search_empty_keyword_returns_40001():
+    response = TestClient(app).get("/api/v1/stocks/search?keyword=")
+
+    assert response.status_code == 400
+    assert response.json()["code"] == 40001
+
+
+def test_stock_info_returns_basic_info():
+    import backend.app.api.v1.stocks as stocks_module
+
+    class FakeService:
+        def get_stock_info(self, stock_code):
+            return StockBasicSchema(
+                stock_code=stock_code,
+                stock_name="贵州茅台",
+                industry="酿酒行业",
+                total_market_cap=1.0,
+                float_market_cap=1.0,
+            )
+
+    stocks_module._service = FakeService()
+
+    response = TestClient(app).get(f"/api/v1/stocks/{STOCK_CODE}")
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["stock_code"] == STOCK_CODE
+    assert data["stock_name"] == "贵州茅台"
+
+
+def test_stock_info_invalid_code_returns_40001():
+    import backend.app.api.v1.stocks as stocks_module
+
+    class FakeService:
+        def get_stock_info(self, stock_code):
+            raise InvalidStockCodeError("stock_code must be a 6-digit string")
+
+    stocks_module._service = FakeService()
+
+    response = TestClient(app).get("/api/v1/stocks/abc")
+
+    assert response.status_code == 400
+    assert response.json()["code"] == 40001

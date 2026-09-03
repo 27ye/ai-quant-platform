@@ -67,7 +67,9 @@ GET  /api/v1/backtests/{backtest_id}
 POST /api/v1/ai/analyze
 ```
 
-## 4. 股票搜索
+## 4. 股票搜索与信息
+
+### 4.1 股票搜索
 
 ```http
 GET /api/v1/stocks/search?keyword=茅台
@@ -87,6 +89,32 @@ GET /api/v1/stocks/search?keyword=茅台
   ]
 }
 ```
+
+> `keyword` 为空返回 `40001`；按代码或名称子串匹配（AKShare 全 A 股快照），最多返回 50 条。
+
+### 4.2 股票信息
+
+```http
+GET /api/v1/stocks/{stock_code}
+```
+
+返回（`StockBasicSchema`）：
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "stock_code": "600519",
+    "stock_name": "贵州茅台",
+    "industry": "酿酒行业",
+    "total_market_cap": 123456789000.0,
+    "float_market_cap": 90000000000.0
+  }
+}
+```
+
+> 股票代码必须为 6 位字符串，非法返回 `40001`；数据源异常返回 `50001`。
 
 ## 5. 股票 K 线
 

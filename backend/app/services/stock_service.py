@@ -14,7 +14,7 @@ from backend.app.data.providers.base import (
     StockDataProvider,
     StockDataSchemaError,
 )
-from backend.app.schemas.stock import DailyKlineSchema
+from backend.app.schemas.stock import DailyKlineSchema, StockBasicSchema
 
 DEFAULT_MIN_KLINE_ROWS = 60
 DEFAULT_WINDOW_DAYS = 366
@@ -86,6 +86,19 @@ class StockService:
             )
 
         return frame
+
+    def search_stocks(self, keyword: str) -> List[StockBasicSchema]:
+        """Search A-share stocks by code or name substring (via AKShare)."""
+        items = self._provider.search_stocks(keyword)
+        return [
+            StockBasicSchema(stock_code=item["stock_code"], stock_name=item["stock_name"])
+            for item in items
+        ]
+
+    def get_stock_info(self, stock_code: str) -> StockBasicSchema:
+        """Return basic stock info (name, industry, market caps) via AKShare."""
+        info = self._provider.get_stock_info(stock_code)
+        return StockBasicSchema(**info)
 
     def _fetch_and_clean(self, stock_code: str, start_date: date, end_date: date) -> pd.DataFrame:
         try:
