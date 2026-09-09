@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 from sqlalchemy import create_engine
@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.core.errors import DatabaseOperationError
 from backend.app.db.migrations import apply_migrations
+from backend.app.models.stock_news import StockNews
 from backend.app.schemas.ai import NewsItemContext
 from backend.app.services.news_service import NewsRepository, NewsService
 
@@ -30,13 +31,15 @@ def _session() -> Session:
 
 
 def _raw_items():
+    # Recent publish times (within the default 6h TTL) so the cache stays fresh.
+    now = datetime.now()
     return [
         {
             "stock_code": STOCK_CODE,
             "title": "公司发布年度业绩预告",
             "summary": "业绩预增",
             "source": "东方财富",
-            "publish_time": datetime(2026, 8, 31, 9, 30),
+            "publish_time": now - timedelta(hours=1),
             "url": "http://finance.eastmoney.com/a/1.html",
         },
         {
@@ -44,7 +47,7 @@ def _raw_items():
             "title": "召开临时股东大会",
             "summary": None,
             "source": "交易所",
-            "publish_time": datetime(2026, 8, 30, 14, 0),
+            "publish_time": now - timedelta(hours=2),
             "url": "http://finance.eastmoney.com/a/2.html",
         },
     ]
@@ -173,3 +176,121 @@ def test_news_repository_converts_db_failure_to_database_operation_error():
         )
 
     assert session.rolled_back is True
+
+
+def test_get_news_refreshes_when_cache_is_stale():
+    with _session() as session:
+        session.add(
+            StockNews(
+                stock_code=STOCK_CODE,
+                title="旧新闻",
+                source="交易所",
+                publish_time=datetime.now() - timedelta(days=2),  # older than TTL
+                url="http://x/old.html",
+            )
+        )
+        session.commit()
+        provider = FakeNewsProvider(
+            [
+                {
+                    "stock_code": STOCK_CODE,
+                    "title": "新新闻",
+                    "source": "东方财富",
+                    "publish_time": datetime.now(),
+                    "url": "http://x/new.html",
+                }
+            ]
+        )
+        service = NewsService(
+            provider=provider, repository=NewsRepository(session), max_age_seconds=6 * 3600
+        )
+
+        items = service.get_news(STOCK_CODE, limit=10)
+
+        assert provider.calls == 1  # stale cache -> refetch from provider
+        assert items[0].title == "新新闻"
+
+
+def test_get_news_uses_fresh_cache_without_refetch():
+    with _session() as session:
+        session.add(
+            StockNews(
+                stock_code=STOCK_CODE,
+                title="缓存新闻",
+                source="交易所",
+                publish_time=datetime.now() - timedelta(hours=1),  # within TTL
+                url="http://x/cached.html",
+            )
+        )
+        session.commit()
+
+        class RaiseProvider:
+            def get_stock_news(self, *args, **kwargs):
+                raise AssertionError("fresh cache must not hit the provider")
+
+        service = NewsService(
+            provider=RaiseProvider(), repository=NewsRepository(session), max_age_seconds=6 * 3600
+        )
+
+        items = service.get_news(STOCK_CODE, limit=10)
+
+        assert items[0].title == "缓存新闻"
+
+
+def test_get_news_refresh_flag_bypasses_fresh_cache():
+    with _session() as session:
+        session.add(
+            StockNews(
+                stock_code=STOCK_CODE,
+                title="缓存新闻",
+                source="交易所",
+                publish_time=datetime.now(),
+                url="http://x/cached.html",
+            )
+        )
+        session.commit()
+        provider = FakeNewsProvider(
+            [
+                {
+                    "stock_code": STOCK_CODE,
+                    "title": "强制刷新的新新闻",
+                    "source": "东方财富",
+                    "publish_time": datetime.now(),
+                    "url": "http://x/forced.html",
+                }
+            ]
+        )
+        service = NewsService(
+            provider=provider, repository=NewsRepository(session), max_age_seconds=6 * 3600
+        )
+
+        items = service.get_news(STOCK_CODE, limit=10, refresh=True)
+
+        assert provider.calls == 1  # refresh=True bypasses the (fresh) cache
+        assert items[0].title == "强制刷新的新新闻"
+
+
+def test_get_news_falls_back_to_cache_when_provider_returns_nothing():
+    with _session() as session:
+        session.add(
+            StockNews(
+                stock_code=STOCK_CODE,
+                title="兜底缓存",
+                source="交易所",
+                publish_time=datetime.now() - timedelta(hours=1),
+                url="http://x/fallback.html",
+            )
+        )
+        session.commit()
+
+        class EmptyProvider:
+            def get_stock_news(self, *args, **kwargs):
+                return []
+
+        service = NewsService(
+            provider=EmptyProvider(), repository=NewsRepository(session), max_age_seconds=6 * 3600
+        )
+
+        items = service.get_news(STOCK_CODE, limit=10, refresh=True)
+
+        assert items[0].title == "兜底缓存"

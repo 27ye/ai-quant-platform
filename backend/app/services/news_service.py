@@ -7,12 +7,17 @@ unified news structure feeds both the public news API and the AI pipeline.
 News results are always returned newest-first (``publish_time`` descending,
 ``NULL`` last), regardless of the source ordering, so ``limit`` truncates the
 latest news rather than whatever order AKShare happened to return.
+
+Refresh policy: a non-empty cache is only served when its newest ``publish_time``
+is recent (within ``max_age_seconds``); a stale cache (or ``refresh=True``)
+triggers a fresh provider fetch that is upserted. This ensures new news keeps
+flowing in instead of the cache being frozen at its first fetch.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional, Sequence
+from typing import List, Optional, Protocol, Sequence
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -25,6 +30,26 @@ from backend.app.schemas.ai import NewsItemContext
 
 DEFAULT_NEWS_LIMIT = 10
 MAX_NEWS_LIMIT = 50
+#: Default cache freshness window: refetch when the newest cached news is older.
+DEFAULT_NEWS_TTL_SECONDS = 6 * 60 * 60
+
+
+class NewsSource(Protocol):
+    """Injectable news source consumed by the AI pipeline / API layer."""
+
+    def get_news(
+        self,
+        stock_code: str,
+        limit: int = DEFAULT_NEWS_LIMIT,
+        max_age_seconds: Optional[int] = None,
+        refresh: bool = False,
+    ) -> Sequence[NewsItemContext]:
+        """Return a bounded, normalized news list (newest first, ``NULL`` last).
+
+        ``max_age_seconds`` caps the cache age; ``refresh=True`` bypasses the
+        cache and always fetches from the provider.
+        """
+        ...
 
 
 class NewsRepository:
@@ -99,38 +124,70 @@ class NewsRepository:
 
 
 class NewsService:
-    """Implements the ``NewsAnalysisService`` protocol over provider + repository."""
+    """Implements the ``NewsSource`` / ``NewsAnalysisService`` protocol."""
 
     def __init__(
         self,
         provider: Optional[StockDataProvider] = None,
         repository: Optional[NewsRepository] = None,
         limit: int = DEFAULT_NEWS_LIMIT,
+        max_age_seconds: int = DEFAULT_NEWS_TTL_SECONDS,
     ) -> None:
         self._provider = provider or AKShareStockProvider()
         self._repository = repository
         self._default_limit = min(max(limit, 1), MAX_NEWS_LIMIT)
+        self._default_max_age = max_age_seconds
 
-    def get_news(self, stock_code: str, limit: int = DEFAULT_NEWS_LIMIT) -> Sequence[NewsItemContext]:
+    def get_news(
+        self,
+        stock_code: str,
+        limit: int = DEFAULT_NEWS_LIMIT,
+        max_age_seconds: Optional[int] = None,
+        refresh: bool = False,
+    ) -> Sequence[NewsItemContext]:
         """Return a bounded, normalized news list (newest first, ``NULL`` last).
 
-        Reads from MySQL first; on an empty cache it fetches from AKShare and
-        persists the result. The returned sequence is always re-sorted by
-        ``publish_time`` descending (``NULL`` last) and then ``limit``-truncated.
+        * ``refresh=False`` and cache non-empty and not stale -> serve the cache;
+        * otherwise -> fetch from the provider, upsert, and return the newest
+          ``limit`` items (falling back to the cache only if the provider returns
+          nothing).
         """
         bound = min(max(limit, 1), MAX_NEWS_LIMIT)
-        if self._repository is not None:
-            stored = self._repository.list_by_stock(stock_code, bound)
-            if stored:
-                return [self._to_item(record) for record in stored[:bound]]
-        # Fetch a superset first: the provider returns items in its own (non
-        # time-sorted) order, so requesting only ``bound`` rows would drop the
-        # newest items before they can be sorted. Sort + truncate afterwards.
+        max_age = (
+            max_age_seconds if max_age_seconds is not None else self._default_max_age
+        )
+        if self._repository is not None and not refresh:
+            cached = self._repository.list_by_stock(stock_code, bound)
+            if cached and not self._is_stale(cached, max_age):
+                return [self._to_item(record) for record in cached[:bound]]
+
         raw_items = self._provider.get_stock_news(stock_code, limit=MAX_NEWS_LIMIT)
         if self._repository is not None and raw_items:
             self._repository.upsert(raw_items)
-        ordered = self._sort_by_publish_time_desc(raw_items)
-        return [self._from_raw(item) for item in ordered[:bound]]
+        if raw_items:
+            ordered = self._sort_by_publish_time_desc(raw_items)
+            return [self._from_raw(item) for item in ordered[:bound]]
+
+        # Provider returned nothing; still serve any cached rows rather than empty.
+        if self._repository is not None:
+            cached = self._repository.list_by_stock(stock_code, bound)
+            if cached:
+                return [self._to_item(record) for record in cached[:bound]]
+        return []
+
+    @staticmethod
+    def _is_stale(cached: Sequence[StockNews], max_age: int) -> bool:
+        newest = None
+        for record in cached:
+            if record.publish_time is not None:
+                newest = record.publish_time
+                break
+        if newest is None:
+            return True
+        try:
+            return (datetime.now() - newest).total_seconds() > max_age
+        except TypeError:
+            return True
 
     @staticmethod
     def _sort_by_publish_time_desc(items: List[dict]) -> List[dict]:

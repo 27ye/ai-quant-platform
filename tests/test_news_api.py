@@ -31,7 +31,7 @@ def _session_with_news() -> Session:
             title="贵州茅台发布年度业绩预告",
             summary="业绩预增",
             source="交易所",
-            publish_time=datetime(2026, 8, 31, 9, 30),
+            publish_time=datetime.now(),  # fresh, so the cache is served, not refetched
             url="http://finance.eastmoney.com/a/1.html",
         )
     )
@@ -56,7 +56,7 @@ def test_news_endpoint_returns_unified_schema():
     assert data[0]["stock_code"] == STOCK_CODE
     assert data[0]["title"] == "贵州茅台发布年度业绩预告"
     assert data[0]["source"] == "交易所"
-    assert data[0]["publish_time"].startswith("2026-08-31")
+    assert data[0]["publish_time"]
     assert data[0]["url"].startswith("http://")
 
 
