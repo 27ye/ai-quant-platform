@@ -28,6 +28,11 @@ def build_analysis_messages(context: AnalysisContext) -> List[Dict[str, str]]:
     )
     user_prompt = (
         "请根据 analysis_context 生成综合分析。\n"
+        "当 analysis_context.news 为空时，news_analysis 必须明确说明新闻数据暂不可用，"
+        "不得编造或推断新闻。\n"
+        "新闻的时效以每条 publish_time 为准，缓存中的旧新闻不得描述为最新消息；"
+        "publish_time 缺失时说明时间未知。行情以 trade_date 为准，"
+        "data_as_of 仅表示上下文组装时间，不代表行情或新闻的更新时间。\n"
         f"output_json_schema={schema_json}\n"
         f"analysis_context={context_json}"
     )

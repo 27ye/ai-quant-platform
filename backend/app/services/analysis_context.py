@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from typing import List, Optional, Protocol, Sequence
 
+from backend.app.core.errors import DataProviderError, InvalidParameterError
+from backend.app.data.providers.base import InvalidStockCodeError, StockDataProviderError
 from backend.app.schemas.ai import (
     AnalysisContext,
     BacktestMetricsContext,
@@ -66,17 +68,25 @@ class ServiceAnalysisContextProvider:
         self._news_service = news_service
 
     def get_context(self, stock_code: str) -> AnalysisContext:
-        news: List[NewsItemContext] = list(
-            self._news_service.get_news(stock_code, self.NEWS_LIMIT)
-        )
+        stock = self._stock_service.get_stock(stock_code)
+        snapshot = self._stock_service.get_market_snapshot(stock_code)
+        indicators = self._stock_service.get_technical_indicators(stock_code)
+        score = self._quant_service.get_score(stock_code)
+        backtest = self._backtest_service.get_latest_metrics(stock_code)
+        try:
+            news: List[NewsItemContext] = list(
+                self._news_service.get_news(stock_code, self.NEWS_LIMIT)
+            )
+        except InvalidStockCodeError as exc:
+            raise InvalidParameterError() from exc
+        except StockDataProviderError as exc:
+            raise DataProviderError() from exc
         return AnalysisContext(
-            stock=self._stock_service.get_stock(stock_code),
-            market_snapshot=self._stock_service.get_market_snapshot(stock_code),
-            technical_indicators=self._stock_service.get_technical_indicators(
-                stock_code
-            ),
-            quant_score=self._quant_service.get_score(stock_code),
-            backtest_metrics=self._backtest_service.get_latest_metrics(stock_code),
+            stock=stock,
+            market_snapshot=snapshot,
+            technical_indicators=indicators,
+            quant_score=score,
+            backtest_metrics=backtest,
             news=news,
             data_as_of=datetime.now(timezone.utc),
         )

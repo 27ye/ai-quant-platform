@@ -1,6 +1,9 @@
 import asyncio
 from datetime import date, datetime
 
+import pytest
+
+from backend.app.ai.errors import LLMOutputValidationError
 from backend.app.schemas.ai import (
     AnalysisContext,
     MarketSnapshotContext,
@@ -94,3 +97,19 @@ def test_ai_service_retries_invalid_output_once():
     assert result.trend == "bullish"
     assert len(client.calls) == 2
     assert "未通过 JSON Schema 校验" in client.calls[1][-1]["content"]
+
+
+def test_ai_service_stops_after_second_invalid_output():
+    repository = RecordingRepository()
+    client = FakeLLMClient(["not-json", "still-not-json"])
+    service = AIAnalysisService(
+        context_provider=FakeContextProvider(),
+        llm_client=client,
+        repository=repository,
+    )
+
+    with pytest.raises(LLMOutputValidationError):
+        asyncio.run(service.analyze("600519"))
+
+    assert len(client.calls) == 2
+    assert repository.saved == []
