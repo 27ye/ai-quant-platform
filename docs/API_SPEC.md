@@ -116,6 +116,37 @@ GET /api/v1/stocks/{stock_code}
 
 > 股票代码必须为 6 位字符串，非法返回 `40001`；数据源异常返回 `50001`。
 
+### 4.3 股票新闻
+
+```http
+GET /api/v1/stocks/{stock_code}/news?limit=10
+```
+
+返回（`StockNewsSchema` 列表，按 `publish_time` 倒序优先）：
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": [
+    {
+      "stock_code": "600519",
+      "title": "贵州茅台发布公告",
+      "summary": "……",
+      "source": "东方财富",
+      "publish_time": "2026-08-31 09:30:00",
+      "url": "http://finance.eastmoney.com/a/xxx.html"
+    }
+  ]
+}
+```
+
+- `limit` 默认 10，允许 1–50，越界返回 `40001`。
+- 数据源为东方财富个股新闻（AKShare `stock_news_em`）；服务先查 MySQL `stock_news`，缓存为空时从 AKShare 拉取并 Upsert，再返回。
+- 返回结果按 `publish_time` **倒序**（最新在前），`publish_time=null` 排在最后，再按 `limit` 截取。
+- `publish_time` 为 ISO 8601 字符串，缺省为 `null`。
+- 非法股票代码返回 `40001`；数据源异常返回 `50001`；数据库异常返回 `50002`。
+
 ## 5. 股票 K 线
 
 ```http

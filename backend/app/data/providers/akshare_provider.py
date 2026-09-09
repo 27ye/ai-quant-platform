@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Dict, Iterable, List
 
 import math
@@ -40,6 +40,15 @@ class AKShareStockProvider(StockDataProvider):
         "turnover_rate",
         "change_pct",
     )
+    news_field_mapping = {
+        "新闻标题": "title",
+        "新闻内容": "summary",
+        "发布时间": "publish_time",
+        "文章来源": "source",
+        "新闻链接": "url",
+    }
+    required_news_source_fields = ("新闻标题", "新闻内容", "文章来源", "新闻链接")
+    news_output_columns = ("stock_code", "title", "summary", "source", "publish_time", "url")
 
     def get_daily_kline(
         self,
@@ -137,6 +146,72 @@ class AKShareStockProvider(StockDataProvider):
             "float_market_cap": self._cell_float(kv.get("流通市值")),
         }
 
+    def get_stock_news(self, stock_code: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Fetch recent East Money news for a stock and return normalized dicts.
+
+        Returns a list of ``snake_case`` dicts with keys ``stock_code``, ``title``,
+        ``summary``, ``source``, ``publish_time`` (``datetime`` or ``None``) and ``url``.
+        """
+        stock_code = self._normalize_stock_code(stock_code)
+        try:
+            import akshare as ak
+
+            raw = ak.stock_news_em(symbol=stock_code)
+        except StockDataProviderError:
+            raise
+        except Exception as exc:
+            raise StockDataProviderError(
+                f"AKShare news request failed for {stock_code}: {exc}"
+            ) from exc
+
+        if raw is None or raw.empty:
+            return []
+
+        missing_fields = [
+            field
+            for field in self.required_news_source_fields
+            if field not in raw.columns
+        ]
+        if missing_fields:
+            raise StockDataSchemaError(
+                f"AKShare news response missing fields: {missing_fields}"
+            )
+
+        data = raw.rename(columns=self.news_field_mapping).copy()
+        data["stock_code"] = stock_code
+        if "publish_time" in data.columns:
+            data["publish_time"] = pd.to_datetime(data["publish_time"], errors="coerce")
+        data = data.where(pd.notnull(data), None)
+
+        items: List[Dict[str, Any]] = []
+        for _, row in data.iterrows():
+            title = self._cell_text(row.get("title"))
+            if not title:
+                continue
+            items.append(
+                {
+                    "stock_code": stock_code,
+                    "title": title,
+                    "summary": self._cell_text(row.get("summary")),
+                    "source": self._cell_text(row.get("source")),
+                    "publish_time": self._cell_datetime(row.get("publish_time")),
+                    "url": self._cell_text(row.get("url")),
+                }
+            )
+        # Sort ALL valid news newest-first (NULL last) BEFORE applying ``limit``,
+        # so the newest item is never dropped by the source's non-time-sorted
+        # order (e.g. the newest item appearing at the tail of the raw frame).
+        return self._sort_news(items)[:limit]
+
+    @staticmethod
+    def _sort_news(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Return items sorted by ``publish_time`` descending, ``None`` last."""
+        return sorted(
+            items,
+            key=lambda item: item.get("publish_time") or datetime.min,
+            reverse=True,
+        )
+
     @staticmethod
     def _pick_column(frame: pd.DataFrame, candidates: tuple) -> Any:
         for candidate in candidates:
@@ -160,6 +235,18 @@ class AKShareStockProvider(StockDataProvider):
         except (TypeError, ValueError):
             return None
         return number if math.isfinite(number) else None
+
+    @staticmethod
+    def _cell_datetime(value: Any) -> Any:
+        if value is None or pd.isna(value):
+            return None
+        if isinstance(value, pd.Timestamp):
+            return value.to_pydatetime()
+        try:
+            parsed = pd.to_datetime(value)
+        except (TypeError, ValueError):
+            return None
+        return parsed.to_pydatetime() if not pd.isna(parsed) else None
 
     def _normalize_daily_kline(self, raw_data: pd.DataFrame, stock_code: str) -> pd.DataFrame:
         if raw_data is None or raw_data.empty:

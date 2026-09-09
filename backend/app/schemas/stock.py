@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -10,6 +10,17 @@ class StockBasicSchema(BaseModel):
     industry: Optional[str] = None
     total_market_cap: Optional[float] = None
     float_market_cap: Optional[float] = None
+
+
+class StockNewsSchema(BaseModel):
+    """Unified stock-news item returned by the news API."""
+
+    stock_code: str = Field(pattern=r"^\d{6}$")
+    title: str
+    summary: Optional[str] = None
+    source: Optional[str] = None
+    publish_time: Optional[datetime] = None
+    url: Optional[str] = None
 
 
 class DailyKlineSchema(BaseModel):
