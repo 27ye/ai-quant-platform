@@ -34,7 +34,8 @@
 - **DB 异常**：两个 Repository 的 `SQLAlchemyError` 统一转为 `DatabaseOperationError`（`50002`）并 rollback，`/news` 在 DB 故障时返回 `ApiResponse{code:50002, message:"database error"}`
 - 错误：统一业务码 + `ApiResponse`（`40001`/`40002`/`40003`/`50001`/`50002`/`50003`），见 `docs/API_SPEC.md`。
 - 契约：`docs/API_SPEC.md`（新增 4.3 股票新闻）。
-- 测试：`pytest tests -q` → **136 passed**（基线 95 + 新增 41）。
+- 测试：`pytest tests -q` → **143 passed**（基线 95 + 新增 48）。
+- **真实 trading_days 来源**：`backend/app/data/trading_calendar.py` 的 `TradingCalendarProvider`（用 AKShare `tool_trade_date_hist_sina` 取 A 股真实交易日历，进程内缓存，`refresh()` 可重载；构造时可用 `trade_dates`/`fetch` 注入以便离线测试）。**`count_between(start,end) -> Optional[int]`**：日历为空、或未覆盖完整窗口（最早/最晚交易日未包住 `[start,end]`）时返回 `None`（覆盖未知），调用方据此保守重拉，**不把未知当可信 0**。接入方式：**构造器注入** `MarketDataService(..., trading_days=provider.as_callable())`，或**每次调用** `query_daily(..., trading_days=...)`。当前环境到 sina/eastmoney 的 https 仍受 TLS/网络阻塞，真实抓取需可用网络/代理。
 
 ### 可注入接口（给 D）
 

@@ -505,6 +505,49 @@ def test_query_daily_refetches_when_cache_has_fewer_bars_than_expected_trading_d
         assert len(rows_out) >= 60
 
 
+def test_query_daily_refetches_when_calendar_coverage_unknown():
+    with _session() as session:
+        repository = MarketDataRepository(session)
+        start = date(2025, 1, 1)
+        # Cache looks complete, but the calendar returns None (empty/unknown coverage).
+        repository.upsert_daily([_bar(STOCK_CODE, start + timedelta(days=i)) for i in range(60)])
+
+        provider = RecordingProvider(60)
+        service = MarketDataService(
+            stock_service=StockService(provider=provider), repository=repository
+        )
+
+        rows_out = service.query_daily(
+            STOCK_CODE, start, start + timedelta(days=59),
+            min_rows=60, trading_days=lambda s, e: None,
+        )
+
+        assert len(provider.calls) == 1  # unknown coverage -> conservative refetch
+        assert len(rows_out) >= 60
+
+
+def test_query_daily_uses_constructor_trading_days():
+    with _session() as session:
+        repository = MarketDataRepository(session)
+        start = date(2025, 1, 1)
+        repository.upsert_daily([_bar(STOCK_CODE, start + timedelta(days=i)) for i in range(60)])
+
+        class FailingProvider:
+            def get_daily_kline(self, *args, **kwargs):
+                raise AssertionError("cache should be served via constructor trading_days")
+
+        service = MarketDataService(
+            stock_service=StockService(provider=FailingProvider()),
+            repository=repository,
+            trading_days=lambda s, e: 60,
+        )
+
+        rows = service.query_daily(STOCK_CODE, start, start + timedelta(days=59), min_rows=60)
+
+        assert len(rows) == 60  # constructor trading_days used -> cache served
+
+
+
 def test_query_daily_raises_40003_when_provider_still_returns_too_few():
     with _session() as session:
         repository = MarketDataRepository(session)
