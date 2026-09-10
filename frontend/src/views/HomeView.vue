@@ -15,7 +15,7 @@ echarts.use([CandlestickChart, GridComponent, DataZoomComponent, CanvasRenderer]
 const router = useRouter()
 const bgRef = ref<HTMLDivElement>()
 let chart: echarts.ECharts | null = null
-let scrollTimer: number | null = null
+let rafId: number | null = null
 
 // 搜索
 const keyword = ref('')
@@ -88,18 +88,20 @@ function initBg() {
     animation: false,
   })
 
-  // 自动滚动：每次推进 1 条，循环
-  scrollTimer = window.setInterval(() => {
+  // 60fps 平滑滚动：每帧推进 0.15 条（~1条/7帧），匀速丝滑
+  const step = 0.15
+  const maxPos = 240 - windowSize
+
+  function tick() {
     if (!chart) return
-    pos = (pos + 1) % (240 - windowSize + 1)
+    pos += step
+    if (pos > maxPos) pos = 0
     const start = (pos / 240) * 100
     const end = ((pos + windowSize) / 240) * 100
-    chart.dispatchAction({
-      type: 'dataZoom',
-      start,
-      end,
-    })
-  }, 600)
+    chart.dispatchAction({ type: 'dataZoom', start, end })
+    rafId = requestAnimationFrame(tick)
+  }
+  rafId = requestAnimationFrame(tick)
 }
 
 function resize() {
@@ -113,7 +115,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resize)
-  if (scrollTimer) clearInterval(scrollTimer)
+  if (rafId) cancelAnimationFrame(rafId)
   chart?.dispose()
 })
 </script>
