@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { fetchIndicators, fetchKline, fetchScore, runBacktest } from '../api/stocks'
@@ -8,8 +8,10 @@ import KlineChart from '../components/stock/KlineChart.vue'
 import AIReportCard from '../components/ai/AIReportCard.vue'
 import ScoreCard from '../components/stock/ScoreCard.vue'
 import BacktestPanel from '../components/stock/BacktestPanel.vue'
+import { useHealthStore } from '../stores/health'
 
 const router = useRouter()
+const health = useHealthStore()
 const stockCode = computed(() => String(router.currentRoute.value.params.code ?? ''))
 
 const kline = ref<KlineItem[]>([])
@@ -20,6 +22,9 @@ const loading = ref(false)
 const loaded = ref(false)
 const scoreLoading = ref(true)
 const backtestLoading = ref(true)
+
+// Epoch 机制：切换股票时递增，过期响应直接丢弃，避免旧结果串入新股票
+const epoch = ref(0)
 
 const latest = computed(() =>
   kline.value.length > 0 ? kline.value[kline.value.length - 1] : null,
@@ -34,40 +39,69 @@ const changeClass = computed(() =>
   lastChange.value > 0 ? 'up' : lastChange.value < 0 ? 'down' : '',
 )
 
+// 样本区间标识（D 联调要求：显示数据日期范围）
+const dateRange = computed(() => {
+  if (kline.value.length === 0) return ''
+  const first = kline.value[0].trade_date
+  const last = kline.value[kline.value.length - 1].trade_date
+  return `${first} ~ ${last}`
+})
+
 async function load() {
   if (!stockCode.value) return
+  // 递增 epoch，使所有在途请求过期
+  const currentEpoch = ++epoch.value
   loading.value = true
   loaded.value = false
+  // 立即清空旧数据，避免新股票页面闪现上一只股票的内容
   kline.value = []
   indicators.value = []
+  score.value = null
+  backtest.value = null
+  scoreLoading.value = true
+  backtestLoading.value = true
+
   try {
-    // K 线是主请求；指标失败只降级（图上不画 MA/MACD），不影响 K 线展示
     const klineRes = await fetchKline(stockCode.value)
+    if (epoch.value !== currentEpoch) return
     kline.value = klineRes.data
     loaded.value = true
     fetchIndicators(stockCode.value)
-      .then((res) => (indicators.value = res.data))
+      .then((res) => {
+        if (epoch.value !== currentEpoch) return
+        indicators.value = res.data
+      })
       .catch(() => undefined)
   } catch {
-    // 拦截器已统一弹错误提示
+    if (epoch.value !== currentEpoch) return
   } finally {
-    loading.value = false
+    if (epoch.value === currentEpoch) loading.value = false
   }
 
-  // 评分/回测异步加载：失败只隐藏对应卡片，不影响主链路
-  scoreLoading.value = true
-  backtestLoading.value = true
   fetchScore(stockCode.value)
-    .then((res) => (score.value = res.data))
+    .then((res) => {
+      if (epoch.value !== currentEpoch) return
+      score.value = res.data
+    })
     .catch(() => undefined)
-    .finally(() => (scoreLoading.value = false))
+    .finally(() => {
+      if (epoch.value === currentEpoch) scoreLoading.value = false
+    })
   runBacktest(stockCode.value)
-    .then((res) => (backtest.value = res.data))
+    .then((res) => {
+      if (epoch.value !== currentEpoch) return
+      backtest.value = res.data
+    })
     .catch(() => undefined)
-    .finally(() => (backtestLoading.value = false))
+    .finally(() => {
+      if (epoch.value === currentEpoch) backtestLoading.value = false
+    })
 }
 
 watch(stockCode, load, { immediate: true })
+
+// 进入详情页时静默刷新健康检查，获取验收模式（D 联调用）
+onMounted(() => health.refresh())
 </script>
 
 <template>
@@ -77,6 +111,8 @@ watch(stockCode, load, { immediate: true })
         <el-button text @click="router.back()">← 返回</el-button>
         <div class="title">
           <h2>{{ stockCode }} 日 K 线（前复权）</h2>
+          <span v-if="health.acceptanceMode" class="mode-badge">{{ health.acceptanceMode }}</span>
+          <span v-if="dateRange" class="date-range">{{ dateRange }}</span>
           <div v-if="latest" class="quote">
             <span class="price">{{ latest.close.toFixed(2) }}</span>
             <span :class="['change', changeClass]">{{ changeText }}</span>
@@ -97,7 +133,6 @@ watch(stockCode, load, { immediate: true })
       <AIReportCard :stock-code="stockCode" />
 
       <div class="bottom-grid">
-        <!-- 成功渲染卡片，加载中显示骨架，失败静默隐藏 -->
         <ScoreCard v-if="score" :data="score" />
         <el-card v-else-if="scoreLoading" shadow="never" class="card-lift">
           <el-skeleton :rows="4" animated />
@@ -131,6 +166,23 @@ watch(stockCode, load, { immediate: true })
 
 .title h2 {
   margin: 0;
+}
+
+.date-range {
+  color: var(--text-faint);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mode-badge {
+  padding: 2px 8px;
+  border: 1px solid var(--accent, #d4a958);
+  border-radius: 4px;
+  color: var(--accent, #d4a958);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .quote {

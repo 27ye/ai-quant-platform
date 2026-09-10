@@ -7,6 +7,7 @@ export interface ApiResponse<T> {
 
 export interface HealthData {
   status: 'ok' | string
+  acceptance_mode?: string
 }
 
 // GET /stocks/search

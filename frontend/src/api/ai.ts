@@ -3,8 +3,8 @@ import { useMockFor } from './mockSwitch'
 import { mockAIAnalysis } from '../mocks/ai'
 import type { AIAnalysisData, ApiResponse } from '../types/api'
 
-// LLM 分析耗时较长（10~30s），单独放宽超时，不影响全局 10s
-const AI_TIMEOUT_MS = 60_000
+// LLM 分析耗时较长（10~30s+），D 联调要求 120s，仅手动重试
+const AI_TIMEOUT_MS = 120_000
 
 export async function analyzeStock(
   stockCode: string,

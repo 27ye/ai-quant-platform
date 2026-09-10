@@ -10,6 +10,9 @@ const report = ref<AIAnalysisData | null>(null)
 const loading = ref(false)
 const failed = ref(false)
 
+// Epoch 机制：切换股票时递增，使在途的 AI 请求过期被丢弃
+const epoch = ref(0)
+
 // A 股配色习惯：看涨红、看跌绿
 const TREND_LABEL: Record<TrendValue, string> = {
   bullish: '看涨',
@@ -25,24 +28,27 @@ const trendClass = computed(() => {
 })
 
 async function run() {
+  const currentEpoch = ++epoch.value
   loading.value = true
   failed.value = false
   report.value = null
   try {
     const res = await analyzeStock(props.stockCode)
+    if (epoch.value !== currentEpoch) return
     report.value = res.data
   } catch {
-    // 拦截器已统一弹错误提示
+    if (epoch.value !== currentEpoch) return
     failed.value = true
   } finally {
-    loading.value = false
+    if (epoch.value === currentEpoch) loading.value = false
   }
 }
 
-// 切换股票时重置旧报告
+// 切换股票时重置旧报告并使在途请求过期
 watch(
   () => props.stockCode,
   () => {
+    epoch.value++
     report.value = null
     failed.value = false
   },

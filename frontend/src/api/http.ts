@@ -10,8 +10,10 @@ declare module 'axios' {
   }
 }
 
+// 空字符串也回退到 /api/v1（D 联调要求）
+const baseURL = import.meta.env.VITE_API_BASE_URL
 export const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api/v1',
+  baseURL: baseURL || '/api/v1',
   timeout: 10000,
 })
 
