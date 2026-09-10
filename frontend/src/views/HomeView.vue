@@ -180,12 +180,25 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(14, 17, 22, 0.35) 0%,
-    rgba(14, 17, 22, 0.88) 65%
-  );
-  backdrop-filter: blur(3px);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(14, 17, 22, 0.4) 0%,
+      rgba(14, 17, 22, 0.65) 40%,
+      rgba(14, 17, 22, 0.85) 70%,
+      rgba(14, 17, 22, 0.95) 100%
+    ),
+    radial-gradient(
+      ellipse at 30% 20%,
+      rgba(212, 169, 88, 0.05) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at 70% 80%,
+      rgba(58, 123, 213, 0.04) 0%,
+      transparent 50%
+    );
+  backdrop-filter: blur(4px);
 }
 
 /* 居中内容 */
