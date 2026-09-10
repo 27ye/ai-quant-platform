@@ -23,7 +23,7 @@ const loaded = ref(false)
 const scoreLoading = ref(true)
 const backtestLoading = ref(true)
 
-// Epoch 机制：切换股票时递增，过期响应直接丢弃，避免旧结果串入新股票
+// Epoch 机制：切换股票时递增，过期响应直接丢弃
 const epoch = ref(0)
 
 const latest = computed(() =>
@@ -39,7 +39,6 @@ const changeClass = computed(() =>
   lastChange.value > 0 ? 'up' : lastChange.value < 0 ? 'down' : '',
 )
 
-// 样本区间标识（D 联调要求：显示数据日期范围）
 const dateRange = computed(() => {
   if (kline.value.length === 0) return ''
   const first = kline.value[0].trade_date
@@ -49,11 +48,9 @@ const dateRange = computed(() => {
 
 async function load() {
   if (!stockCode.value) return
-  // 递增 epoch，使所有在途请求过期
   const currentEpoch = ++epoch.value
   loading.value = true
   loaded.value = false
-  // 立即清空旧数据，避免新股票页面闪现上一只股票的内容
   kline.value = []
   indicators.value = []
   score.value = null
@@ -99,135 +96,189 @@ async function load() {
 }
 
 watch(stockCode, load, { immediate: true })
-
-// 进入详情页时静默刷新健康检查，获取验收模式（D 联调用）
 onMounted(() => health.refresh())
 </script>
 
 <template>
-  <main class="shell">
-    <section class="workspace">
-      <header class="detail-header">
-        <el-button text @click="router.back()">← 返回</el-button>
-        <div class="title">
-          <h2>{{ stockCode }} 日 K 线（前复权）</h2>
-          <span v-if="health.acceptanceMode" class="mode-badge">{{ health.acceptanceMode }}</span>
-          <span v-if="dateRange" class="date-range">{{ dateRange }}</span>
-          <div v-if="latest" class="quote">
-            <span class="price">{{ latest.close.toFixed(2) }}</span>
-            <span :class="['change', changeClass]">{{ changeText }}</span>
-            <span class="date">{{ latest.trade_date }}</span>
-          </div>
-        </div>
-      </header>
+  <main class="dashboard">
+    <!-- 股票信息条 -->
+    <div class="stock-bar">
+      <div class="stock-identity">
+        <span class="stock-code">{{ stockCode }}</span>
+        <span v-if="dateRange" class="date-range">{{ dateRange }}</span>
+        <span v-if="health.acceptanceMode" class="mode-badge">{{ health.acceptanceMode }}</span>
+      </div>
+      <div v-if="latest" class="stock-quote">
+        <span class="price">{{ latest.close.toFixed(2) }}</span>
+        <span :class="['change', changeClass]">{{ changeText }}</span>
+      </div>
+    </div>
 
-      <el-card v-loading="loading" shadow="never" class="card-lift chart-card">
-        <KlineChart
-          v-if="loaded && kline.length > 0"
-          :items="kline"
-          :indicators="indicators"
-        />
-        <el-empty v-else-if="loaded" description="暂无 K 线数据" />
-      </el-card>
-
-      <AIReportCard :stock-code="stockCode" />
-
-      <div class="bottom-grid">
-        <ScoreCard v-if="score" :data="score" />
-        <el-card v-else-if="scoreLoading" shadow="never" class="card-lift">
-          <el-skeleton :rows="4" animated />
-        </el-card>
-
-        <BacktestPanel v-if="backtest" :data="backtest" />
-        <el-card v-else-if="backtestLoading" shadow="never" class="card-lift">
-          <el-skeleton :rows="4" animated />
+    <!-- 主区域：左图表 + 右AI分析 -->
+    <div class="main-grid">
+      <div class="chart-section">
+        <el-card v-loading="loading" shadow="never" class="chart-card">
+          <KlineChart
+            v-if="loaded && kline.length > 0"
+            :items="kline"
+            :indicators="indicators"
+          />
+          <el-empty v-else-if="loaded" description="暂无 K 线数据" />
         </el-card>
       </div>
-    </section>
+
+      <div class="ai-section">
+        <AIReportCard :stock-code="stockCode" />
+      </div>
+    </div>
+
+    <!-- 底部：评分 + 回测 -->
+    <div class="bottom-grid">
+      <ScoreCard v-if="score" :data="score" />
+      <el-card v-else-if="scoreLoading" shadow="never" class="skeleton-card">
+        <el-skeleton :rows="4" animated />
+      </el-card>
+
+      <BacktestPanel v-if="backtest" :data="backtest" />
+      <el-card v-else-if="backtestLoading" shadow="never" class="skeleton-card">
+        <el-skeleton :rows="4" animated />
+      </el-card>
+    </div>
   </main>
 </template>
 
 <style scoped>
-.detail-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 18px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.07));
+.dashboard {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px 24px 48px;
 }
 
-.title {
+/* 股票信息条 — 紧凑的水平条 */
+.stock-bar {
   display: flex;
-  flex-wrap: wrap;
   align-items: baseline;
+  justify-content: space-between;
   gap: 16px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.title h2 {
-  margin: 0;
+.stock-identity {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.stock-code {
+  font-size: 20px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
 .date-range {
-  color: var(--text-faint);
-  font-size: 13px;
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
 .mode-badge {
-  padding: 2px 8px;
+  padding: 1px 6px;
   border: 1px solid var(--accent, #d4a958);
-  border-radius: 4px;
+  border-radius: 3px;
   color: var(--accent, #d4a958);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
-.quote {
+.stock-quote {
   display: flex;
   align-items: baseline;
   gap: 10px;
 }
 
 .price {
-  font-size: 30px;
+  font-size: 28px;
   font-weight: 700;
-  color: var(--text-main);
+  color: rgba(255, 255, 255, 0.92);
+  font-variant-numeric: tabular-nums;
 }
 
 .change {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .change.up {
-  color: var(--up);
+  color: var(--up, #ff4d4f);
 }
 
 .change.down {
-  color: var(--down);
+  color: var(--down, #00b386);
 }
 
-.date {
-  color: var(--text-faint);
-  font-size: 13px;
+/* 主网格：图表 + AI 并排 */
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.chart-section {
+  min-width: 0;
 }
 
 .chart-card {
-  margin-bottom: 16px;
+  background: var(--surface, #14171d);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
 }
 
+.chart-card :deep(.el-card__body) {
+  padding: 12px;
+}
+
+.ai-section {
+  min-width: 0;
+}
+
+/* 底部网格 */
 .bottom-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 14px;
 }
 
-@media (max-width: 900px) {
+.skeleton-card {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+}
+
+@media (max-width: 880px) {
+  .main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .dashboard {
+    padding: 12px 12px 32px;
+  }
+
   .bottom-grid {
     grid-template-columns: 1fr;
+  }
+
+  .stock-bar {
+    flex-direction: column;
+    gap: 8px;
   }
 }
 </style>
