@@ -152,18 +152,33 @@ def validate_mysql_frozen(stock_code: str, frozen_dir: str, metadata: Optional[s
         with TestClient(app, raise_server_exceptions=False) as client:
             first = client.get(f"/api/v1/stocks/{stock_code}/kline")
             second = client.get(f"/api/v1/stocks/{stock_code}/kline")
+            _assert_api_success(first, "first frozen kline query failed")
+            _assert_api_success(second, "cached frozen kline query failed")
+            _assert_kline_matches_package(first.json()["data"], package, "first query")
+            _assert_kline_matches_package(second.json()["data"], package, "cache hit")
+
+            # Exercise B's completeness policy against the isolated acceptance
+            # database: remove a real middle segment, then require the real
+            # MarketDataService/calendar/provider path to restore it.
+            from backend.app.models.stock_daily import StockDaily
+            missing_dates = [row.trade_date for row in package.bars[100:105]]
+            with SessionLocal() as db:
+                deleted = db.query(StockDaily).filter(
+                    StockDaily.stock_code == stock_code,
+                    StockDaily.trade_date.in_(missing_dates),
+                ).delete(synchronize_session=False)
+                db.commit()
+            if deleted != len(missing_dates):
+                raise FrozenAcceptanceError("frozen gap preparation did not remove expected rows")
+            repaired = client.get(f"/api/v1/stocks/{stock_code}/kline")
+            _assert_api_success(repaired, "frozen middle-gap refresh failed")
+            _assert_kline_matches_package(repaired.json()["data"], package, "gap repair")
             response = client.post("/api/v1/ai/analyze", json={"stock_code": stock_code})
-        _assert_api_success(first, "first frozen kline query failed")
-        _assert_api_success(second, "cached frozen kline query failed")
         _assert_api_success(response, "frozen AI API did not return success")
-        if first.json()["data"] != second.json()["data"]:
-            raise FrozenAcceptanceError("first query and cache hit returned different data")
 
         with SessionLocal() as db:
             db_readback = MarketDataRepository(db).list_daily(stock_code, package.start_date, package.end_date)
-            db_comparison = verify_frozen_mysql.compare_analyses(package.bars, db_readback)
-            if not db_comparison["data_equal"] or not db_comparison["analysis_equal"]:
-                raise FrozenAcceptanceError("frozen mysql readback quant comparison failed")
+            _assert_analysis_matches_package(db_readback, package, "mysql readback")
             records = db.query(AIAnalysis).filter_by(stock_code=stock_code).all()
             if len(records) != 1:
                 raise FrozenAcceptanceError("expected exactly one persisted frozen report")
@@ -183,44 +198,6 @@ def validate_mysql_frozen(stock_code: str, frozen_dir: str, metadata: Optional[s
             }, ensure_ascii=False), flush=True)
     finally:
         engine.dispose()
-
-
-def serve_frozen_app(frozen_dir: str, metadata: Optional[str], host: str = "127.0.0.1", port: int = 8000) -> None:
-    if host != "127.0.0.1" or port != 8000:
-        raise FrozenAcceptanceError("frozen server is restricted to 127.0.0.1:8000")
-    package = load_package(frozen_dir, metadata)
-    compare_package_quant(package)
-    _assert_mysql_acceptance_target()
-
-    import socket
-    from backend.app.core.config import get_settings
-
-    get_settings.cache_clear()
-    from backend.app.db.session import engine
-    from backend.app.main import create_app
-    import uvicorn
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        if sock.connect_ex((host, port)) == 0:
-            raise FrozenAcceptanceError("frozen HTTP port is already occupied")
-
-    if engine.url.host not in {"127.0.0.1", "localhost"} or engine.url.port != 3307:
-        raise FrozenAcceptanceError("frozen server database target is not the isolated MySQL")
-    if not engine.url.database or not engine.url.database.startswith("ai_quant_v1_acceptance_"):
-        raise FrozenAcceptanceError("frozen server requires a generated acceptance database")
-
-    app = create_app()
-    install_frozen_overrides(app, package)
-
-    @app.middleware("http")
-    async def acceptance_headers(request, call_next):
-        response = await call_next(request)
-        response.headers["X-Acceptance-Mode"] = "frozen"
-        response.headers["X-Acceptance-Start"] = package.start_date.isoformat()
-        response.headers["X-Acceptance-End"] = package.end_date.isoformat()
-        return response
-
-    uvicorn.run(app, host=host, port=port, reload=False)
 
 
 def install_frozen_overrides(app, package: FrozenPackage) -> None:
@@ -373,8 +350,17 @@ def _assert_api_success(response, detail: str) -> None:
         raise FrozenAcceptanceError(detail)
 
 
-def _assert_mysql_acceptance_target() -> None:
-    if os.environ.get("MYSQL_HOST") not in {"127.0.0.1", "localhost"}:
-        raise FrozenAcceptanceError("MYSQL_HOST must target loopback for frozen serve")
-    if os.environ.get("MYSQL_PORT") != "3307":
-        raise FrozenAcceptanceError("MYSQL_PORT must be 3307 for frozen serve")
+def _assert_kline_matches_package(records: list[dict], package: FrozenPackage, stage: str) -> None:
+    from backend.app.schemas.stock import DailyKlineSchema
+
+    try:
+        rows = [DailyKlineSchema.model_validate(record) for record in records]
+    except Exception as exc:
+        raise FrozenAcceptanceError(f"frozen {stage} kline schema mismatch") from exc
+    _assert_analysis_matches_package(rows, package, stage)
+
+
+def _assert_analysis_matches_package(rows: list, package: FrozenPackage, stage: str) -> None:
+    result = verify_frozen_mysql.compare_analyses(package.bars, rows)
+    if not result["data_equal"] or not result["analysis_equal"]:
+        raise FrozenAcceptanceError(f"frozen {stage} full quant comparison failed")

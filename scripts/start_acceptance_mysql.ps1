@@ -1,4 +1,4 @@
-<#!
+<#
 Start a NEW loopback-only MySQL 8 acceptance instance. Never touches services or
 existing data directories. Runtime secrets/data are retained under ignored frozen/.
 #>
@@ -141,6 +141,9 @@ if ($fields.Count -ne 3 -or $fields[0] -notmatch '^8\.0\.' -or $fields[1] -ne '3
 if ([IO.Path]::GetFullPath($fields[2]).TrimEnd('\', '/') -ne $dataDir.TrimEnd('\', '/')) {
     throw 'Server data directory is not the newly initialized directory.'
 }
+# The init file contains the one-time root credential and is no longer needed
+# once the restricted application account passed the identity probe.
+Remove-Item -LiteralPath $bootstrapFile -Force
 $manifest = [ordered]@{
     runtime_directory = $runtime
     data_directory = $dataDir

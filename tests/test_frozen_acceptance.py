@@ -186,3 +186,26 @@ def test_mysql_frozen_refuses_imported_db_before_loading_package(monkeypatch, tm
 
     with pytest.raises(frozen.FrozenAcceptanceError, match="fresh process"):
         frozen.validate_mysql_frozen(STOCK_CODE, str(tmp_path), None, lambda: "never")
+
+
+def test_api_kline_must_match_full_frozen_quant_result(monkeypatch, tmp_path):
+    _write_package(tmp_path)
+    package = frozen.load_package(str(tmp_path))
+    records = [row.model_dump(mode="json") for row in package.readback]
+
+    matching = {
+        "data_equal": True,
+        "analysis_equal": True,
+        "direct": {},
+        "readback": {},
+    }
+    monkeypatch.setattr(frozen.verify_frozen_mysql, "compare_analyses", lambda *_: matching)
+    frozen._assert_kline_matches_package(records, package, "first query")
+
+    monkeypatch.setattr(
+        frozen.verify_frozen_mysql,
+        "compare_analyses",
+        lambda *_: {**matching, "analysis_equal": False},
+    )
+    with pytest.raises(frozen.FrozenAcceptanceError, match="full quant comparison"):
+        frozen._assert_kline_matches_package(records, package, "cache hit")
