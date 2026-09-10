@@ -7,14 +7,15 @@ import type { StockBrief, KlineItem } from '../types/api'
 import { mockKline } from '../mocks/stock'
 import * as echarts from 'echarts/core'
 import { CandlestickChart } from 'echarts/charts'
-import { GridComponent } from 'echarts/components'
+import { GridComponent, DataZoomComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 
-echarts.use([CandlestickChart, GridComponent, CanvasRenderer])
+echarts.use([CandlestickChart, GridComponent, DataZoomComponent, CanvasRenderer])
 
 const router = useRouter()
 const bgRef = ref<HTMLDivElement>()
 let chart: echarts.ECharts | null = null
+let scrollTimer: number | null = null
 
 // 搜索
 const keyword = ref('')
@@ -49,15 +50,33 @@ function onBlur() {
 function initBg() {
   if (!bgRef.value) return
   chart = echarts.init(bgRef.value)
-  const kline = mockKline().data.slice(-120)
+  // 取全部 K 线做背景数据
+  const all = mockKline().data
+  // 不够就重复拼接，凑到 240 条
+  const kline: KlineItem[] = []
+  while (kline.length < 240) {
+    kline.push(...all)
+  }
+  const data = kline.slice(0, 240).map((k) => [k.open, k.close, k.low, k.high])
+
+  const windowSize = 80
+  let pos = 0
+
   chart.setOption({
-    grid: { left: '5%', right: '5%', top: '10%', bottom: '10%' },
+    grid: { left: 0, right: 0, top: 0, bottom: 0 },
     xAxis: { type: 'category', show: false, boundaryGap: false },
     yAxis: { type: 'value', show: false, scale: true },
+    dataZoom: [
+      {
+        type: 'inside',
+        start: 0,
+        end: (windowSize / 240) * 100,
+      },
+    ],
     series: [
       {
         type: 'candlestick',
-        data: kline.map((k: KlineItem) => [k.open, k.close, k.low, k.high]),
+        data,
         itemStyle: {
           color: '#ff4d4f',
           color0: '#00b386',
@@ -66,7 +85,21 @@ function initBg() {
         },
       },
     ],
+    animation: false,
   })
+
+  // 自动滚动：每次推进 1 条，循环
+  scrollTimer = window.setInterval(() => {
+    if (!chart) return
+    pos = (pos + 1) % (240 - windowSize + 1)
+    const start = (pos / 240) * 100
+    const end = ((pos + windowSize) / 240) * 100
+    chart.dispatchAction({
+      type: 'dataZoom',
+      start,
+      end,
+    })
+  }, 600)
 }
 
 function resize() {
@@ -80,6 +113,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resize)
+  if (scrollTimer) clearInterval(scrollTimer)
   chart?.dispose()
 })
 </script>
@@ -146,10 +180,10 @@ onBeforeUnmount(() => {
   z-index: 1;
   background: radial-gradient(
     ellipse at center,
-    rgba(14, 17, 22, 0.2) 0%,
-    rgba(14, 17, 22, 0.85) 70%
+    rgba(14, 17, 22, 0.35) 0%,
+    rgba(14, 17, 22, 0.88) 65%
   );
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(3px);
 }
 
 /* 居中内容 */
@@ -183,10 +217,10 @@ h1 {
 }
 
 .search-box :deep(.el-input__wrapper) {
-  background: rgba(20, 23, 29, 0.8);
+  background: rgba(20, 23, 29, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
   height: 44px;
 }
 
@@ -196,7 +230,7 @@ h1 {
 
 .search-box :deep(.el-input__wrapper.is-focus) {
   border-color: var(--accent, #d4a958);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(212, 169, 88, 0.12);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), 0 0 0 2px rgba(212, 169, 88, 0.12);
 }
 
 .search-box :deep(.el-input__inner) {
