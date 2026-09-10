@@ -7,15 +7,14 @@ import type { StockBrief, KlineItem } from '../types/api'
 import { mockKline } from '../mocks/stock'
 import * as echarts from 'echarts/core'
 import { CandlestickChart } from 'echarts/charts'
-import { GridComponent, DataZoomComponent } from 'echarts/components'
+import { GridComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 
-echarts.use([CandlestickChart, GridComponent, DataZoomComponent, CanvasRenderer])
+echarts.use([CandlestickChart, GridComponent, CanvasRenderer])
 
 const router = useRouter()
 const bgRef = ref<HTMLDivElement>()
 let chart: echarts.ECharts | null = null
-let rafId: number | null = null
 
 // 搜索
 const keyword = ref('')
@@ -50,29 +49,18 @@ function onBlur() {
 function initBg() {
   if (!bgRef.value) return
   chart = echarts.init(bgRef.value)
-  // 取全部 K 线做背景数据
   const all = mockKline().data
-  // 不够就重复拼接，凑到 240 条
+  // 复制两份数据，首尾相连实现无缝循环
   const kline: KlineItem[] = []
-  while (kline.length < 240) {
+  while (kline.length < 480) {
     kline.push(...all)
   }
-  const data = kline.slice(0, 240).map((k) => [k.open, k.close, k.low, k.high])
-
-  const windowSize = 80
-  let pos = 0
+  const data = kline.slice(0, 480).map((k) => [k.open, k.close, k.low, k.high])
 
   chart.setOption({
     grid: { left: 0, right: 0, top: 0, bottom: 0 },
     xAxis: { type: 'category', show: false, boundaryGap: false },
     yAxis: { type: 'value', show: false, scale: true },
-    dataZoom: [
-      {
-        type: 'inside',
-        start: 0,
-        end: (windowSize / 240) * 100,
-      },
-    ],
     series: [
       {
         type: 'candlestick',
@@ -87,21 +75,6 @@ function initBg() {
     ],
     animation: false,
   })
-
-  // 60fps 平滑滚动：每帧推进 0.15 条（~1条/7帧），匀速丝滑
-  const step = 0.15
-  const maxPos = 240 - windowSize
-
-  function tick() {
-    if (!chart) return
-    pos += step
-    if (pos > maxPos) pos = 0
-    const start = (pos / 240) * 100
-    const end = ((pos + windowSize) / 240) * 100
-    chart.dispatchAction({ type: 'dataZoom', start, end })
-    rafId = requestAnimationFrame(tick)
-  }
-  rafId = requestAnimationFrame(tick)
 }
 
 function resize() {
@@ -115,7 +88,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resize)
-  if (rafId) cancelAnimationFrame(rafId)
   chart?.dispose()
 })
 </script>
@@ -123,7 +95,9 @@ onBeforeUnmount(() => {
 <template>
   <main class="landing">
     <!-- 背景动画 K 线 -->
-    <div ref="bgRef" class="bg-chart"></div>
+    <div class="bg-scroll">
+      <div ref="bgRef" class="bg-chart"></div>
+    </div>
     <div class="bg-overlay"></div>
 
     <!-- 居中内容 -->
@@ -169,11 +143,30 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
-/* 背景动画 K 线 */
-.bg-chart {
+/* 背景滚动容器：宽度 200%，GPU 加速 */
+.bg-scroll {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 200%;
+  height: 100%;
   z-index: 0;
+  will-change: transform;
+  animation: scroll-kline 40s linear infinite;
+}
+
+.bg-chart {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes scroll-kline {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 .bg-overlay {
@@ -305,5 +298,11 @@ h1 {
   color: rgba(255, 255, 255, 0.38);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-scroll {
+    animation: none;
+  }
 }
 </style>
