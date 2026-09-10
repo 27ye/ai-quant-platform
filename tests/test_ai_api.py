@@ -9,6 +9,7 @@ from backend.app.api.v1.dependencies import (
     get_stock_analysis_service,
     get_data_provider,
     get_stock_service,
+    get_trading_calendar_provider,
     get_market_data_source,
     get_stock_quant_analysis_adapter,
 )
@@ -110,7 +111,8 @@ def test_ai_dependency_graph_installs_real_context_adapters():
     db = object()  # constructors must not connect; request get_db supplies a real Session
     provider = get_data_provider()
     stock = get_stock_service(provider)
-    market = get_market_data_source(stock, db)
+    calendar = get_trading_calendar_provider()
+    market = get_market_data_source(stock, db, calendar)
     adapter = get_stock_quant_analysis_adapter(market, stock)
     stock_service = get_stock_analysis_service(adapter)
     quant_service = get_quant_analysis_service(adapter)

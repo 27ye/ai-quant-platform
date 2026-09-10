@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 
 from backend.app.ai.client import LLMClient, OpenAICompatibleLLMClient
 from backend.app.core.config import get_settings
+from backend.app.core.errors import DataProviderError
+from backend.app.data.trading_calendar import TradingCalendarProvider
 from backend.app.data.providers.akshare_provider import AKShareStockProvider
 from backend.app.data.providers.base import StockDataProvider
 from backend.app.db.session import get_db
@@ -15,6 +17,7 @@ from backend.app.services.market_data_service import (
     MarketDataRepository, MarketDataService, MarketDataSource,
 )
 from backend.app.services.news_service import NewsRepository, NewsService
+from backend.app.services.quant_service import QuantService
 from backend.app.services.stock_service import StockService
 from backend.app.services.analysis_context import (
     AnalysisContextProvider,
@@ -36,11 +39,35 @@ def get_stock_service(
     return StockService(provider=provider)
 
 
+def get_trading_calendar_provider() -> TradingCalendarProvider:
+    return TradingCalendarProvider()
+
+
 def get_market_data_source(
     stock_service: StockService = Depends(get_stock_service),
     db: Session = Depends(get_db),
+    trading_calendar: TradingCalendarProvider = Depends(get_trading_calendar_provider),
 ) -> MarketDataSource:
-    return MarketDataService(stock_service=stock_service, repository=MarketDataRepository(db))
+    def count_trading_days(start, end):
+        try:
+            return trading_calendar.count_between(start, end)
+        except DataProviderError:
+            raise
+        except Exception as exc:
+            raise DataProviderError("trading calendar error") from exc
+
+    return MarketDataService(
+        stock_service=stock_service,
+        repository=MarketDataRepository(db),
+        trading_days=count_trading_days,
+    )
+
+
+def get_quant_service(
+    stock_service: StockService = Depends(get_stock_service),
+    market_data_source: MarketDataSource = Depends(get_market_data_source),
+) -> QuantService:
+    return QuantService(stock_service=stock_service, market_data_source=market_data_source)
 
 
 def get_stock_quant_analysis_adapter(

@@ -3,6 +3,7 @@ from datetime import date, timedelta
 import pandas as pd
 from fastapi.testclient import TestClient
 
+from backend.app.api.v1.dependencies import get_quant_service
 from backend.app.core.errors import QuantCalculationError
 from backend.app.data.providers.base import StockDataProvider, StockDataSchemaError
 from backend.app.main import app
@@ -37,16 +38,23 @@ class FakeProvider(StockDataProvider):
         return _make_frame(ROWS, start_date, stock_code)
 
 
-def _client():
-    import backend.app.api.v1.quant as quant_module
+def test_legacy_positional_config_is_preserved():
+    stock = StockService(provider=FakeProvider())
+    service = QuantService(stock, {"initial_cash": 123456.0})
+    assert service.run_backtest(STOCK_CODE)["initial_cash"] == 123456.0
 
+
+def _client():
     service = QuantService(stock_service=StockService(provider=FakeProvider()))
-    quant_module._service = service
+    app.dependency_overrides[get_quant_service] = lambda: service
     return TestClient(app)
 
 
 def test_indicators_returns_series():
-    response = _client().get(f"/api/v1/stocks/{STOCK_CODE}/indicators")
+    try:
+        response = _client().get(f"/api/v1/stocks/{STOCK_CODE}/indicators")
+    finally:
+        app.dependency_overrides.clear()
 
     assert response.status_code == 200
     data = response.json()["data"]
@@ -58,7 +66,10 @@ def test_indicators_returns_series():
 
 
 def test_score_returns_scoring_fields():
-    response = _client().get(f"/api/v1/stocks/{STOCK_CODE}/score")
+    try:
+        response = _client().get(f"/api/v1/stocks/{STOCK_CODE}/score")
+    finally:
+        app.dependency_overrides.clear()
 
     assert response.status_code == 200
     data = response.json()["data"]
@@ -68,9 +79,12 @@ def test_score_returns_scoring_fields():
 
 
 def test_backtest_returns_equity_curve_and_summary():
-    response = _client().post(
-        "/api/v1/backtests", json={"stock_code": STOCK_CODE}
-    )
+    try:
+        response = _client().post(
+            "/api/v1/backtests", json={"stock_code": STOCK_CODE}
+        )
+    finally:
+        app.dependency_overrides.clear()
 
     assert response.status_code == 200
     data = response.json()["data"]
@@ -85,37 +99,42 @@ def test_backtest_returns_equity_curve_and_summary():
 
 
 def test_backtest_rejects_invalid_stock_code():
-    response = _client().post("/api/v1/backtests", json={"stock_code": "abc"})
+    try:
+        response = _client().post("/api/v1/backtests", json={"stock_code": "abc"})
+    finally:
+        app.dependency_overrides.clear()
 
     assert response.status_code == 400
     assert response.json()["code"] == 40001
 
 
 def test_score_calc_error_returns_50003():
-    import backend.app.api.v1.quant as quant_module
-
     class FakeService:
         def get_score(self, stock_code, start_date=None, end_date=None):
             raise QuantCalculationError("quant calculation failed")
 
-    quant_module._service = FakeService()
+    app.dependency_overrides[get_quant_service] = lambda: FakeService()
 
-    response = TestClient(app).get(f"/api/v1/stocks/{STOCK_CODE}/score")
+    try:
+        response = TestClient(app).get(f"/api/v1/stocks/{STOCK_CODE}/score")
+    finally:
+        app.dependency_overrides.clear()
 
     assert response.status_code == 500
     assert response.json()["code"] == 50003
 
 
 def test_indicators_provider_error_returns_50001():
-    import backend.app.api.v1.quant as quant_module
-
     class FakeService:
         def get_indicators(self, stock_code, start_date=None, end_date=None):
             raise StockDataSchemaError("missing required columns")
 
-    quant_module._service = FakeService()
+    app.dependency_overrides[get_quant_service] = lambda: FakeService()
 
-    response = TestClient(app).get(f"/api/v1/stocks/{STOCK_CODE}/indicators")
+    try:
+        response = TestClient(app).get(f"/api/v1/stocks/{STOCK_CODE}/indicators")
+    finally:
+        app.dependency_overrides.clear()
 
     assert response.status_code == 502
     assert response.json()["code"] == 50001

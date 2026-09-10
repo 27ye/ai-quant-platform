@@ -10,6 +10,7 @@ import asyncio
 import json
 import os
 import re
+import socket
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -55,6 +56,12 @@ def parse_args(argv=None) -> argparse.Namespace:
                         help="Create an isolated local MySQL DB and validate the actual AI route")
     mode.add_argument("--llm-only", action="store_true",
                       help="Probe real LLM JSON connectivity only; NOT stock/report acceptance")
+    mode.add_argument("--serve", action="store_true",
+                      help="Serve live (or explicitly frozen) API on 127.0.0.1:8000 with a new MySQL DB")
+    parser.add_argument("--frozen-dir", default=None,
+                        help="Frozen data package directory for offline acceptance")
+    parser.add_argument("--metadata", default=None,
+                        help="Frozen metadata JSON path; defaults to metadata.json")
     return parser.parse_args(argv)
 
 
@@ -112,8 +119,8 @@ def create_acceptance_database(settings) -> str:
     from sqlalchemy import create_engine, text
     from sqlalchemy.engine import URL
 
-    if settings.mysql_host not in {"127.0.0.1", "localhost", "::1"}:
-        raise AcceptanceError("acceptance database must be on localhost")
+    if settings.mysql_host != "127.0.0.1" or settings.mysql_port != 3307:
+        raise AcceptanceError("acceptance database must target 127.0.0.1:3307")
     name = "ai_quant_v1_acceptance_" + datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
     if not re.fullmatch(r"ai_quant_v1_acceptance_\d{8}_\d{6}_\d{6}", name):
         raise AcceptanceError("invalid acceptance database name")
@@ -125,6 +132,14 @@ def create_acceptance_database(settings) -> str:
     )
     try:
         with server.begin() as connection:
+            identity = connection.execute(
+                text("SELECT VERSION(), @@port")
+            ).one()
+            version_text = str(identity[0])
+            if not version_text.startswith("8.0.") or "MariaDB" in version_text:
+                raise AcceptanceError("acceptance database must be MySQL 8.0")
+            if int(identity[1]) != 3307:
+                raise AcceptanceError("acceptance database port check failed")
             existing = connection.execute(text(
                 "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME=:name"
             ), {"name": name}).scalar()
@@ -154,8 +169,7 @@ def validate_mysql(stock_code: str) -> None:
     from backend.app.models.ai_analysis import AIAnalysis
 
     try:
-        if engine.url.database != name:
-            raise AcceptanceError("database isolation check failed")
+        verify_database_identity(engine, name)
         version = apply_migrations(engine)
         print(json.dumps({"schema_version": version, "mode": "live_api_mysql"}), flush=True)
         with TestClient(create_app(), raise_server_exceptions=False) as client:
@@ -181,16 +195,107 @@ def validate_mysql(stock_code: str) -> None:
         engine.dispose()
 
 
+def validate_mysql_frozen(stock_code: str, frozen_dir: str, metadata: str | None) -> None:
+    from scripts.frozen_acceptance import validate_mysql_frozen as run_frozen
+
+    make_llm_client()
+    run_frozen(stock_code, frozen_dir, metadata, lambda: create_acceptance_database(get_settings()))
+
+
+def verify_database_identity(engine, name: str) -> None:
+    """Check the actual connection, not just the configured URL, before migration."""
+    from sqlalchemy import text
+
+    if (engine.url.host != "127.0.0.1" or engine.url.port != 3307
+            or engine.url.database != name
+            or not re.fullmatch(r"ai_quant_v1_acceptance_\d{8}_\d{6}_\d{6}", name)):
+        raise AcceptanceError("database isolation check failed")
+    with engine.connect() as connection:
+        version, port, database = connection.execute(
+            text("SELECT VERSION(), @@port, DATABASE()")
+        ).one()
+    if not str(version).startswith("8.0.") or "MariaDB" in str(version) or int(port) != 3307 or database != name:
+        raise AcceptanceError("connected database identity check failed")
+    print(json.dumps({"mysql_version": version, "port": port, "database": database}), flush=True)
+
+
+def install_acceptance_headers(app, package=None) -> None:
+    @app.middleware("http")
+    async def acceptance_headers(request, call_next):
+        response = await call_next(request)
+        response.headers["X-Acceptance-Mode"] = "frozen" if package else "live"
+        if package:
+            response.headers["X-Acceptance-Start"] = package.start_date.isoformat()
+            response.headers["X-Acceptance-End"] = package.end_date.isoformat()
+        return response
+
+
+def serve_acceptance(frozen_dir: str | None, metadata: str | None) -> None:
+    if "backend.app.db.session" in sys.modules:
+        raise AcceptanceError("run --serve in a fresh process before importing the backend")
+    # Reserve the socket throughout preparation to avoid a check/bind race.
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        try:
+            listener.bind(("127.0.0.1", 8000))
+        except OSError as exc:
+            raise AcceptanceError("HTTP port 8000 is occupied or unavailable") from exc
+        package = None
+        if frozen_dir:
+            from scripts.frozen_acceptance import load_package, compare_package_quant
+            package = load_package(frozen_dir, metadata)
+            compare_package_quant(package)
+        make_llm_client()
+        name = create_acceptance_database(get_settings())
+        os.environ["MYSQL_DATABASE"] = name
+        os.environ["APP_DEBUG"] = "false"
+        get_settings.cache_clear()
+        from backend.app.db.session import engine
+        from backend.app.db.migrations import apply_migrations
+        from backend.app.main import create_app
+        import uvicorn
+
+        try:
+            verify_database_identity(engine, name)
+            version = apply_migrations(engine)
+            app = create_app()
+            if package:
+                from scripts.frozen_acceptance import install_frozen_overrides
+                install_frozen_overrides(app, package)
+            install_acceptance_headers(app, package)
+            print(json.dumps({"schema_version": version, "mode": "frozen" if package else "live",
+                              "url": "http://127.0.0.1:8000", "database": name}), flush=True)
+            # Server errors are represented by sanitized API error codes. Avoid
+            # third-party traceback logs containing database connection details.
+            config = uvicorn.Config(app, host="127.0.0.1", port=8000, reload=False,
+                                    log_level="critical", access_log=False)
+            uvicorn.Server(config).run(sockets=[listener])
+        finally:
+            engine.dispose()
+
+
 def main(argv=None) -> int:
     args = parse_args(argv)
     try:
+        if args.metadata and not args.frozen_dir:
+            raise AcceptanceError("--metadata requires --frozen-dir")
         if not re.fullmatch(r"\d{6}", args.stock_code, flags=re.ASCII):
             raise InvalidParameterError()
         if args.llm_only:
+            if args.frozen_dir:
+                raise AcceptanceError("--llm-only cannot be combined with a frozen package")
             asyncio.run(validate_llm_connection())
+        elif args.serve:
+            serve_acceptance(args.frozen_dir, args.metadata)
         elif args.mysql:
-            validate_mysql(args.stock_code)
+            if args.frozen_dir:
+                validate_mysql_frozen(args.stock_code, args.frozen_dir, args.metadata)
+            else:
+                validate_mysql(args.stock_code)
         else:
+            if args.frozen_dir:
+                raise AcceptanceError("--frozen-dir requires --mysql or --serve")
             asyncio.run(validate(args.stock_code))
     except Exception as exc:
         # Raw SQLAlchemy/provider exceptions may embed passwords, URLs or headers.

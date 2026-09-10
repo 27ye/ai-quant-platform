@@ -32,6 +32,7 @@ from backend.app.main import app
 from backend.app.models.ai_analysis import AIAnalysis
 from backend.app.models.stock_daily import StockDaily
 from backend.app.models.stock_news import StockNews
+from backend.app.quant.pipeline import analyze_quant_dataframe
 from backend.app.services.market_data_service import MarketDataService
 from backend.app.services.market_data_service import MarketDataRepository
 from backend.app.services.stock_service import StockService
@@ -90,13 +91,32 @@ class SyntheticProvider:
         return list(self.news[:limit])
 
 
+class SyntheticCalendar:
+    """Fixture-only calendar; never reaches AKShare."""
+
+    def __init__(self, state):
+        self._state = state
+        self.calls = []
+
+    def count_between(self, start, end):
+        self.calls.append((start, end))
+        if self._state.calendar_mode == "raise":
+            raise RuntimeError("secret calendar detail")
+        if self._state.calendar_mode == "unknown":
+            return None
+        dates = set(self._state.provider.frame.trade_date)
+        return sum(start <= day <= end for day in dates)
+
+
 @pytest.fixture
 def graph(monkeypatch):
     state = SimpleNamespace(
         provider=SyntheticProvider(), requests=[], responses=[],
         llm_status=200, llm_timeout=False, fail_report=False,
         fail_read=False, rollbacks=0, market_queries=0, sessions=[],
+        market_query_calls=[], calendar_mode="unknown",
     )
+    state.calendar = SyntheticCalendar(state)
 
     class RecordingSession(Session):
         def commit(self):
@@ -141,12 +161,16 @@ def graph(monkeypatch):
 
     def query_once(self, *args, **kwargs):
         state.market_queries += 1
+        state.market_query_calls.append((args, kwargs))
         return original_query(self, *args, **kwargs)
 
     monkeypatch.setattr(MarketDataService, "query_daily", query_once)
     previous = app.dependency_overrides.copy()
     app.dependency_overrides[get_db] = db_override
     app.dependency_overrides[dependencies.get_data_provider] = lambda: state.provider
+    app.dependency_overrides[dependencies.get_trading_calendar_provider] = (
+        lambda: state.calendar
+    )
     app.dependency_overrides[dependencies.get_llm_client] = lambda: llm
     try:
         with TestClient(app) as client:
@@ -166,6 +190,16 @@ def analyze(graph):
 def context_of(graph, request_index=0):
     prompt = graph.requests[request_index]["messages"][1]["content"]
     return json.loads(prompt.split("analysis_context=", 1)[1])
+
+
+def _frame_from_api_rows(rows):
+    return pd.DataFrame([
+        {
+            **row,
+            "trade_date": date.fromisoformat(row["trade_date"]),
+        }
+        for row in rows
+    ])
 
 
 def test_real_graph_fetches_quantifies_reads_news_and_persists(graph):
@@ -201,6 +235,92 @@ def test_next_request_gets_new_market_and_reuses_fresh_news_cache(graph):
     assert graph.sessions[0] is not graph.sessions[1]
     with graph.factory() as db:
         assert db.query(AIAnalysis).count() == 2
+
+
+def test_reliable_fixture_calendar_serves_explicit_window_from_cache(graph):
+    graph.calendar_mode = "reliable"
+    start = graph.provider.frame.trade_date.min()
+    end = graph.provider.frame.trade_date.max()
+    url = f"/api/v1/stocks/600519/kline?start_date={start}&end_date={end}"
+
+    assert graph.client.get(url).status_code == 200
+    assert graph.client.get(url).status_code == 200
+
+    assert graph.market_queries == 2
+    assert graph.provider.events.count("market") == 1
+    assert len(graph.calendar.calls) == 2
+    with graph.factory() as db:
+        assert db.query(AIAnalysis).count() == 0
+        assert db.query(StockDaily).count() == 120
+
+
+def test_calendar_error_is_50001_and_does_not_return_cache_or_write_report(graph):
+    graph.calendar_mode = "reliable"
+    assert graph.client.get(f"/api/v1/stocks/600519/kline").status_code == 200
+    graph.provider.events.clear()
+    graph.calendar_mode = "raise"
+
+    kline = graph.client.get(f"/api/v1/stocks/600519/kline")
+    response = analyze(graph)
+
+    assert kline.status_code == 502
+    assert kline.json() == {"code": 50001, "message": "data provider error", "data": None}
+    assert response.status_code == 502
+    assert response.json() == {"code": 50001, "message": "data provider error", "data": None}
+    assert graph.provider.events == ["stock"]
+    assert not graph.requests
+    with graph.factory() as db:
+        assert db.query(AIAnalysis).count() == 0
+
+
+def test_stock_quant_and_ai_routes_project_same_pipeline_window_and_params(graph):
+    graph.calendar_mode = "reliable"
+    client = graph.client
+
+    kline = client.get("/api/v1/stocks/600519/kline")
+    indicators = client.get("/api/v1/stocks/600519/indicators")
+    score = client.get("/api/v1/stocks/600519/score")
+    backtest = client.post("/api/v1/backtests", json={"stock_code": "600519"})
+    ai = analyze(graph)
+
+    assert kline.status_code == 200, kline.text
+    assert indicators.status_code == 200, indicators.text
+    assert score.status_code == 200, score.text
+    assert backtest.status_code == 200, backtest.text
+    assert ai.status_code == 200, ai.text
+    for args, kwargs in graph.market_query_calls:
+        assert args[0] == "600519"
+        assert kwargs == {"min_rows": 60, "max_stale_days": 3, "max_gap_days": 15}
+
+    pipeline = analyze_quant_dataframe(_frame_from_api_rows(kline.json()["data"]))
+    context = context_of(graph)
+    backtest_data = backtest.json()["data"].copy()
+    backtest_data.pop("stock_code")
+
+    assert indicators.json()["data"] == pipeline["series"]["indicators"]
+    assert score.json()["data"] == pipeline["score"]
+    assert backtest_data == pipeline["backtest"]
+    assert context["technical_indicators"] == {
+        key: pipeline["latest"].get(key)
+        for key in (
+            "trade_date", "ma5", "ma10", "ma20", "ma60", "macd",
+            "macd_signal", "macd_hist", "rsi14", "boll_upper",
+            "boll_middle", "boll_lower",
+        )
+    }
+    assert context["quant_score"] == {
+        "score": pipeline["score"]["score"],
+        "level": pipeline["score"]["level"],
+        "reasons": pipeline["score"]["reasons"],
+    }
+    assert context["backtest_metrics"] == {
+        key: pipeline["backtest"].get(key)
+        for key in (
+            "strategy_name", "start_date", "end_date", "total_return",
+            "annual_return", "max_drawdown", "sharpe_ratio", "win_rate",
+            "trade_count", "benchmark_return",
+        )
+    }
 
 
 @pytest.mark.parametrize("empty_provider", [False, True])

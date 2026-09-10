@@ -18,6 +18,7 @@ venv/
 # Frontend
 frontend/node_modules/
 frontend/dist/
+.npm-cache/
 *.tsbuildinfo
 
 # Editors and operating systems

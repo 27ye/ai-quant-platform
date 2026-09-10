@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.core.errors import InsufficientStockDataError
+from backend.app.api.v1.dependencies import get_market_data_source, get_stock_service
 from backend.app.data.providers.base import (
     EmptyStockDataError,
     InvalidStockCodeError,
@@ -118,10 +119,8 @@ def test_raises_core_error_when_never_reaches_min_rows():
 
 
 def test_endpoint_returns_kline():
-    import backend.app.api.v1.stocks as stocks_module
-
-    class FakeService:
-        def get_daily_kline(self, stock_code, start_date=None, end_date=None):
+    class FakeMarketDataSource:
+        def query_daily(self, stock_code, start_date=None, end_date=None, **kwargs):
             return [
                 DailyKlineSchema(
                     stock_code=stock_code,
@@ -134,9 +133,12 @@ def test_endpoint_returns_kline():
                 )
             ]
 
-    stocks_module._service = FakeService()
+    app.dependency_overrides[get_market_data_source] = lambda: FakeMarketDataSource()
 
-    response = TestClient(app).get(f"/api/v1/stocks/{STOCK_CODE}/kline")
+    try:
+        response = TestClient(app).get(f"/api/v1/stocks/{STOCK_CODE}/kline")
+    finally:
+        app.dependency_overrides.clear()
 
     assert response.status_code == 200
     payload = response.json()
@@ -146,15 +148,16 @@ def test_endpoint_returns_kline():
 
 
 def test_endpoint_returns_business_code_40003_for_insufficient_data():
-    import backend.app.api.v1.stocks as stocks_module
-
-    class FakeService:
-        def get_daily_kline(self, stock_code, start_date=None, end_date=None):
+    class FakeMarketDataSource:
+        def query_daily(self, stock_code, start_date=None, end_date=None, **kwargs):
             raise InsufficientStockDataError("not enough history")
 
-    stocks_module._service = FakeService()
+    app.dependency_overrides[get_market_data_source] = lambda: FakeMarketDataSource()
 
-    response = TestClient(app).get(f"/api/v1/stocks/{STOCK_CODE}/kline")
+    try:
+        response = TestClient(app).get(f"/api/v1/stocks/{STOCK_CODE}/kline")
+    finally:
+        app.dependency_overrides.clear()
 
     assert response.status_code == 422
     payload = response.json()
@@ -172,45 +175,48 @@ def test_endpoint_rejects_non_daily_period():
 
 
 def test_endpoint_invalid_stock_code_returns_40001():
-    import backend.app.api.v1.stocks as stocks_module
-
-    class FakeService:
-        def get_daily_kline(self, stock_code, start_date=None, end_date=None):
+    class FakeMarketDataSource:
+        def query_daily(self, stock_code, start_date=None, end_date=None, **kwargs):
             raise InvalidStockCodeError("stock_code must be a 6-digit string")
 
-    stocks_module._service = FakeService()
+    app.dependency_overrides[get_market_data_source] = lambda: FakeMarketDataSource()
 
-    response = TestClient(app).get("/api/v1/stocks/abc/kline")
+    try:
+        response = TestClient(app).get("/api/v1/stocks/abc/kline")
+    finally:
+        app.dependency_overrides.clear()
 
     assert response.status_code == 400
     assert response.json()["code"] == 40001
 
 
 def test_endpoint_provider_error_returns_50001():
-    import backend.app.api.v1.stocks as stocks_module
-
-    class FakeService:
-        def get_daily_kline(self, stock_code, start_date=None, end_date=None):
+    class FakeMarketDataSource:
+        def query_daily(self, stock_code, start_date=None, end_date=None, **kwargs):
             raise StockDataSchemaError("missing required columns")
 
-    stocks_module._service = FakeService()
+    app.dependency_overrides[get_market_data_source] = lambda: FakeMarketDataSource()
 
-    response = TestClient(app).get(f"/api/v1/stocks/{STOCK_CODE}/kline")
+    try:
+        response = TestClient(app).get(f"/api/v1/stocks/{STOCK_CODE}/kline")
+    finally:
+        app.dependency_overrides.clear()
 
     assert response.status_code == 502
     assert response.json()["code"] == 50001
 
 
 def test_search_stocks_returns_list():
-    import backend.app.api.v1.stocks as stocks_module
-
     class FakeService:
         def search_stocks(self, keyword):
             return [StockBasicSchema(stock_code=STOCK_CODE, stock_name="贵州茅台")]
 
-    stocks_module._service = FakeService()
+    app.dependency_overrides[get_stock_service] = lambda: FakeService()
 
-    response = TestClient(app).get("/api/v1/stocks/search?keyword=茅台")
+    try:
+        response = TestClient(app).get("/api/v1/stocks/search?keyword=茅台")
+    finally:
+        app.dependency_overrides.clear()
 
     assert response.status_code == 200
     assert response.json()["code"] == 0
@@ -225,8 +231,6 @@ def test_search_empty_keyword_returns_40001():
 
 
 def test_stock_info_returns_basic_info():
-    import backend.app.api.v1.stocks as stocks_module
-
     class FakeService:
         def get_stock_info(self, stock_code):
             return StockBasicSchema(
@@ -237,9 +241,12 @@ def test_stock_info_returns_basic_info():
                 float_market_cap=1.0,
             )
 
-    stocks_module._service = FakeService()
+    app.dependency_overrides[get_stock_service] = lambda: FakeService()
 
-    response = TestClient(app).get(f"/api/v1/stocks/{STOCK_CODE}")
+    try:
+        response = TestClient(app).get(f"/api/v1/stocks/{STOCK_CODE}")
+    finally:
+        app.dependency_overrides.clear()
 
     assert response.status_code == 200
     data = response.json()["data"]
@@ -248,15 +255,16 @@ def test_stock_info_returns_basic_info():
 
 
 def test_stock_info_invalid_code_returns_40001():
-    import backend.app.api.v1.stocks as stocks_module
-
     class FakeService:
         def get_stock_info(self, stock_code):
             raise InvalidStockCodeError("stock_code must be a 6-digit string")
 
-    stocks_module._service = FakeService()
+    app.dependency_overrides[get_stock_service] = lambda: FakeService()
 
-    response = TestClient(app).get("/api/v1/stocks/abc")
+    try:
+        response = TestClient(app).get("/api/v1/stocks/abc")
+    finally:
+        app.dependency_overrides.clear()
 
     assert response.status_code == 400
     assert response.json()["code"] == 40001
