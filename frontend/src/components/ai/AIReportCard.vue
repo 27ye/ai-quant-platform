@@ -104,7 +104,7 @@ watch(
         </span>
         <span class="verdict-divider" aria-hidden="true"></span>
         <span class="score-chip">
-          <span class="chip-label">量化评分</span>
+          <span class="chip-label">评分</span>
           <strong>{{ report.quant_score ?? '—' }}</strong>
           <span class="chip-total">/ 100</span>
         </span>
@@ -113,20 +113,18 @@ watch(
 
       <p class="lede">{{ report.summary }}</p>
 
-      <div class="analysis-grid">
-        <section>
-          <h4>技术面</h4>
-          <p>{{ report.technical_analysis }}</p>
-        </section>
-        <section>
-          <h4>量化面</h4>
-          <p>{{ report.quant_analysis }}</p>
-        </section>
-        <section>
-          <h4>消息面</h4>
-          <p>{{ report.news_analysis }}</p>
-        </section>
-      </div>
+      <section class="analysis-block">
+        <h4>技术面</h4>
+        <p>{{ report.technical_analysis }}</p>
+      </section>
+      <section class="analysis-block">
+        <h4>量化面</h4>
+        <p>{{ report.quant_analysis }}</p>
+      </section>
+      <section class="analysis-block">
+        <h4>消息面</h4>
+        <p>{{ report.news_analysis }}</p>
+      </section>
 
       <div class="two-col">
         <section class="col">
@@ -155,6 +153,32 @@ watch(
 <style scoped>
 .ai-card {
   margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-card :deep(.el-card__body) {
+  flex: 1;
+  min-height: 0;
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+}
+
+.ai-card :deep(.el-card__body::-webkit-scrollbar) {
+  width: 6px;
+}
+
+.ai-card :deep(.el-card__body::-webkit-scrollbar-track) {
+  background: transparent;
+}
+
+.ai-card :deep(.el-card__body::-webkit-scrollbar-thumb) {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.ai-card :deep(.el-card__body::-webkit-scrollbar-thumb:hover) {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .card-header {
@@ -175,24 +199,27 @@ watch(
   font-size: 13px;
 }
 
-/* 观点判定行：头条式排版 */
+/* 观点判定行：单行紧凑 */
 .verdict {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 12px;
+  gap: 10px;
+  padding-bottom: 12px;
   margin-bottom: 14px;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.06));
 }
 
 .verdict-label {
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .verdict-value {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
   line-height: 1;
 }
@@ -208,61 +235,60 @@ watch(
 .verdict-divider {
   align-self: center;
   width: 1px;
-  height: 14px;
+  height: 12px;
   background: var(--border-strong, rgba(255, 255, 255, 0.16));
 }
 
 .score-chip {
   display: inline-flex;
   align-items: baseline;
-  gap: 4px;
+  gap: 3px;
 }
 
 .chip-label {
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .score-chip strong {
   color: var(--text-main);
-  font-size: 20px;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
 }
 
 .chip-total {
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .model {
   margin-left: auto;
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 /* 导语式摘要 */
 .lede {
-  margin: 0 0 18px;
+  margin: 0 0 16px;
   color: rgba(255, 255, 255, 0.85);
-  font-size: 15px;
-  line-height: 1.8;
+  font-size: 14px;
+  line-height: 1.75;
 }
 
-/* 三个分析维度并排 */
-.analysis-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
-  margin-bottom: 18px;
+/* 三个分析维度纵向排列 */
+.analysis-block {
+  margin-bottom: 14px;
 }
 
-.analysis-grid h4 {
-  margin: 0 0 6px;
-  font-size: 13px;
+.analysis-block h4 {
+  margin: 0 0 4px;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--text-sub);
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
 }
 
-.analysis-grid p {
+.analysis-block p {
   margin: 0;
   color: var(--text-sub);
   font-size: 13px;
@@ -270,50 +296,54 @@ watch(
 }
 
 section {
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
-/* 层级靠字号字重区分，不用颜色 */
 section h4 {
-  margin: 0 0 6px;
-  font-size: 13px;
+  margin: 0 0 4px;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--text-sub);
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
 }
 
 section p {
   margin: 0;
-  line-height: 1.75;
+  line-height: 1.7;
   color: var(--text-sub);
+  font-size: 13px;
 }
 
 .two-col {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.06));
 }
 
 .two-col ul {
   list-style: none;
   margin: 0;
   padding: 0;
-  line-height: 1.9;
+  line-height: 1.7;
   color: var(--text-sub);
+  font-size: 12.5px;
 }
 
 .two-col ul li {
   position: relative;
-  padding-left: 14px;
+  padding-left: 12px;
+  margin-bottom: 4px;
 }
 
-/* 优势/风险用小圆点区分，不染标题 */
 .two-col ul li::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 0.72em;
-  width: 5px;
-  height: 5px;
+  top: 0.7em;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.28);
 }
@@ -327,32 +357,27 @@ section p {
 }
 
 .conclusion {
-  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.07));
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.06));
   padding-top: 14px;
   margin-bottom: 0;
 }
 
 .conclusion p {
   color: rgba(255, 255, 255, 0.85);
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.7;
   border-left: 2px solid var(--accent, #d4a958);
-  padding-left: 12px;
+  padding-left: 10px;
 }
 
 .risk-badge {
   display: inline-block;
   margin-top: 10px;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.16));
-  border-radius: 4px;
+  border-radius: 3px;
   color: var(--text-faint);
-  font-size: 12px;
-}
-
-@media (max-width: 900px) {
-  .analysis-grid {
-    grid-template-columns: 1fr;
-  }
+  font-size: 11px;
 }
 
 @media (max-width: 760px) {

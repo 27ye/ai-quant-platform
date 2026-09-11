@@ -102,7 +102,7 @@ onBeforeUnmount(() => {
 
     <!-- 居中内容 -->
     <div class="center">
-      <h1>AI 量化投研平台</h1>
+      <h1>DeepInSight</h1>
       <p class="subtitle">真实行情 · 技术指标 · 量化评分 · 策略回测 · AI 报告</p>
 
       <div class="search-box">
@@ -300,9 +300,4 @@ h1 {
   font-variant-numeric: tabular-nums;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .bg-scroll {
-    animation: none;
-  }
-}
 </style>

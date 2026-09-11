@@ -45,7 +45,7 @@ function onBlur() {
     <header class="top-bar">
       <router-link to="/" class="brand">
         <span class="brand-mark" aria-hidden="true"></span>
-        <span class="brand-name">量化投研</span>
+        <span class="brand-name">DeepInSight</span>
       </router-link>
 
       <div class="search-wrapper">

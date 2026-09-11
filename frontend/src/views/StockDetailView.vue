@@ -114,7 +114,7 @@ onMounted(() => health.refresh())
       </div>
     </div>
 
-    <!-- 主区域：左图表 + 右AI分析 -->
+    <!-- 主区域：左图表+评分 + 右AI分析 -->
     <div class="main-grid">
       <div class="chart-section">
         <el-card v-loading="loading" shadow="never" class="chart-card">
@@ -125,6 +125,11 @@ onMounted(() => health.refresh())
           />
           <el-empty v-else-if="loaded" description="暂无 K 线数据" />
         </el-card>
+
+        <ScoreCard v-if="score" :data="score" />
+        <el-card v-else-if="scoreLoading" shadow="never" class="skeleton-card">
+          <el-skeleton :rows="4" animated />
+        </el-card>
       </div>
 
       <div class="ai-section">
@@ -132,13 +137,8 @@ onMounted(() => health.refresh())
       </div>
     </div>
 
-    <!-- 底部：评分 + 回测 -->
+    <!-- 底部：回测（全宽） -->
     <div class="bottom-grid">
-      <ScoreCard v-if="score" :data="score" />
-      <el-card v-else-if="scoreLoading" shadow="never" class="skeleton-card">
-        <el-skeleton :rows="4" animated />
-      </el-card>
-
       <BacktestPanel v-if="backtest" :data="backtest" />
       <el-card v-else-if="backtestLoading" shadow="never" class="skeleton-card">
         <el-skeleton :rows="4" animated />
@@ -223,7 +223,7 @@ onMounted(() => health.refresh())
   color: var(--down, #00b386);
 }
 
-/* 主网格：图表 + AI 并排 */
+/* 主网格：左(图表+评分) + 右AI分析 */
 .main-grid {
   display: grid;
   grid-template-columns: 1fr 380px;
@@ -233,26 +233,33 @@ onMounted(() => health.refresh())
 
 .chart-section {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .chart-card {
+  flex: 1;
   background: var(--surface, #14171d);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 8px;
+  min-height: 0;
 }
 
 .chart-card :deep(.el-card__body) {
   padding: 12px;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .ai-section {
   min-width: 0;
 }
 
-/* 底部网格 */
+/* 底部网格：回测全宽 */
 .bottom-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 14px;
 }
 
@@ -270,10 +277,6 @@ onMounted(() => health.refresh())
 @media (max-width: 760px) {
   .dashboard {
     padding: 12px 12px 32px;
-  }
-
-  .bottom-grid {
-    grid-template-columns: 1fr;
   }
 
   .stock-bar {
