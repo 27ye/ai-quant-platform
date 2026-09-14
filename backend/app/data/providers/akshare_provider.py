@@ -1,7 +1,9 @@
+import json
+import math
+import threading
+import time
 from datetime import date, datetime
 from typing import Any, Dict, Iterable, List
-
-import math
 
 import pandas as pd
 
@@ -12,6 +14,11 @@ from backend.app.data.providers.base import (
     StockDataProviderError,
     StockDataSchemaError,
 )
+
+#: Transient network/parse failures worth retrying: eastmoney connections are
+#: intermittently dropped/reset on some networks. ``requests`` exceptions all
+#: derive from ``OSError``; a 502 HTML body surfaces as ``JSONDecodeError``.
+_TRANSIENT_ERRORS = (OSError, json.JSONDecodeError)
 
 
 class AKShareStockProvider(StockDataProvider):
@@ -50,6 +57,80 @@ class AKShareStockProvider(StockDataProvider):
     required_news_source_fields = ("新闻标题", "新闻内容", "文章来源", "新闻链接")
     news_output_columns = ("stock_code", "title", "summary", "source", "publish_time", "url")
 
+    #: Bounded retry for transient network/parse failures (same source, same fields).
+    retry_attempts = 3
+    retry_delay_seconds = 0.5
+    #: Bound the wall-clock time of a single AKShare call and of the whole retry
+    #: sequence, so a hung upstream returns 50001 quickly instead of hanging.
+    call_timeout_seconds = 3.0
+    retry_total_budget_seconds = 4.0
+    #: Timeout for the same-source fallback request (keeps total bounded).
+    fallback_timeout_seconds = 3.0
+    #: Same-source delayed-quote host used only as a fallback when the primary
+    #: eastmoney hosts fail after retries (identical endpoints and field口径).
+    delayed_base_url = "https://push2delay.eastmoney.com"
+    #: Cap on concurrently-running (possibly hung) background AKShare calls, so
+    #: repeated timeouts cannot accumulate unbounded daemon threads.
+    max_background_workers = 4
+    _worker_lock = threading.Lock()
+    _active_workers = 0
+
+    def _call_with_timeout(self, call, timeout):
+        """Run ``call`` in a bounded daemon thread, raising if it exceeds ``timeout``.
+
+        A daemon thread cannot be cancelled, so the number of in-flight workers is
+        capped: once the cap is reached new calls fail fast instead of piling up
+        more hung threads.
+        """
+        cls = AKShareStockProvider
+        with cls._worker_lock:
+            if cls._active_workers >= self.max_background_workers:
+                raise TimeoutError("too many in-flight AKShare calls")
+            cls._active_workers += 1
+        box = {}
+
+        def worker():
+            try:
+                box["value"] = call()
+            except BaseException as exc:  # noqa: BLE001 - re-raised in the caller
+                box["error"] = exc
+            finally:
+                with cls._worker_lock:
+                    cls._active_workers -= 1
+
+        thread = threading.Thread(target=worker, daemon=True)
+        thread.start()
+        thread.join(timeout)
+        if thread.is_alive():
+            raise TimeoutError(f"AKShare call exceeded {timeout:.1f}s")
+        if "error" in box:
+            raise box["error"]
+        return box.get("value")
+
+    def _call_with_retry(self, call):
+        """Bounded retries on transient errors within a total wall-clock budget."""
+        deadline = time.monotonic() + self.retry_total_budget_seconds
+        last_exc = None
+        attempts = max(1, int(self.retry_attempts))
+        for attempt in range(attempts):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            try:
+                return self._call_with_timeout(
+                    call, min(self.call_timeout_seconds, remaining)
+                )
+            except _TRANSIENT_ERRORS as exc:
+                last_exc = exc
+                if attempt < attempts - 1:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        break
+                    time.sleep(min(self.retry_delay_seconds * (attempt + 1), remaining))
+        if last_exc is None:
+            last_exc = TimeoutError("AKShare call exceeded the retry budget")
+        raise last_exc
+
     def get_daily_kline(
         self,
         stock_code: str,
@@ -65,15 +146,21 @@ class AKShareStockProvider(StockDataProvider):
         try:
             import akshare as ak
 
-            raw_data = ak.stock_zh_a_hist(
-                symbol=stock_code,
-                period="daily",
-                start_date=start_date.strftime("%Y%m%d"),
-                end_date=end_date.strftime("%Y%m%d"),
-                adjust=adjust,
+            raw_data = self._call_with_retry(
+                lambda: ak.stock_zh_a_hist(
+                    symbol=stock_code,
+                    period="daily",
+                    start_date=start_date.strftime("%Y%m%d"),
+                    end_date=end_date.strftime("%Y%m%d"),
+                    adjust=adjust,
+                )
             )
         except StockDataProviderError:
             raise
+        except _TRANSIENT_ERRORS as exc:
+            return self._daily_kline_from_delay_host(
+                stock_code, start_date, end_date, adjust, exc
+            )
         except Exception as exc:
             raise StockDataProviderError(f"AKShare request failed for {stock_code}: {exc}") from exc
 
@@ -87,7 +174,7 @@ class AKShareStockProvider(StockDataProvider):
         try:
             import akshare as ak
 
-            raw = ak.stock_zh_a_spot_em()
+            raw = self._call_with_retry(lambda: ak.stock_zh_a_spot_em())
         except StockDataProviderError:
             raise
         except Exception as exc:
@@ -119,9 +206,14 @@ class AKShareStockProvider(StockDataProvider):
         try:
             import akshare as ak
 
-            raw = ak.stock_individual_info_em(symbol=stock_code)
+            raw = self._call_with_retry(
+                lambda: ak.stock_individual_info_em(symbol=stock_code)
+            )
         except StockDataProviderError:
             raise
+        except _TRANSIENT_ERRORS as exc:
+            # Same-source delayed-quote host fallback (identical eastmoney fields).
+            return self._stock_info_from_delay_host(stock_code, exc)
         except Exception as exc:
             raise StockDataProviderError(
                 f"AKShare info request failed for {stock_code}: {exc}"
@@ -146,6 +238,157 @@ class AKShareStockProvider(StockDataProvider):
             "float_market_cap": self._cell_float(kv.get("流通市值")),
         }
 
+    def _stock_info_from_delay_host(
+        self, stock_code: str, cause: Exception
+    ) -> Dict[str, Any]:
+        """Fallback stock info from the same-source delayed-quote host.
+
+        Used only when the primary ``push2`` host fails after retries; the field
+        mapping (``f57/f58/f116/f117/f127``) is identical to
+        ``stock_individual_info_em``. HTTP status, response structure, business
+        status (``rc``), field types and stock identity are all validated; any
+        anomaly maps to 50001.
+        """
+        import requests
+
+        def failure(reason: str) -> StockDataProviderError:
+            """Report the primary failure *and* why the fallback gave up.
+
+            Previously the raised message only repeated ``cause``, which hid the
+            real fallback reason (e.g. an empty/throttled payload) and made
+            operator diagnosis misleading.
+            """
+            return StockDataProviderError(
+                f"AKShare info request failed for {stock_code}: {cause} "
+                f"(delayed-host fallback also failed: {reason})"
+            )
+
+        market = "1" if stock_code.startswith("6") else "0"
+        try:
+            response = requests.get(
+                self.delayed_base_url + "/api/qt/stock/get",
+                params={
+                    "fltt": "2",
+                    "invt": "2",
+                    "fields": "f57,f58,f116,f117,f127",
+                    "secid": f"{market}.{stock_code}",
+                },
+                timeout=self.fallback_timeout_seconds,
+            )
+            if response.status_code != 200:
+                raise failure(f"HTTP {response.status_code}")
+            payload = response.json()
+        except StockDataProviderError:
+            raise
+        except Exception as exc:
+            raise failure(f"{type(exc).__name__}: {exc}") from exc
+
+        if not isinstance(payload, dict) or payload.get("rc", 0) != 0:
+            raise failure(f"rc={payload.get('rc') if isinstance(payload, dict) else 'n/a'}")
+        data = payload.get("data")
+        if not isinstance(data, dict):
+            raise failure("payload.data is not an object")
+        f57 = data.get("f57")
+        f58 = data.get("f58")
+        if isinstance(f57, bool) or not isinstance(f57, (str, int)):
+            raise failure("f57 is not a scalar stock code")
+        if not isinstance(f58, str) or not f58.strip():
+            raise failure("f58 is not a non-empty stock name")
+        code = str(f57).strip().zfill(6)
+        if code != stock_code:
+            # Never return a different stock's identity.
+            raise failure(f"identity mismatch (requested {stock_code}, got {code})")
+        return {
+            "stock_code": code,
+            "stock_name": f58.strip(),
+            "industry": self._cell_text(data.get("f127")),
+            "total_market_cap": self._cell_float(data.get("f116")),
+            "float_market_cap": self._cell_float(data.get("f117")),
+        }
+
+    def _daily_kline_from_delay_host(
+        self,
+        stock_code: str,
+        start_date: date,
+        end_date: date,
+        adjust: str,
+        cause: Exception,
+    ) -> pd.DataFrame:
+        """Fallback qfq daily kline from the same-source delayed-quote host."""
+        import requests
+
+        def build_failure(reason: str) -> StockDataProviderError:
+            """Report the primary failure *and* why the fallback gave up."""
+            return StockDataProviderError(
+                f"AKShare request failed for {stock_code}: {cause} "
+                f"(delayed-host fallback also failed: {reason})"
+            )
+
+        market = "1" if stock_code.startswith("6") else "0"
+        try:
+            response = requests.get(
+                self.delayed_base_url + "/api/qt/stock/kline/get",
+                params={
+                    "secid": f"{market}.{stock_code}",
+                    "klt": "101",  # daily
+                    "fqt": "1" if adjust == "qfq" else "0",
+                    "fields1": "f1,f2,f3,f4,f5,f6",
+                    "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
+                    "beg": start_date.strftime("%Y%m%d"),
+                    "end": end_date.strftime("%Y%m%d"),
+                },
+                timeout=self.fallback_timeout_seconds,
+            )
+            if response.status_code != 200:
+                raise build_failure(f"HTTP {response.status_code}")
+            payload = response.json()
+        except StockDataProviderError:
+            raise
+        except Exception as exc:
+            raise build_failure(f"{type(exc).__name__}: {exc}") from exc
+
+        if not isinstance(payload, dict) or payload.get("rc", 0) != 0:
+            raise build_failure(
+                f"rc={payload.get('rc') if isinstance(payload, dict) else 'n/a'}"
+            )
+        data = payload.get("data")
+        if not isinstance(data, dict):
+            raise build_failure("payload.data is not an object")
+        klines = data.get("klines")
+        if not isinstance(klines, list) or not klines:
+            # A data-source failure must surface as 50001, never be masked as
+            # "empty history" (which StockService would turn into 40003).
+            raise build_failure(
+                "upstream returned no klines (empty or rate-limited payload)"
+            )
+        rows = []
+        for line in klines:
+            parts = str(line).split(",")
+            if len(parts) < 11:
+                # A truncated upstream row means a corrupt payload: fail loudly
+                # (50001) rather than silently dropping bars.
+                raise StockDataSchemaError(
+                    f"delayed host daily kline row is malformed for {stock_code}"
+                )
+            rows.append(
+                {
+                    "日期": parts[0],
+                    "开盘": parts[1],
+                    "收盘": parts[2],
+                    "最高": parts[3],
+                    "最低": parts[4],
+                    "成交量": parts[5],
+                    "成交额": parts[6],
+                    "涨跌幅": parts[8],
+                    "换手率": parts[10],
+                }
+            )
+        if not rows:
+            raise StockDataSchemaError(
+                f"delayed host daily kline rows are malformed for {stock_code}"
+            )
+        return self._normalize_daily_kline(pd.DataFrame(rows), stock_code)
+
     def get_stock_news(self, stock_code: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Fetch recent East Money news for a stock and return normalized dicts.
 
@@ -156,7 +399,7 @@ class AKShareStockProvider(StockDataProvider):
         try:
             import akshare as ak
 
-            raw = ak.stock_news_em(symbol=stock_code)
+            raw = self._call_with_retry(lambda: ak.stock_news_em(symbol=stock_code))
         except StockDataProviderError:
             raise
         except Exception as exc:
@@ -221,14 +464,24 @@ class AKShareStockProvider(StockDataProvider):
 
     @staticmethod
     def _cell_text(value: Any) -> Any:
-        if value is None or pd.isna(value):
+        if value is None or isinstance(value, (list, tuple, set, dict)):
+            return None
+        try:
+            if pd.isna(value):
+                return None
+        except (TypeError, ValueError):
             return None
         text = str(value).strip()
         return text or None
 
     @staticmethod
     def _cell_float(value: Any) -> Any:
-        if value is None or pd.isna(value):
+        if value is None or isinstance(value, (list, tuple, set, dict)):
+            return None
+        try:
+            if pd.isna(value):
+                return None
+        except (TypeError, ValueError):
             return None
         try:
             number = float(value)
