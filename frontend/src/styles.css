@@ -3,7 +3,7 @@
   --bg: #0e1116;
   --surface: #14171d;
   --surface-hover: #181c23;
-  --border: rgba(255, 255, 255, 0.07);
+  --border: rgba(255, 255, 255, 0.06);
   --border-strong: rgba(255, 255, 255, 0.16);
   --accent: #d4a958;
   --up: #ff4d4f;
@@ -34,13 +34,13 @@ html.dark {
   --el-color-primary-dark-2: #aa8a45;
   --el-bg-color: #14171d;
   --el-bg-color-overlay: #191d24;
-  --el-border-color: rgba(255, 255, 255, 0.12);
-  --el-border-color-light: rgba(255, 255, 255, 0.08);
-  --el-border-color-lighter: rgba(255, 255, 255, 0.06);
+  --el-border-color: rgba(255, 255, 255, 0.08);
+  --el-border-color-light: rgba(255, 255, 255, 0.06);
+  --el-border-color-lighter: rgba(255, 255, 255, 0.04);
   --el-text-color-primary: rgba(255, 255, 255, 0.92);
   --el-text-color-regular: rgba(255, 255, 255, 0.72);
   --el-text-color-secondary: rgba(255, 255, 255, 0.52);
-  --el-text-color-placeholder: rgba(255, 255, 255, 0.35);
+  --el-text-color-placeholder: rgba(255, 255, 255, 0.32);
   --el-text-color-disabled: rgba(255, 255, 255, 0.3);
   --el-fill-color-blank: #14171d;
 }
@@ -49,10 +49,8 @@ body {
   margin: 0;
   background: var(--bg);
   font-variant-numeric: tabular-nums;
-}
-
-.shell {
-  min-height: calc(100vh - 54px);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* 路由切换过渡 */
@@ -65,7 +63,7 @@ body {
 
 .page-enter-from {
   opacity: 0;
-  transform: translateY(4px);
+  transform: translateY(2px);
 }
 
 .page-leave-to {
@@ -74,71 +72,25 @@ body {
 
 /* 选区与滚动条 */
 ::selection {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.14);
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.18);
 }
 
 ::-webkit-scrollbar-track {
   background: transparent;
-}
-
-.workspace {
-  box-sizing: border-box;
-  width: min(1120px, 100%);
-  margin: 0 auto;
-  padding: 40px 24px 64px;
-}
-
-.eyebrow {
-  margin: 0 0 8px;
-  color: var(--text-faint);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-h1,
-h2,
-p {
-  margin-top: 0;
-}
-
-h1 {
-  margin-bottom: 12px;
-  font-size: clamp(26px, 3.6vw, 38px);
-  line-height: 1.15;
-  font-weight: 700;
-}
-
-h2 {
-  margin-bottom: 0;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.intro {
-  max-width: 720px;
-  margin-bottom: 28px;
-}
-
-.intro p:last-child {
-  color: var(--text-sub);
-  font-size: 15px;
-  line-height: 1.75;
 }
 
 /* 卡片：平面深色 + 细边框，无光晕 */
@@ -149,42 +101,16 @@ html.dark .el-card {
   box-shadow: none;
 }
 
-.card-lift {
-  transition: border-color 0.15s ease;
-}
-
-.card-lift:hover {
-  border-color: var(--border-strong);
-}
-
 html.dark .el-card__header {
   border-bottom: 1px solid var(--border);
 }
 
-.health-panel {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 16px;
-  align-items: center;
-  padding: 16px 20px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
+/* 骨架屏 */
+html.dark .el-skeleton__item {
+  background: rgba(255, 255, 255, 0.04);
 }
 
-.error-text {
-  grid-column: 1 / -1;
-  margin: 0;
-  color: var(--up);
-  font-size: 14px;
-}
-
-@media (max-width: 760px) {
-  .workspace {
-    padding: 28px 16px 48px;
-  }
-
-  .health-panel {
-    grid-template-columns: 1fr;
-  }
+/* Empty 组件 */
+html.dark .el-empty__description {
+  color: var(--text-faint);
 }

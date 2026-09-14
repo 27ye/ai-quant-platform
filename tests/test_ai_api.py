@@ -1,10 +1,26 @@
 from fastapi.testclient import TestClient
 
-from backend.app.api.v1.dependencies import get_ai_analysis_service
+from backend.app.api.v1.dependencies import (
+    get_ai_analysis_service,
+    get_analysis_context_provider,
+    get_backtest_analysis_service,
+    get_news_analysis_service,
+    get_quant_analysis_service,
+    get_stock_analysis_service,
+    get_data_provider,
+    get_stock_service,
+    get_trading_calendar_provider,
+    get_market_data_source,
+    get_stock_quant_analysis_adapter,
+)
 from backend.app.ai.errors import LLMResponseError
 from backend.app.core.errors import StockNotFoundError
 from backend.app.main import app
 from backend.app.schemas.ai import AIAnalysisData
+from backend.app.services.ai_context_adapter import StockQuantAnalysisAdapter
+from backend.app.services.market_data_service import MarketDataService
+from backend.app.services.news_service import NewsService
+from backend.app.services.analysis_context import ServiceAnalysisContextProvider
 
 
 class FakeAIAnalysisService:
@@ -91,15 +107,29 @@ def test_ai_analyze_hides_llm_error_details():
     }
 
 
-def test_ai_analyze_reports_missing_upstream_service_integration():
-    app.dependency_overrides.clear()
-    client = TestClient(app)
+def test_ai_dependency_graph_installs_real_context_adapters():
+    db = object()  # constructors must not connect; request get_db supplies a real Session
+    provider = get_data_provider()
+    stock = get_stock_service(provider)
+    calendar = get_trading_calendar_provider()
+    market = get_market_data_source(stock, db, calendar)
+    adapter = get_stock_quant_analysis_adapter(market, stock)
+    stock_service = get_stock_analysis_service(adapter)
+    quant_service = get_quant_analysis_service(adapter)
+    backtest_service = get_backtest_analysis_service(adapter)
+    news_service = get_news_analysis_service(provider, db)
+    context_provider = get_analysis_context_provider(
+        stock_service,
+        quant_service,
+        backtest_service,
+        news_service,
+    )
 
-    response = client.post("/api/v1/ai/analyze", json={"stock_code": "600519"})
-
-    assert response.status_code == 422
-    assert response.json() == {
-        "code": 40003,
-        "message": "insufficient stock data",
-        "data": None,
-    }
+    assert isinstance(stock_service, StockQuantAnalysisAdapter)
+    assert quant_service is stock_service
+    assert backtest_service is stock_service
+    assert isinstance(news_service, NewsService)
+    assert isinstance(market, MarketDataService)
+    assert news_service._repository._session is db
+    assert market._repository._session is db
+    assert isinstance(context_provider, ServiceAnalysisContextProvider)
