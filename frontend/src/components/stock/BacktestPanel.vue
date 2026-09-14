@@ -18,19 +18,20 @@ const METRICS = [
   { key: 'total_return', label: '总收益', kind: 'percent' },
   { key: 'annual_return', label: '年化收益', kind: 'percent' },
   { key: 'max_drawdown', label: '最大回撤', kind: 'percent' },
-  { key: 'sharpe_ratio', label: '夏普率', kind: 'plain' },
+  { key: 'sharpe_ratio', label: '夏普率', kind: 'decimal' },
   { key: 'win_rate', label: '胜率', kind: 'percent' },
-  { key: 'trade_count', label: '交易次数', kind: 'plain' },
+  { key: 'trade_count', label: '交易次数', kind: 'integer' },
 ] as const
 
 type MetricValue = number | null
 
-function formatMetric(kind: 'percent' | 'plain', value: MetricValue): string {
+function formatMetric(kind: 'percent' | 'decimal' | 'integer', value: MetricValue): string {
   if (value == null) return '—'
   if (kind === 'percent') {
     const sign = value > 0 ? '+' : ''
     return `${sign}${(value * 100).toFixed(2)}%`
   }
+  if (kind === 'decimal') return value.toFixed(2)
   return String(value)
 }
 

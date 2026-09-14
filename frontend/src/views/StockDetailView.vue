@@ -3,11 +3,19 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { fetchIndicators, fetchKline, fetchScore, runBacktest } from '../api/stocks'
-import type { BacktestData, IndicatorsItem, KlineItem, ScoreData } from '../types/api'
+import { fetchNews } from '../api/news'
+import type {
+  BacktestData,
+  IndicatorsItem,
+  KlineItem,
+  NewsItem,
+  ScoreData,
+} from '../types/api'
 import KlineChart from '../components/stock/KlineChart.vue'
 import AIReportCard from '../components/ai/AIReportCard.vue'
 import ScoreCard from '../components/stock/ScoreCard.vue'
 import BacktestPanel from '../components/stock/BacktestPanel.vue'
+import NewsList from '../components/stock/NewsList.vue'
 import { useHealthStore } from '../stores/health'
 
 const router = useRouter()
@@ -18,10 +26,12 @@ const kline = ref<KlineItem[]>([])
 const indicators = ref<IndicatorsItem[]>([])
 const score = ref<ScoreData | null>(null)
 const backtest = ref<BacktestData | null>(null)
+const news = ref<NewsItem[]>([])
 const loading = ref(false)
 const loaded = ref(false)
 const scoreLoading = ref(true)
 const backtestLoading = ref(true)
+const newsLoading = ref(true)
 
 // Epoch 机制：切换股票时递增，过期响应直接丢弃
 const epoch = ref(0)
@@ -55,8 +65,10 @@ async function load() {
   indicators.value = []
   score.value = null
   backtest.value = null
+  news.value = []
   scoreLoading.value = true
   backtestLoading.value = true
+  newsLoading.value = true
 
   try {
     const klineRes = await fetchKline(stockCode.value)
@@ -92,6 +104,15 @@ async function load() {
     .catch(() => undefined)
     .finally(() => {
       if (epoch.value === currentEpoch) backtestLoading.value = false
+    })
+  fetchNews(stockCode.value)
+    .then((res) => {
+      if (epoch.value !== currentEpoch) return
+      news.value = res.data
+    })
+    .catch(() => undefined)
+    .finally(() => {
+      if (epoch.value === currentEpoch) newsLoading.value = false
     })
 }
 
@@ -137,10 +158,15 @@ onMounted(() => health.refresh())
       </div>
     </div>
 
-    <!-- 底部：回测（全宽） -->
+    <!-- 底部：回测 + 新闻（两列） -->
     <div class="bottom-grid">
       <BacktestPanel v-if="backtest" :data="backtest" />
       <el-card v-else-if="backtestLoading" shadow="never" class="skeleton-card">
+        <el-skeleton :rows="4" animated />
+      </el-card>
+
+      <NewsList v-if="news.length > 0" :items="news" />
+      <el-card v-else-if="newsLoading" shadow="never" class="skeleton-card">
         <el-skeleton :rows="4" animated />
       </el-card>
     </div>
@@ -256,10 +282,10 @@ onMounted(() => health.refresh())
   min-width: 0;
 }
 
-/* 底部网格：回测全宽 */
+/* 底部网格：回测 + 新闻两列 */
 .bottom-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
 
@@ -270,6 +296,10 @@ onMounted(() => health.refresh())
 
 @media (max-width: 880px) {
   .main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bottom-grid {
     grid-template-columns: 1fr;
   }
 }

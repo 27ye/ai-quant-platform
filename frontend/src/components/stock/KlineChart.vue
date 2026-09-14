@@ -118,7 +118,7 @@ function buildOption(items: KlineItem[]): echarts.EChartsCoreOption {
       axisPointer: { type: 'cross', label: { backgroundColor: '#1c2129' } },
       ...TOOLTIP,
       confine: true,
-      position: function (point, _, __, size) {
+      position: function (point: [number, number], _: unknown, __: unknown, size: unknown) {
         return [point[0] + 14, point[1] + 14]
       },
     },

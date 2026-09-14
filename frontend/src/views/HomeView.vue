@@ -28,9 +28,11 @@ async function onSearch() {
   try {
     const res = await searchStocks(keyword.value)
     results.value = res.data
-    showDropdown.value = results.value.length > 0
+    // 空结果时仍展示下拉，用于显示 V1 冻结演示提示
+    showDropdown.value = true
   } catch {
     results.value = []
+    showDropdown.value = false
   } finally {
     loading.value = false
   }
@@ -104,6 +106,7 @@ onBeforeUnmount(() => {
     <div class="center">
       <h1>DeepInSight</h1>
       <p class="subtitle">真实行情 · 技术指标 · 量化评分 · 策略回测 · AI 报告</p>
+      <p class="v1-badge">V1 冻结数据演示 · 仅 600519 贵州茅台 · 样本区间 2025-01-02 ~ 2026-08-31</p>
 
       <div class="search-box">
         <el-input
@@ -120,7 +123,10 @@ onBeforeUnmount(() => {
           </template>
         </el-input>
 
-        <ul v-if="showDropdown && results.length > 0" class="dropdown">
+        <ul v-if="showDropdown" class="dropdown">
+          <li v-if="results.length === 0" class="dd-empty">
+            <span>V1 冻结演示仅包含 600519，未命中其他股票</span>
+          </li>
           <li v-for="stock in results.slice(0, 8)" :key="stock.stock_code">
             <button type="button" class="dd-item" @click="goDetail(stock)">
               <span class="dd-name">{{ stock.stock_name }}</span>
@@ -212,10 +218,24 @@ h1 {
 }
 
 .subtitle {
-  margin: 0 0 40px;
+  margin: 0 0 12px;
   color: rgba(255, 255, 255, 0.5);
   font-size: 14px;
   letter-spacing: 0.06em;
+}
+
+/* V1 冻结演示范围标注 */
+.v1-badge {
+  margin: 0 0 28px;
+  padding: 6px 14px;
+  display: inline-block;
+  background: rgba(212, 169, 88, 0.08);
+  border: 1px solid rgba(212, 169, 88, 0.22);
+  border-radius: 999px;
+  color: rgba(212, 169, 88, 0.85);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
 }
 
 /* 搜索框 */
@@ -298,6 +318,14 @@ h1 {
   color: rgba(255, 255, 255, 0.38);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
+}
+
+/* 空结果提示 */
+.dd-empty {
+  padding: 10px 14px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  text-align: center;
 }
 
 </style>

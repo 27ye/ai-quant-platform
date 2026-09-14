@@ -57,6 +57,15 @@ export interface ScoreData {
   reasons: string[]
 }
 
+// GET /stocks/{stock_code}/news（按后端 stock_news 模型字段，契约以 API_SPEC + 团队确认为准）
+export interface NewsItem {
+  title: string
+  summary: string | null
+  source: string | null
+  publish_time: string | null // ISO 字符串，前端按需格式化
+  url: string | null
+}
+
 // POST /ai/analyze
 export type TrendValue = 'bullish' | 'neutral' | 'bearish'
 
