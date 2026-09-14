@@ -166,8 +166,9 @@ onMounted(() => health.refresh())
         <el-skeleton :rows="4" animated />
       </el-card>
 
-      <NewsList v-if="news.length > 0" :items="news" />
-      <el-card v-else-if="newsLoading" shadow="never" class="skeleton-card">
+      <!-- 新闻：加载完成后始终展示模块，空数组时组件内部显示「暂无新闻」 -->
+      <NewsList v-if="!newsLoading" :items="news" />
+      <el-card v-else shadow="never" class="skeleton-card">
         <el-skeleton :rows="4" animated />
       </el-card>
     </div>
