@@ -128,6 +128,7 @@ onMounted(() => health.refresh())
         <span class="stock-code">{{ stockCode }}</span>
         <span v-if="dateRange" class="date-range">{{ dateRange }}</span>
         <span v-if="health.acceptanceMode" class="mode-badge">{{ health.acceptanceMode }}</span>
+        <span class="v1-badge">V1 冻结演示 · 仅 600519 · 2025-01-02 ~ 2026-08-31</span>
       </div>
       <div v-if="latest" class="stock-quote">
         <span class="price">{{ latest.close.toFixed(2) }}</span>
@@ -220,6 +221,17 @@ onMounted(() => health.refresh())
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+
+/* V1 冻结演示徽标（详情页同步标注，避免误读为实时行情） */
+.v1-badge {
+  padding: 2px 10px;
+  border: 1px solid rgba(212, 169, 88, 0.4);
+  border-radius: 999px;
+  background: rgba(212, 169, 88, 0.08);
+  color: rgba(212, 169, 88, 0.9);
+  font-size: 11px;
+  letter-spacing: 0.04em;
 }
 
 .stock-quote {
