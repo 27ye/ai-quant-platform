@@ -57,6 +57,7 @@ function fmt(value: unknown): string {
 
 const chartEl = ref<HTMLElement | null>(null)
 let chart: echarts.ECharts | null = null
+let ro: ResizeObserver | null = null
 
 function formatDate(iso: string): string {
   return iso.slice(5) // MM-DD
@@ -116,12 +117,16 @@ function buildOption(items: KlineItem[]): echarts.EChartsCoreOption {
       trigger: 'axis',
       axisPointer: { type: 'cross', label: { backgroundColor: '#1c2129' } },
       ...TOOLTIP,
+      confine: true,
+      position: function (point: [number, number], _: unknown, __: unknown, size: unknown) {
+        return [point[0] + 14, point[1] + 14]
+      },
     },
     axisPointer: { link: [{ xAxisIndex: 'all' }] },
     grid: [
-      { left: 60, right: 20, top: 28, height: '42%' },
-      { left: 60, right: 20, top: '64%', height: '12%' },
-      { left: 60, right: 20, top: '80%', height: '11%' },
+      { left: 60, right: 20, top: 32, height: '40%' },
+      { left: 60, right: 20, top: '62%', height: '11%' },
+      { left: 60, right: 20, top: '78%', height: '10%' },
     ],
     xAxis: [
       {
@@ -174,7 +179,7 @@ function buildOption(items: KlineItem[]): echarts.EChartsCoreOption {
     ],
     dataZoom: [
       { type: 'inside', xAxisIndex: [0, 1, 2], start: 55, end: 100 },
-      { type: 'slider', xAxisIndex: [0, 1, 2], start: 55, end: 100, top: '94%', height: 18 },
+      { type: 'slider', xAxisIndex: [0, 1, 2], start: 55, end: 100, bottom: 4, height: 16 },
     ],
     series: [
       {
@@ -252,6 +257,8 @@ onMounted(() => {
     chart = echarts.init(chartEl.value)
     render()
     window.addEventListener('resize', resize)
+    ro = new ResizeObserver(resize)
+    ro.observe(chartEl.value)
   }
 })
 
@@ -259,6 +266,8 @@ watch(() => [props.items, props.indicators], render)
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resize)
+  ro?.disconnect()
+  ro = null
   chart?.dispose()
   chart = null
 })
@@ -271,12 +280,13 @@ onBeforeUnmount(() => {
 <style scoped>
 .kline-chart {
   width: 100%;
-  height: 500px;
+  height: 100%;
+  min-height: 420px;
 }
 
 @media (max-width: 760px) {
   .kline-chart {
-    height: 420px;
+    min-height: 360px;
   }
 }
 </style>
