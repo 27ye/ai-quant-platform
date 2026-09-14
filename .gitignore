@@ -32,3 +32,5 @@ Thumbs.db
 
 # Local frozen verification data (large market/calendar snapshots)
 /frozen/
+
+.tmp/
