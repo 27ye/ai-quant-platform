@@ -28,3 +28,6 @@ Thumbs.db
 
 # Local runtime files
 *.log
+
+# Local frozen verification data (large market/calendar snapshots)
+/frozen/

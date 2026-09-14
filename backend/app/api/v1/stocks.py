@@ -1,12 +1,15 @@
 from datetime import date
 from typing import List, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
 from backend.app.core.errors import DataProviderError, InvalidParameterError
 from backend.app.data.providers.base import InvalidStockCodeError, StockDataProviderError
+from backend.app.db.session import get_db
 from backend.app.schemas.common import ApiResponse
-from backend.app.schemas.stock import DailyKlineSchema, StockBasicSchema
+from backend.app.schemas.stock import DailyKlineSchema, StockBasicSchema, StockNewsSchema
+from backend.app.services.news_service import NewsRepository, NewsService
 from backend.app.services.stock_service import StockService
 
 router = APIRouter()
@@ -53,3 +56,23 @@ def get_stock_kline(
     except StockDataProviderError as exc:
         raise DataProviderError(str(exc)) from exc
     return ApiResponse(data=data)
+
+
+@router.get("/stocks/{stock_code}/news", response_model=ApiResponse[List[StockNewsSchema]])
+def get_stock_news(
+    stock_code: str,
+    limit: int = 10,
+    db: Session = Depends(get_db),
+) -> ApiResponse[List[StockNewsSchema]]:
+    if limit < 1 or limit > 50:
+        raise InvalidParameterError("limit must be between 1 and 50")
+    service = NewsService(repository=NewsRepository(db))
+    try:
+        items = service.get_news(stock_code, limit)
+    except InvalidStockCodeError as exc:
+        raise InvalidParameterError(str(exc)) from exc
+    except StockDataProviderError as exc:
+        raise DataProviderError(str(exc)) from exc
+    return ApiResponse(
+        data=[StockNewsSchema(stock_code=stock_code, **item.model_dump()) for item in items]
+    )
