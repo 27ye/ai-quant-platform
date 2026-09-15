@@ -120,7 +120,11 @@ def graph(monkeypatch):
 
     class RecordingSession(Session):
         def commit(self):
-            if state.fail_report and any(isinstance(row, AIAnalysis) for row in self.new):
+            has_report = any(isinstance(row, AIAnalysis) for row in self.new)
+            has_report = has_report or any(
+                isinstance(row, AIAnalysis) for row in self.identity_map.values()
+            )
+            if state.fail_report and has_report:
                 raise SQLAlchemyError("secret database detail")
             return super().commit()
 
@@ -202,6 +206,12 @@ def _frame_from_api_rows(rows):
     ])
 
 
+def _portable_ai_number(value):
+    if not isinstance(value, float):
+        return value
+    return 0.0 if value == 0.0 else float(format(value, ".15g"))
+
+
 def test_real_graph_fetches_quantifies_reads_news_and_persists(graph):
     response = analyze(graph)
     assert response.status_code == 200, response.text
@@ -216,13 +226,46 @@ def test_real_graph_fetches_quantifies_reads_news_and_persists(graph):
     assert context["market_snapshot"]["trade_date"] == str(graph.provider.frame.trade_date.max())
     assert context["market_snapshot"]["turnover_rate"] == 0.012346
     assert context["news"][0]["title"] == "明确标记的模拟新闻"
+    assert context["provenance"]["source_mode"] == "live"
+    assert context["provenance"]["market_rows"] == 120
     assert data["quant_score"] == context["quant_score"]["score"]
+    assert data["report_id"] > 0
+    assert datetime.fromisoformat(data["data_as_of"].replace("Z", "+00:00")).microsecond == 0
+    assert data["context_snapshot"] == context
+    assert data["snapshot_status"] == "complete"
     with graph.factory() as db:
         assert db.query(StockDaily).count() == 120
         assert db.query(StockNews).count() == 1
         record = db.query(AIAnalysis).one()
         for key, value in data.items():
+            if key == "report_id":
+                assert record.id == value
+                continue
+            if key in {"snapshot_status", "created_at", "data_as_of"}:
+                continue
             assert getattr(record, key) == value
+        assert record.data_as_of.isoformat() == data["data_as_of"].removesuffix("Z").removesuffix("+00:00")
+
+
+def test_report_history_is_stable_and_does_not_call_external_services(graph):
+    first = analyze(graph).json()["data"]
+    second = analyze(graph).json()["data"]
+    before = (
+        list(graph.provider.events),
+        graph.market_queries,
+        len(graph.requests),
+    )
+
+    listing = graph.client.get("/api/v1/ai/reports?stock_code=600519&page=1&page_size=20")
+    detail = graph.client.get(f"/api/v1/ai/reports/{first['report_id']}")
+
+    assert listing.status_code == 200
+    items = listing.json()["data"]["items"]
+    assert [item["report_id"] for item in items] == [second["report_id"], first["report_id"]]
+    assert "context_snapshot" not in items[0]
+    assert detail.status_code == 200
+    assert detail.json()["data"] == first
+    assert (list(graph.provider.events), graph.market_queries, len(graph.requests)) == before
 
 
 def test_next_request_gets_new_market_and_reuses_fresh_news_cache(graph):
@@ -301,7 +344,7 @@ def test_stock_quant_and_ai_routes_project_same_pipeline_window_and_params(graph
     assert score.json()["data"] == pipeline["score"]
     assert backtest_data == pipeline["backtest"]
     assert context["technical_indicators"] == {
-        key: pipeline["latest"].get(key)
+        key: _portable_ai_number(pipeline["latest"].get(key))
         for key in (
             "trade_date", "ma5", "ma10", "ma20", "ma60", "macd",
             "macd_signal", "macd_hist", "rsi14", "boll_upper",
@@ -314,7 +357,7 @@ def test_stock_quant_and_ai_routes_project_same_pipeline_window_and_params(graph
         "reasons": pipeline["score"]["reasons"],
     }
     assert context["backtest_metrics"] == {
-        key: pipeline["backtest"].get(key)
+        key: _portable_ai_number(pipeline["backtest"].get(key))
         for key in (
             "strategy_name", "start_date", "end_date", "total_return",
             "annual_return", "max_drawdown", "sharpe_ratio", "win_rate",
@@ -343,6 +386,8 @@ def test_genuinely_empty_news_is_not_fabricated(graph):
     graph.provider.news = []
     assert analyze(graph).status_code == 200
     assert context_of(graph)["news"] == []
+    assert context_of(graph)["provenance"]["news_status"] == "empty"
+    assert context_of(graph)["provenance"]["news_count"] == 0
     assert "新闻数据暂不可用" in graph.requests[0]["messages"][1]["content"]
 
 

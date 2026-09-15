@@ -20,6 +20,7 @@ from backend.app.quant.pipeline import analyze_quant_dataframe
 from backend.app.quant.validators import InsufficientDataError
 from backend.app.schemas.ai import (
     BacktestMetricsContext,
+    MarketDataProvenance,
     MarketSnapshotContext,
     QuantScoreContext,
     StockAnalysisContext,
@@ -52,6 +53,7 @@ class StockQuantAnalysisAdapter:
         self._quant_pipeline = quant_pipeline
         self._frames: Dict[str, pd.DataFrame] = {}
         self._quant_results: Dict[str, Dict[str, Any]] = {}
+        self._market_provenance: Dict[str, MarketDataProvenance] = {}
 
     def get_stock(self, stock_code: str) -> StockAnalysisContext:
         try:
@@ -125,6 +127,10 @@ class StockQuantAnalysisAdapter:
             benchmark_return=backtest.get("benchmark_return"),
         )
 
+    def get_market_provenance(self, stock_code: str) -> MarketDataProvenance:
+        self._load_quant_result(stock_code)
+        return self._market_provenance[stock_code]
+
     def _load_quant_result(
         self,
         stock_code: str,
@@ -147,6 +153,15 @@ class StockQuantAnalysisAdapter:
         # that same data here; never fetch or round a second copy for Quant.
         frame = pd.DataFrame([row.model_dump() for row in rows])
         frame = frame.sort_values("trade_date").reset_index(drop=True)
+        metadata_getter = getattr(self._market_data_source, "get_query_provenance", None)
+        metadata = metadata_getter(stock_code) if callable(metadata_getter) else {}
+        self._market_provenance[stock_code] = MarketDataProvenance(
+            source_mode=metadata.get("source_mode", "unknown"),
+            provider=metadata.get("provider", type(self._market_data_source).__name__),
+            market_start_date=frame.iloc[0]["trade_date"],
+            market_end_date=frame.iloc[-1]["trade_date"],
+            market_rows=len(frame),
+        )
         try:
             result = self._quant_pipeline(frame)
         except InsufficientStockDataError:

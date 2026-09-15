@@ -209,3 +209,14 @@ def test_api_kline_must_match_full_frozen_quant_result(monkeypatch, tmp_path):
     )
     with pytest.raises(frozen.FrozenAcceptanceError, match="full quant comparison"):
         frozen._assert_kline_matches_package(records, package, "cache hit")
+
+
+def test_frozen_market_source_always_reports_frozen_provenance(tmp_path):
+    _write_package(tmp_path)
+    package = frozen.load_package(str(tmp_path))
+    source = frozen.FrozenMarketDataSource(object(), package)
+
+    assert source.get_query_provenance(STOCK_CODE) == {
+        "source_mode": "frozen",
+        "provider": "frozen-package",
+    }

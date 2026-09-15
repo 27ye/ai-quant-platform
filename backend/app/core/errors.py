@@ -25,6 +25,12 @@ class InsufficientStockDataError(ApplicationError):
     status_code = 422
 
 
+class ReportNotFoundError(ApplicationError):
+    code = 40005
+    message = "report not found"
+    status_code = 404
+
+
 class DataProviderError(ApplicationError):
     code = 50001
     message = "data provider error"
