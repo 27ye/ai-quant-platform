@@ -112,12 +112,24 @@ CREATE TABLE backtest_result (
     benchmark_return DECIMAL(16,8),
     parameters JSON,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    -- V2（迁移 v4）结果快照：历史读取只用这些列，不用当前行情重算
+    semantics_version VARCHAR(20),      -- v1_legacy / v2_windowed
+    strategy_version VARCHAR(20),
+    final_equity DECIMAL(20,2),
+    order_count INT,
+    warmup_start_date DATE,             -- v2_windowed 的预热起点
+    equity_curve JSON,
+    benchmark_curve JSON,
+    drawdown_curve JSON,
+    orders JSON,
+    effective_parameters JSON,          -- 本次实际生效参数（含默认值回填）
+    data_meta JSON,                     -- 请求/实际区间、行数、data_hash、来源
     INDEX idx_backtest_stock (stock_code),
     INDEX idx_backtest_strategy (strategy_name)
 );
 ```
 
-V1 创建回测时可以直接返回收益曲线，但暂不把 `equity_curve` 存入 MySQL。后续如需查询历史收益曲线，需要先补充设计。
+V1 只写了摘要指标，未保存曲线。**V2 起**同一次计算会把摘要 + 三条曲线 + 成交明细 + 生效参数 + 数据元信息**在一次事务内**写入（迁移 v4 对既有表做增量 `ALTER`）。旧 V1 记录缺快照时，`GET /backtests/{id}` 返回 `snapshot_status="missing"`，**不补造**。
 
 ## 7. ai_analysis
 
@@ -163,6 +175,55 @@ CREATE TABLE ai_analysis (
 4. stock_news
 5. backtest_result
 6. ai_analysis
+7. stock_catalog_sync   -- V2
+8. stock_daily_sync     -- V2
 ```
+
+## 11. V2 新增表
+
+### 11.1 stock_catalog_sync（迁移 v2）
+
+单行（`id=1`）记录本地股票目录的同步状态。搜索改为查 `stock_basic`，因此必须能区分"目录完整"与"同步失败"。
+
+```sql
+CREATE TABLE stock_catalog_sync (
+    id INT NOT NULL PRIMARY KEY,        -- 固定 1
+    status VARCHAR(20) NOT NULL,        -- success / failed
+    last_success_at DATETIME NULL,      -- 仅成功时更新
+    last_attempt_at DATETIME NOT NULL,  -- 每次尝试都更新
+    row_count INT NOT NULL DEFAULT 0,
+    source VARCHAR(200) NULL,
+    last_error VARCHAR(500) NULL
+);
+```
+
+### 11.2 stock_daily_sync（迁移 v3）
+
+按股票记录**行情来源**（`stock_daily` 本身无法说明数据来自实时抓取、冻结包还是旧库）。
+
+```sql
+CREATE TABLE stock_daily_sync (
+    stock_code VARCHAR(10) NOT NULL PRIMARY KEY,
+    mode VARCHAR(20) NOT NULL,          -- live / frozen / unknown
+    source VARCHAR(200) NULL,           -- 实际主机/端点
+    row_count INT NOT NULL DEFAULT 0,
+    first_trade_date DATE NULL,
+    last_trade_date DATE NULL,
+    last_success_at DATETIME NULL,
+    last_attempt_at DATETIME NOT NULL,
+    last_error VARCHAR(500) NULL
+);
+```
+
+## 12. 迁移与版本（schema_version）
+
+迁移改为**分步执行**：每步独立事务，**成功后才写入 `schema_version`**；失败不记录版本号，重跑从失败步恢复。`create_all` 只用于建新表，**不能替代 ALTER**，因此对既有表的列变更走显式 `ALTER`（按列是否存在判断，可重复执行）。
+
+| 版本 | 内容 |
+|---|---|
+| v1 | 六张 V1 基础表 |
+| v2 | `stock_catalog_sync` |
+| v3 | `stock_daily_sync` |
+| v4 | `backtest_result` 增加 V2 快照列（见 §6） |
 
 任何数据库结构调整必须先修改本文档，并同步 ORM、Schema 和测试。

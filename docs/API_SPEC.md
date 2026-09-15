@@ -90,7 +90,13 @@ GET /api/v1/stocks/search?keyword=茅台
 }
 ```
 
-> `keyword` 为空返回 `40001`；按代码或名称子串匹配（AKShare 全 A 股快照），最多返回 50 条。
+> `keyword` 为空返回 `40001`；按代码或名称子串匹配，最多返回 50 条。
+>
+> **V2 起**：搜索改为查询本地股票目录（MySQL `stock_basic`），由
+> `scripts/sync_stock_catalog.py` 低频同步；路径与响应结构不变。
+> 已成功同步时**不再调用全市场 Provider**，无匹配返回空数组；
+> 从未成功同步时回退实时 Provider，其失败仍返回 `50001`（不伪装成"无匹配"）；
+> 目录查询期数据库异常返回 `50002`。同步状态见 4.4。
 
 ### 4.2 股票信息
 
@@ -146,6 +152,53 @@ GET /api/v1/stocks/{stock_code}/news?limit=10
 - 返回结果按 `publish_time` **倒序**（最新在前），`publish_time=null` 排在最后，再按 `limit` 截取。
 - `publish_time` 为 ISO 8601 字符串，缺省为 `null`。
 - 非法股票代码返回 `40001`；数据源异常返回 `50001`；数据库异常返回 `50002`。
+
+### 4.4 数据状态（V2 新增）
+
+```http
+GET /api/v1/stocks/{stock_code}/data-status
+```
+
+返回该股票的**目录状态 + 行情来源/覆盖/新鲜度**（`StockDataStatusSchema`）：
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "stock_code": "600519",
+    "catalog": {
+      "synced": true,
+      "row_count": 5915,
+      "last_success_at": "2026-09-15T01:20:23Z",
+      "last_attempt_at": "2026-09-15T01:20:23Z",
+      "source": "https://push2delay.eastmoney.com/api/qt/clist/get",
+      "last_error": null
+    },
+    "kline": {
+      "mode": "live",
+      "source": "akshare.stock_zh_a_hist",
+      "rows": 403,
+      "first_trade_date": "2025-01-02",
+      "last_trade_date": "2026-08-31",
+      "last_refreshed_at": "2026-09-15T01:44:55Z",
+      "coverage": "known",
+      "expected_trading_days": 403,
+      "last_attempt_at": "2026-09-15T01:44:55Z",
+      "last_error": null,
+      "freshness": { "status": "stale", "stale_days": 15, "max_stale_days": 3 }
+    },
+    "as_of": "2026-09-15T01:50:00Z"
+  }
+}
+```
+
+- `kline.mode` ∈ `live`（实时抓取后落库）| `frozen`（冻结包导入）| `unknown`（**无刷新元数据，不猜**）。
+- `kline.freshness.status` ∈ `fresh` | `stale` | `unknown`（无可用 bar）。
+- `last_refreshed_at` 为**最近一次成功**刷新时间；`last_attempt_at`/`last_error` 反映**最近一次尝试**，失败不会抹掉成功信息。
+- `coverage`/`expected_trading_days` 来自**交易日历**；日历无法证明时返回 `unknown`，不得用自然工作日顶替。
+- 时间统一为带时区的 ISO 8601（UTC）。
+- 代码非 6 位数字返回 `40001`；数据库异常返回 `50002`。
 
 ## 5. 股票 K 线
 
@@ -206,17 +259,44 @@ GET /api/v1/stocks/{stock_code}/score
 POST /api/v1/backtests
 ```
 
-请求体（`BacktestRequest`）：
+请求体（`BacktestRequestSchema`，V2 起新增可选 `parameters`）：
 
 ```json
-{ "stock_code": "600519", "start_date": "2025-01-01", "end_date": "2026-08-31" }
+{
+  "stock_code": "600519",
+  "start_date": "2025-01-01",
+  "end_date": "2026-08-31",
+  "parameters": { "ma_short_period": 5, "ma_long_period": 60, "initial_cash": 100000 }
+}
 ```
 
-**V1：`POST /api/v1/backtests` 直接返回完整回测结果和 `equity_curve`，前端不需要再按 `backtest_id` 查询。** `GET /backtests/{id}` 待曲线持久化方案确定后再完善。
+**请求语义矩阵（V2）**：
 
+| 请求形态 | `semantics_version` | 行为 |
+|---|---|---|
+| 省略 `parameters` | `v1_legacy` | 保持 V1 默认计算与区间行为 |
+| 显式 `parameters: {}` | `v2_windowed` | 默认金融参数；`start_date` 前数据仅作预热 |
+| 显式非空 `parameters` | `v2_windowed` | 白名单字段覆盖，其余取默认 |
+| `parameters: null` 或含未知字段 | — | **取数前**返回 `40001`，不产生记录 |
+
+- 白名单（V2 B3）：`ma_short_period`、`ma_long_period`、`initial_cash`、`transaction_cost`、`slippage`；周期为整数且 `2 ≤ period ≤ 120`、`short < long`，资金为正，成本/滑点在 `[0,1)`；布尔、NaN、Infinity 一律 `40001`。
+- `v2_windowed` 会按最长均线补取**预热**数据（需要 `max(ma_trend_period, ma_long_period+1)` 根有效 bar）；预热不足返回 `40003`，且不保存任何记录。
+- 响应在 V1 字段之外新增：`backtest_id`、`semantics_version`、`effective_parameters`、`warmup_start_date`、`warmup_rows`、`data_meta`（含请求/实际区间、参与计算行数、`data_hash`）、`snapshot_status`。
 - `equity_curve` 固定为 `[{ "trade_date": "YYYY-MM-DD", "equity": 100000.0 }]`，不使用 `value/date/nav` 字段。
 - `equity` 表示**账户绝对权益**，默认从 `initial_cash=100000.0` 起；归一化净值 = `equity / initial_cash`，累计收益率 = `equity / initial_cash - 1`。
-- 响应同时返回 `stock_code`、`initial_cash`、`final_equity`、`total_return`。计算由 C 的量化模块提供，B 仅在 FastAPI 层包装。
+- 响应同时返回 `stock_code`、`initial_cash`、`final_equity`、`total_return`。计算由 C 的量化模块提供，B 仅在 FastAPI 层包装并保存快照。
+
+### 8.1 回测历史（V2 新增）
+
+```http
+GET /api/v1/backtests?stock_code=600519&page=1&page_size=20
+GET /api/v1/backtests/{backtest_id}
+```
+
+- 列表返回 `{ items, total, page, page_size }`，按 `created_at DESC, id DESC` 稳定排序；`page_size` 默认 20、最大 100，越界返回 `40001`。
+- 详情返回**保存时**的参数、指标、三条曲线（`equity_curve`/`benchmark_curve`/`drawdown_curve`）、成交明细与 `data_meta`；**GET 不取数、不重算**。
+- 未知 `backtest_id` 返回 HTTP `404` + `40005`（不复用 `40002 股票不存在`）。
+- 旧 V1 记录只存了摘要指标，详情返回 `snapshot_status="missing"` 与 `snapshot_missing_reason`，**不用当前行情补造曲线**。
 
 ## 9. AI 综合分析
 
@@ -273,6 +353,7 @@ AI Service 内部调用 Stock、Quant、Backtest、News Service，前端只传 `
 40002    stock not found
 40003    insufficient stock data
 40004    invalid strategy
+40005    backtest not found
 50001    data provider error
 50002    database error
 50003    quant calculation error
