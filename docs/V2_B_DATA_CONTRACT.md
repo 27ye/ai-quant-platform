@@ -142,7 +142,7 @@ GET /api/v1/stocks/{stock_code}/data-status
 
 ## 6. 迁移清单（B4）
 
-`schema_version` 由 1 → 3，分步、事务内执行、**成功后才写入版本号**。
+`schema_version` 由 1 → 5，分步、事务内执行、**成功后才写入版本号**。
 
 **新增表**：
 
@@ -151,7 +151,7 @@ GET /api/v1/stocks/{stock_code}/data-status
 | v2 | `stock_catalog_sync` | 目录同步元数据（见 3.1） |
 | v3 | `stock_daily_sync` | 每只股票的行情来源元数据（mode / source / 行数 / 区间 / 最近成功与最近尝试 / 最近错误），供 data-status 与诊断使用 |
 
-**v2 新增列（回测快照，字段以 C1 定稿为准）**：
+**v4 新增列（回测快照，字段以 C1 定稿为准）**：
 
 | 表 | 列 | 用途 |
 |---|---|---|
@@ -163,7 +163,14 @@ GET /api/v1/stocks/{stock_code}/data-status
 | | `data_meta` JSON | 来源、模式、行数、实际截至日、数据哈希 |
 | | `effective_parameters` JSON | 本次实际生效参数（含默认值回填） |
 
-**v2 新增列（AI，字段由 D1 提供，B 写迁移）**：`ai_analysis` 计划补 `prompt_version`、`schema_version`、`context_snapshot` JSON、`data_as_of`、`source_mode` 等，**待 D1 定稿后并入同一迁移步**。
+**v5 新增列（AI，字段由 D 提供，B 写迁移）** —— 已按 D 的 `feature/v2-d-report-history` 落地：
+`ai_analysis` 补 `context_snapshot` JSON、`context_hash` CHAR(64)、`source_mode` VARCHAR(16)、
+`data_as_of` DATETIME、`prompt_version` VARCHAR(32)、`context_schema_version` VARCHAR(32)、
+`output_schema_version` VARCHAR(32)。
+
+> **版本号冲突提示**：D 的分支曾独立把上述 AI 列记为「v2」，与本文 v2（`stock_catalog_sync`）语义不同。
+> 统一后以 B 的分步序列为准（AI 列 = v5），并增加**收敛步骤**：版本号步骤执行完毕后，再用同一批
+> 幂等步骤跑一遍，确保「版本行与实际结构不一致」的库也能补齐缺失表/列，不会静默缺表。
 
 迁移规则：
 
@@ -187,6 +194,7 @@ GET /api/v1/stocks/{stock_code}/data-status
 
 1. 目录同步的完整性判定：用「≥1000 条」还是「与上游 `total` 一致」？
 2. 同步触发方式：仅手动脚本，还是启动时懒同步 + 手动？倾向**仅手动 + 显式状态暴露**。
-3. `40005 backtest not found` 是否接受；D 的 AI 历史是否复用同风格（如 `40006 report not found`）。
+3. `40005 backtest not found` / **`40006 report not found`** 的分工（已按此实现，API_SPEC 已同步）：
+   两个「资源不存在」语义不复用同一业务码。
 4. 历史快照 JSON 精度策略：是否按现有 4/2/6 口径落库，回读是否再舍入。
 5. C1 白名单最小字段集与预热有效行数的正式定义（B3 依赖）。
