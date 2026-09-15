@@ -30,6 +30,7 @@ from backend.app.services.backtest_service import (
     SNAPSHOT_MISSING,
     BacktestRepository,
     BacktestService,
+    DELIVERY_WARMUP_MIN_BARS,
     frame_digest,
     resolve_effective_parameters,
     warmup_required_days,
@@ -162,10 +163,11 @@ def test_request_schema_distinguishes_omitted_from_explicit_parameters():
     assert explicit_empty.parameters.provided_overrides() == {}
 
 
-def test_warmup_required_days_honours_the_120_bar_floor():
-    """C requires >=120 warmup bars, and long=120 needs 121 of them."""
-    assert warmup_required_days(QuantConfig()) == 120  # floor, not the 60 trend period
-    assert warmup_required_days(resolve_effective_parameters({"ma_long_period": 120})) == 121
+def test_warmup_requirement_is_the_longest_ma_not_a_fixed_120_floor():
+    """C: per-request warmup = the last ``long`` bars; 120 bars is the data package."""
+    assert warmup_required_days(QuantConfig()) == 20  # ma_long_period default
+    assert warmup_required_days(resolve_effective_parameters({"ma_long_period": 120})) == 120
+    assert DELIVERY_WARMUP_MIN_BARS == 120  # acceptance package coverage, not a gate
 
 
 def test_schema_rejects_numeric_strings_booleans_and_float_periods():
@@ -237,10 +239,12 @@ def test_windowed_run_records_warmup_window_and_data_hash():
         assert result["effective_parameters"]["ma_long_period"] == 120
         warmup_start = date.fromisoformat(result["warmup_start_date"])
         assert warmup_start < start
-        assert result["warmup_rows"] >= 121  # long=120 needs 121 warmup bars
+        assert result["warmup_rows"] >= 120  # C consumes the last 120 for long=120
         meta = result["data_meta"]
         assert meta["requested_start_date"] == start.isoformat()
-        assert meta["warmup_required_days"] == 121
+        assert meta["warmup_required_days"] == 120  # long, not long+1
+        assert meta["delivery_warmup_min_bars"] == 120
+        assert meta["window_owner"].startswith("legacy run_backtest")  # C entry not pushed yet
         assert len(meta["data_hash"]) == 64
 
         saved = repository.get(result["backtest_id"])
@@ -265,7 +269,13 @@ def test_windowed_run_persists_the_c_input_snapshot():
 
         summary = repository.get(result["backtest_id"])
         assert summary["input_snapshot_available"] is True
-        assert summary["input_snapshot_rows"] == result["data_meta"]["rows"]
+        # C's snapshot = every window bar + the last ``long`` warmup bars B passed
+        # (never all the extra history fetched for window widening).
+        meta = result["data_meta"]
+        assert summary["input_snapshot_rows"] == meta["rows_in_window"] + min(
+            result["warmup_rows"], meta["warmup_required_days"]
+        )
+        assert summary["input_snapshot_rows"] <= meta["rows"]
         assert "input_snapshot" not in summary  # opt-in only
 
         detail = repository.get(result["backtest_id"], include_input_snapshot=True)
@@ -276,8 +286,11 @@ def test_windowed_run_persists_the_c_input_snapshot():
         assert {"stock_code", "trade_date", "open", "high", "low", "close", "volume"} <= set(
             snapshot[0]
         )
-        # warmup rows (before the requested start) are part of the snapshot
-        assert sum(1 for value in dates if date.fromisoformat(value) < start) == result["warmup_rows"]
+        # Only the last ``long`` warmup bars are in the snapshot (not the extra
+        # history B fetched to widen the window).
+        snapshot_warmup = sum(1 for value in dates if date.fromisoformat(value) < start)
+        assert snapshot_warmup == min(result["warmup_rows"], meta["warmup_required_days"])
+        assert snapshot_warmup < result["warmup_rows"] or result["warmup_rows"] == meta["warmup_required_days"]
 
 
 def test_legacy_run_does_not_claim_a_c_input_snapshot():
@@ -321,6 +334,20 @@ def test_invalid_parameters_are_rejected_before_any_fetch():
                 stock_code=STOCK_CODE,
                 parameters=BacktestParametersSchema(ma_short_period=100, ma_long_period=50),
                 parameters_provided=True,
+            )
+        assert market.calls == []
+
+
+def test_explicit_null_parameters_are_rejected_before_any_fetch():
+    """V2 matrix: omitted -> v1_legacy, {} -> v2_windowed, null -> 40001."""
+    market = _FakeMarketSource(_rows())
+    with _session() as session:
+        service = _service(market, BacktestRepository(session))
+        with pytest.raises(InvalidParameterError):
+            service.run(
+                stock_code=STOCK_CODE,
+                parameters=None,
+                parameters_provided=True,  # the key was present with a null value
             )
         assert market.calls == []
 

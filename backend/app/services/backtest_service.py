@@ -34,8 +34,14 @@ from backend.app.core.errors import (
 )
 from backend.app.models.backtest_result import BacktestResult
 from backend.app.quant.config import QuantConfig, resolve_config
+from backend.app.quant.serialization import to_json_safe
 from backend.app.schemas.backtest import BacktestParametersSchema
 from backend.app.schemas.stock import DailyKlineSchema
+from backend.app.services.c_quant_entry import (
+    WINDOW_OWNER_C,
+    WINDOW_OWNER_LEGACY_PENDING,
+    load_c_windowed_entry,
+)
 from backend.app.services.market_data_service import (
     DEFAULT_MAX_GAP_DAYS,
     DEFAULT_MAX_STALE_DAYS,
@@ -58,9 +64,10 @@ ALLOWED_PARAMETER_FIELDS = (
     "slippage",
 )
 
-#: C requires at least this many valid bars *before* the backtest window for
-#: warmup (counted in trading days, not calendar days; covers any legal long ≤ 120).
-WARMUP_MIN_BARS = 120
+#: Acceptance **data package** coverage (C): delivered files must carry at least
+#: this many valid bars before the backtest start so every allowed MA can be
+#: exercised. This is NOT a per-request minimum - see ``warmup_required_days``.
+DELIVERY_WARMUP_MIN_BARS = 120
 
 #: Trading days -> calendar days slack when sizing the warmup fetch window.
 _WARMUP_CALENDAR_FACTOR = 1.7
@@ -87,15 +94,16 @@ def resolve_effective_parameters(overrides: Mapping[str, Any]) -> QuantConfig:
 
 
 def warmup_required_days(config: QuantConfig) -> int:
-    """Valid bars needed *before* the user window.
+    """Per-request warmup: C consumes the last ``ma_long_period`` valid bars.
 
-    C requires **at least 120** valid trading days of warmup, and the longest
-    moving average needs ``ma_long_period + 1``; the trend period must also be
-    available. The effective requirement is therefore the maximum of the three.
+    C (PR #10 review): "单次 V2 计算：C 只使用开始日前最后 long 条有效日线。
+    默认需要 20 条，long=120 时需要 120 条"; ``long=120`` on a one-day window
+    therefore needs exactly 120 warmup bars, not 121. The 120-bar figure belongs
+    to the acceptance data package (``DELIVERY_WARMUP_MIN_BARS``) and must not
+    gate every request. When C's ``resolve_backtest_request`` is available its
+    ``request_config.required_warmup_rows`` takes precedence.
     """
-    return max(
-        WARMUP_MIN_BARS, config.ma_trend_period, config.ma_long_period + 1
-    )
+    return config.ma_long_period
 
 
 def _utc_now() -> datetime:
@@ -333,6 +341,12 @@ class BacktestService:
         parameters_provided: bool = False,
     ) -> Dict[str, Any]:
         # 1) Parameters are validated before any data access.
+        if parameters_provided and parameters is None:
+            # The three request shapes stay distinct (V2 plan matrix):
+            # omitted -> v1_legacy, explicit {} -> v2_windowed, explicit null -> 40001.
+            raise InvalidParameterError(
+                "parameters must not be null; omit it for V1 behaviour or send an object"
+            )
         effective = resolve_effective_parameters(
             parameters.provided_overrides() if parameters is not None else {}
         )
@@ -391,14 +405,47 @@ class BacktestService:
         if start > end:
             raise InvalidParameterError("start_date must not be after end_date")
 
+        c_entry = load_c_windowed_entry()
         required = warmup_required_days(effective)
+        if c_entry is not None:
+            # C owns the requirement once its resolver is available.
+            try:
+                request_config = c_entry.resolve(effective.to_parameters())
+                required = int(
+                    getattr(request_config, "required_warmup_rows", required) or required
+                )
+            except Exception:  # noqa: BLE001 - keep B's contract value on failure
+                pass
+
         rows, warmup_rows, fetch_start = self._fetch_with_warmup(
             stock_code, start, end, required
         )
+        window_rows = [row for row in rows if row.trade_date >= start]
+        if not window_rows:
+            raise InsufficientStockDataError(
+                f"stock {stock_code} has no bars inside the requested window "
+                f"{start.isoformat()}..{end.isoformat()}"
+            )
+
         frame = self._quant.rows_to_frame(rows)
-        result = self._quant.run_backtest(
-            stock_code, fetch_start, end, config=effective, frame=frame
-        )
+        if c_entry is not None and c_entry.parameters_unset is not None:
+            # Hand C the WHOLE normalized frame (warmup + window); C selects the
+            # actual warmup/backtest windows and returns window-only results.
+            start, end = c_entry.validate_window(start, end)
+            result = to_json_safe(
+                c_entry.run(
+                    frame,
+                    start_date=start,
+                    end_date=end,
+                    parameters=effective.to_parameters(),
+                )
+            )
+            window_owner = WINDOW_OWNER_C
+        else:
+            result = self._quant.run_backtest(
+                stock_code, fetch_start, end, config=effective, frame=frame
+            )
+            window_owner = WINDOW_OWNER_LEGACY_PENDING
 
         data_meta = {
             "semantics_version": SEMANTICS_V2_WINDOWED,
@@ -407,15 +454,16 @@ class BacktestService:
             "warmup_start_date": fetch_start.isoformat(),
             "warmup_rows": warmup_rows,
             "warmup_required_days": required,
-            "warmup_min_bars": WARMUP_MIN_BARS,
+            "delivery_warmup_min_bars": DELIVERY_WARMUP_MIN_BARS,
             "rows": len(rows),
+            "rows_in_window": len(window_rows),
             "data_hash": frame_digest(rows),
             "computed_start_date": _iso(result.get("start_date")),
             "computed_end_date": _iso(result.get("end_date")),
             "current_position": result.get("current_position"),
             "parameters_explicit": explicitly_provided,
             "data_source": "MarketDataSource.query_daily (warmup window)",
-            "window_owner": "C.run_backtest_request (C trims warmup from trades/returns)",
+            "window_owner": window_owner,
         }
         result.update(
             {
@@ -426,9 +474,13 @@ class BacktestService:
                 "data_meta": data_meta,
             }
         )
-        # C asks for the exact input snapshot (warmup included) to be persisted;
-        # ``mode="json"`` keeps dates as ISO strings so the JSON column round-trips.
-        input_snapshot = [row.model_dump(mode="json") for row in rows]
+        # C wants exactly what it consumed: the last ``required`` warmup bars plus
+        # every window bar - not all the extra history B fetched for widening.
+        snapshot_rows = window_rows + [
+            row for row in rows if row.trade_date < start
+        ][-required:]
+        snapshot_rows.sort(key=lambda item: item.trade_date)
+        input_snapshot = [row.model_dump(mode="json") for row in snapshot_rows]
         return self._persist_and_return(
             stock_code, result, effective, fetch_start, data_meta, input_snapshot
         )
