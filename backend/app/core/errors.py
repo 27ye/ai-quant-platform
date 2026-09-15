@@ -41,3 +41,11 @@ class DatabaseOperationError(ApplicationError):
     code = 50002
     message = "database error"
     status_code = 500
+
+
+class BacktestNotFoundError(ApplicationError):
+    """V2: unknown ``backtest_id`` (distinct from "stock not found")."""
+
+    code = 40005
+    message = "backtest not found"
+    status_code = 404

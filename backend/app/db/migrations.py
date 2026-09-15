@@ -14,14 +14,14 @@ from __future__ import annotations
 
 from typing import Callable, List, Tuple
 
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection, Engine
 
 import backend.app.models  # noqa: F401  (register all ORM models on Base)
 from backend.app.db.base import Base
 
 #: Current schema revision. Bump only when a new migration step is added below.
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 _SCHEMA_VERSION_DDL = (
     "CREATE TABLE IF NOT EXISTS schema_version ("
@@ -83,11 +83,45 @@ def _migration_v3(connection: Connection) -> None:
     connection.execute(text(_STOCK_DAILY_SYNC_DDL))
 
 
+#: Columns V2 B3 adds to the existing ``backtest_result`` table. ``create_all``
+#: cannot alter an existing table, so an explicit, idempotent ALTER is required
+#: for databases created by V1.
+_V4_BACKTEST_COLUMNS = (
+    ("semantics_version", "VARCHAR(20) NULL"),
+    ("strategy_version", "VARCHAR(20) NULL"),
+    ("final_equity", "DECIMAL(20, 2) NULL"),
+    ("order_count", "INT NULL"),
+    ("warmup_start_date", "DATE NULL"),
+    ("equity_curve", "JSON NULL"),
+    ("benchmark_curve", "JSON NULL"),
+    ("drawdown_curve", "JSON NULL"),
+    ("orders", "JSON NULL"),
+    ("effective_parameters", "JSON NULL"),
+    ("data_meta", "JSON NULL"),
+)
+
+
+def _add_missing_columns(
+    connection: Connection, table: str, columns
+) -> None:
+    """Add only the columns that are actually absent (portable + re-runnable)."""
+    existing = {column["name"] for column in inspect(connection).get_columns(table)}
+    for name, ddl_type in columns:
+        if name not in existing:
+            connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl_type}"))
+
+
+def _migration_v4(connection: Connection) -> None:
+    """V2 B3: saved backtest snapshots (curves/orders) so history never recomputes."""
+    _add_missing_columns(connection, "backtest_result", _V4_BACKTEST_COLUMNS)
+
+
 #: Ordered ``(version, step)`` pairs. Append new steps; never reorder.
 MIGRATIONS: List[Tuple[int, Callable[[Connection], None]]] = [
     (1, _migration_v1),
     (2, _migration_v2),
     (3, _migration_v3),
+    (4, _migration_v4),
 ]
 
 

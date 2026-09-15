@@ -65,11 +65,28 @@ class QuantService:
         stock_code: str,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
+        *,
+        config: ConfigInput = None,
+        frame: Optional[pd.DataFrame] = None,
     ) -> Dict[str, Any]:
-        frame = self._daily_frame(stock_code, start_date, end_date)
-        result = to_json_safe(self._run(run_backtest, frame, self._config))
+        """Run C's backtest, optionally on a caller-supplied frame/config.
+
+        ``frame`` lets the V2 windowed path pass the exact warmup+window rows it
+        already fetched (and hashed), instead of fetching twice; ``config`` lets
+        a parameterised request use its effective parameters without mutating the
+        request-scoped service.
+        """
+        data = frame if frame is not None else self._daily_frame(stock_code, start_date, end_date)
+        result = to_json_safe(
+            self._run(run_backtest, data, config if config is not None else self._config)
+        )
         result["stock_code"] = stock_code
         return result
+
+    @staticmethod
+    def rows_to_frame(rows: List[DailyKlineSchema]) -> pd.DataFrame:
+        """Canonical frame builder shared with the V2 windowed backtest path."""
+        return QuantService._rows_to_frame(rows)
 
     def _daily_frame(
         self,

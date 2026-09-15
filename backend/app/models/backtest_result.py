@@ -30,3 +30,18 @@ class BacktestResult(Base):
     benchmark_return: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(16, 8))
     parameters: Mapped[Optional[dict]] = mapped_column(JSON)
     created_at: Mapped[object] = mapped_column(DateTime, server_default=func.now())
+
+    # -- V2 result snapshot (migration v4) ---------------------------------
+    #: ``v1_legacy`` or ``v2_windowed`` (see the V2 request-semantics matrix).
+    semantics_version: Mapped[Optional[str]] = mapped_column(String(20))
+    strategy_version: Mapped[Optional[str]] = mapped_column(String(20))
+    final_equity: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(20, 2))
+    order_count: Mapped[Optional[int]] = mapped_column(Integer)
+    warmup_start_date: Mapped[Optional[date]] = mapped_column(Date)
+    #: Saved curves/orders: history is read from these, never recomputed.
+    equity_curve: Mapped[Optional[list]] = mapped_column(JSON)
+    benchmark_curve: Mapped[Optional[list]] = mapped_column(JSON)
+    drawdown_curve: Mapped[Optional[list]] = mapped_column(JSON)
+    orders: Mapped[Optional[list]] = mapped_column(JSON)
+    effective_parameters: Mapped[Optional[dict]] = mapped_column(JSON)
+    data_meta: Mapped[Optional[dict]] = mapped_column(JSON)

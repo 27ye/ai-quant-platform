@@ -13,6 +13,7 @@ from backend.app.services.ai_analysis import (
     SQLAlchemyAIAnalysisRepository,
 )
 from backend.app.services.ai_context_adapter import StockQuantAnalysisAdapter
+from backend.app.services.backtest_service import BacktestRepository, BacktestService
 from backend.app.services.data_status_service import DataStatusService
 from backend.app.services.market_data_service import (
     MarketDataRepository, MarketDataService, MarketDataSource,
@@ -105,6 +106,23 @@ def get_quant_service(
     market_data_source: MarketDataSource = Depends(get_market_data_source),
 ) -> QuantService:
     return QuantService(stock_service=stock_service, market_data_source=market_data_source)
+
+
+def get_backtest_repository(db: Session = Depends(get_db)) -> BacktestRepository:
+    return BacktestRepository(db)
+
+
+def get_backtest_service(
+    quant_service: QuantService = Depends(get_quant_service),
+    market_data_source: MarketDataSource = Depends(get_market_data_source),
+    repository: BacktestRepository = Depends(get_backtest_repository),
+) -> BacktestService:
+    """V2 B3: parameterised backtests with warmup fetch and snapshot storage."""
+    return BacktestService(
+        quant_service=quant_service,
+        market_data_source=market_data_source,
+        repository=repository,
+    )
 
 
 def get_stock_quant_analysis_adapter(
