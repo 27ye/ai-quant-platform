@@ -82,7 +82,7 @@ curl.exe "http://127.0.0.1:8000/api/v1/backtests?stock_code=600519"
 |---|---|
 | V01 | 600519 / 000001 各 243 行真实日线（2025-09-15~2026-09-15）；300750 在源不可用窗口返回 `50001`，等待下一轮重试 |
 | V02 | 两轮低频探测（间隔 32 分钟）结果见 `docs/V2_B_DATA_EVIDENCE.md` |
-| V03 | 注入超时/畸形报文/数据库失败的用例见 `tests/test_provider_retry.py`、`tests/test_stock_catalog.py`、`tests/test_data_status.py` |
+| V03 | 注入超时/畸形报文/数据库失败的用例见 `tests/test_provider_retry.py`、`tests/test_stock_catalog.py`、`tests/test_data_status.py`；**API 层错误码契约**见 `tests/test_v2_error_contract.py`（`50001`/`50002`/`40003`/`40005`，且失败不留下成功记录） |
 | V04 | 省略 `parameters` 的旧请求与 V1 冻结基线一致（`final_equity 90834.22588204397`、12 次往返/24 条订单） |
 | V05 | 两组参数产生独立 `backtest_id`；详情 0.02s 读快照；未知 ID `404/40005` |
 | V09 | 空库初始化、V1 库升级（1→4，旧数据保留）、重复执行、旧记录缺快照标注均有用例与真库演练 |
