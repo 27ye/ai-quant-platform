@@ -244,7 +244,7 @@ class SQLAlchemyAIAnalysisRepository:
             model_name=record.model_name,
             created_at=_as_utc(record.created_at),
             data_as_of=_as_utc(record.data_as_of),
-            source_mode="unknown" if legacy else (record.source_mode or "unknown"),
+            source_mode="unknown" if legacy else record.source_mode,
             prompt_version=None if legacy else record.prompt_version,
             context_schema_version=None if legacy else record.context_schema_version,
             output_schema_version=None if legacy else record.output_schema_version,
