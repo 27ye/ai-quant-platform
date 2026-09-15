@@ -21,7 +21,7 @@ import backend.app.models  # noqa: F401  (register all ORM models on Base)
 from backend.app.db.base import Base
 
 #: Current schema revision. Bump only when a new migration step is added below.
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 _SCHEMA_VERSION_DDL = (
     "CREATE TABLE IF NOT EXISTS schema_version ("
@@ -101,10 +101,16 @@ _V4_BACKTEST_COLUMNS = (
 )
 
 
-def _add_missing_columns(
-    connection: Connection, table: str, columns
-) -> None:
-    """Add only the columns that are actually absent (portable + re-runnable)."""
+def _add_missing_columns(connection: Connection, table: str, columns) -> None:
+    """Add only the columns that are actually absent (portable + re-runnable).
+
+    Creates the table from the ORM metadata first when it does not exist yet, so
+    a step stays correct even if an earlier version row was recorded by a
+    different branch (version numbers are not a reliable description of content).
+    """
+    inspector = inspect(connection)
+    if not inspector.has_table(table):
+        Base.metadata.tables[table].create(bind=connection, checkfirst=True)
     existing = {column["name"] for column in inspect(connection).get_columns(table)}
     for name, ddl_type in columns:
         if name not in existing:
@@ -116,20 +122,46 @@ def _migration_v4(connection: Connection) -> None:
     _add_missing_columns(connection, "backtest_result", _V4_BACKTEST_COLUMNS)
 
 
+#: AI report-snapshot columns for V2 (fields specified by D, migration owned by B).
+_V5_AI_ANALYSIS_COLUMNS = (
+    ("context_snapshot", "JSON NULL"),
+    ("context_hash", "CHAR(64) NULL"),
+    ("source_mode", "VARCHAR(16) NULL"),
+    ("data_as_of", "DATETIME NULL"),
+    ("prompt_version", "VARCHAR(32) NULL"),
+    ("context_schema_version", "VARCHAR(32) NULL"),
+    ("output_schema_version", "VARCHAR(32) NULL"),
+)
+
+
+def _migration_v5(connection: Connection) -> None:
+    """V2 D1: AI report snapshot/provenance columns on ``ai_analysis``."""
+    _add_missing_columns(connection, "ai_analysis", _V5_AI_ANALYSIS_COLUMNS)
+
+
 #: Ordered ``(version, step)`` pairs. Append new steps; never reorder.
+#: Every step must be idempotent and artifact-based (create-if-missing /
+#: add-column-if-missing): the convergence pass in :func:`apply_migrations`
+#: re-runs them, so a database whose version rows disagree with its actual
+#: artifacts (e.g. two branches that both used "v2" for different content)
+#: still ends up with the complete schema instead of silently missing a table.
 MIGRATIONS: List[Tuple[int, Callable[[Connection], None]]] = [
     (1, _migration_v1),
     (2, _migration_v2),
     (3, _migration_v3),
     (4, _migration_v4),
+    (5, _migration_v5),
 ]
 
 
 def apply_migrations(bind: Engine) -> int:
-    """Apply every pending step in order and return the resulting version.
+    """Apply every pending step, then converge the schema, and return the version.
 
     Each step is transactional: if it raises, its version row is not written and
     the caller sees the error, so re-running resumes from the failed step.
+    Afterwards every step runs once more in a single pass. Because the steps only
+    ever create missing artifacts, that pass is a no-op on an already-correct
+    database and a repair on a mismatched one.
     """
     current = get_schema_version(bind)
     for version, step in MIGRATIONS:
@@ -141,4 +173,9 @@ def apply_migrations(bind: Engine) -> int:
                 text("INSERT INTO schema_version (version) VALUES (:version)"),
                 {"version": version},
             )
+
+    with bind.begin() as connection:
+        for _version, step in MIGRATIONS:
+            step(connection)
+
     return SCHEMA_VERSION

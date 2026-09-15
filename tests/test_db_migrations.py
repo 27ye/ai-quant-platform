@@ -80,6 +80,59 @@ def test_v1_database_upgrades_without_losing_tables():
     assert get_schema_version(engine) == SCHEMA_VERSION
 
 
+def test_v5_adds_ai_report_snapshot_columns():
+    engine = _engine()
+
+    apply_migrations(engine)
+
+    columns = {column["name"] for column in inspect(engine).get_columns("ai_analysis")}
+    assert {
+        "context_snapshot",
+        "context_hash",
+        "source_mode",
+        "data_as_of",
+        "prompt_version",
+        "context_schema_version",
+        "output_schema_version",
+    } <= columns
+
+
+def test_apply_migrations_converges_when_version_rows_disagree():
+    """Two V2 branches both used "v2" for different content.
+
+    A database whose history says "2" while actually containing the AI columns
+    (and none of B's V2 artifacts) must still end up with the complete schema
+    instead of silently missing the catalog table.
+    """
+    from sqlalchemy import text
+
+    engine = _engine()
+    Base.metadata.create_all(
+        bind=engine, tables=[Base.metadata.tables["ai_analysis"]]
+    )
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE schema_version ("
+                " version INT NOT NULL PRIMARY KEY,"
+                " applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+            )
+        )
+        connection.execute(text("INSERT INTO schema_version (version) VALUES (2)"))
+
+    assert "stock_catalog_sync" not in set(inspect(engine).get_table_names())
+
+    apply_migrations(engine)
+
+    tables = set(inspect(engine).get_table_names())
+    assert {"stock_catalog_sync", "stock_daily_sync"} <= tables
+    backtest_columns = {
+        column["name"] for column in inspect(engine).get_columns("backtest_result")
+    }
+    assert "equity_curve" in backtest_columns
+    assert get_schema_version(engine) == SCHEMA_VERSION
+
+
 def test_failed_migration_step_is_not_recorded(monkeypatch):
     """A failing step must not be recorded, so a re-run resumes from it."""
     from backend.app.db import migrations as migrations_module
