@@ -1,11 +1,22 @@
 // V2 回测参数表单的客户端校验（提交前拦截，不发请求）
-// 约束来源：V2 计划 C1 建议值；字段名/范围/默认值待 C 定稿后同步，常量集中在此便于调整
+// 契约已定稿：C 于 Issue #11 确认。
+// 字段名映射（页面内部 → 请求体）：short_window → ma_short_period、
+// long_window → ma_long_period；页面显示百分数（如 0.1%），发送小数（0.001）。
 import type { BacktestParameters } from '../types/api'
 
 export const BACKTEST_PARAM_LIMITS = {
   shortWindowMin: 2,
   longWindowMax: 120,
   maxRangeYears: 5,
+} as const
+
+// C 定稿默认值：5 / 20 / 100000 / 0.001 / 0
+export const BACKTEST_PARAM_DEFAULTS = {
+  ma_short_period: 5,
+  ma_long_period: 20,
+  initial_cash: 100000,
+  transaction_cost: 0.001,
+  slippage: 0,
 } as const
 
 // 表单原始值：数字输入框清空时为 null
@@ -23,19 +34,19 @@ export interface BacktestFormValues {
 export function validateBacktestForm(values: BacktestFormValues): string[] {
   const errors: string[] = []
 
-  // 日期区间：起 < 止，且不超过 5 年（计划第 5 节：单次请求至多 5 年用户区间）
+  // 日期区间：起 <= 止（C 定稿允许单日），最长五个日历年（按日历计算，不按固定 1825 天）
   if (!values.start_date || !values.end_date) {
     errors.push('请选择回测起止日期')
   } else {
     const start = new Date(values.start_date)
     const end = new Date(values.end_date)
-    if (start >= end) {
-      errors.push('开始日期必须早于结束日期')
+    if (start > end) {
+      errors.push('开始日期不能晚于结束日期')
     } else {
       const maxEnd = new Date(start)
       maxEnd.setFullYear(maxEnd.getFullYear() + BACKTEST_PARAM_LIMITS.maxRangeYears)
       if (end > maxEnd) {
-        errors.push(`回测区间不能超过 ${BACKTEST_PARAM_LIMITS.maxRangeYears} 年`)
+        errors.push(`回测区间不能超过 ${BACKTEST_PARAM_LIMITS.maxRangeYears} 个日历年`)
       }
     }
   }
@@ -69,7 +80,7 @@ export function validateBacktestForm(values: BacktestFormValues): string[] {
     errors.push('短均线周期必须小于长均线周期')
   }
 
-  // 交易成本与滑点：[0, 1)
+  // 交易成本与滑点：有限数值 [0, 1)
   for (const [label, value] of [
     ['交易成本', values.transaction_cost],
     ['滑点', values.slippage],
@@ -84,13 +95,14 @@ export function validateBacktestForm(values: BacktestFormValues): string[] {
   return errors
 }
 
-// 由校验通过的表单值构造提交参数（配合 start_date/end_date 由调用方补充）
+// 由校验通过的表单值构造请求体 parameters（字段名映射为 C 定稿白名单；
+// 调用前须先经 validateBacktestForm 通过，故此处非空断言安全）
 export function toBacktestParameters(values: BacktestFormValues): BacktestParameters {
   return {
-    initial_cash: values.initial_cash ?? undefined,
-    short_window: values.short_window ?? undefined,
-    long_window: values.long_window ?? undefined,
-    transaction_cost: values.transaction_cost ?? undefined,
-    slippage: values.slippage ?? undefined,
+    ma_short_period: values.short_window!,
+    ma_long_period: values.long_window!,
+    initial_cash: values.initial_cash!,
+    transaction_cost: values.transaction_cost!,
+    slippage: values.slippage!,
   }
 }

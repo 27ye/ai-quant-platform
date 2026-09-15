@@ -194,14 +194,72 @@ export interface BacktestData {
   win_rate: number | null
   trade_count: number
   equity_curve: Array<{ trade_date: string; equity: number }>
+  // ---- V2 新增（可选，C 已定稿字段口径；B 的响应包装确认后转为必填项核对）----
+  backtest_id?: number
+  semantics_version?: 'v1_legacy' | 'v2_windowed'
+  benchmark_curve?: BenchmarkCurvePoint[]
+  drawdown_curve?: DrawdownCurvePoint[]
+  trades?: TradeRecord[]
+  /** 成交记录条数（区别于 trade_count = 已完成买卖往返次数） */
+  order_count?: number
 }
 
-// ============ V2 参数回测（字段名/范围/默认值待 C1 定稿，以下为计划第 5 节建议形态）============
-// 提交时始终显式传 parameters 走 v2_windowed 语义；字段全部可选，省略项用后端默认值
+// ============ V2 参数化回测（契约已定稿：C 于 Issue #11 确认）============
+
+/**
+ * 回测参数白名单（POST /backtests 请求体 parameters 字段，V1 冻结演示不含此块）
+ * C 定稿口径：页面内部可用 short/long/commission 变量，提交时映射为以下字段名；
+ * 页面显示百分数（如 0.1%），发送小数（0.001）。默认值 5 / 20 / 100000 / 0.001 / 0。
+ * 语义：显式传 parameters（含 {}）→ v2_windowed；完全省略 → v1_legacy；null 无效。
+ */
 export interface BacktestParameters {
-  initial_cash?: number
-  short_window?: number
-  long_window?: number
-  transaction_cost?: number
-  slippage?: number
+  /** 短期均线窗口，整数 2 <= short < long <= 120 */
+  ma_short_period: number
+  /** 长期均线窗口 */
+  ma_long_period: number
+  /** 初始资金，正有限数 */
+  initial_cash: number
+  /** 交易成本率，有限数 [0,1) */
+  transaction_cost: number
+  /** 滑点率，有限数 [0,1) */
+  slippage: number
+}
+
+/** 回测请求体：日期为顶层字段（YYYY-MM-DD，首尾包含，允许单日，最长五个日历年） */
+export interface BacktestRequest {
+  stock_code: string
+  start_date?: string
+  end_date?: string
+  parameters?: BacktestParameters
+}
+
+/** 成交记录（V2 响应 trades 数组元素；买入行 round_trip_* 为 null，卖出行含双边成本） */
+export interface TradeRecord {
+  /** 本次回测内序号 */
+  order_id: number
+  signal_date: string
+  execution_date: string
+  side: 'buy' | 'sell'
+  execution_price: number
+  /** 允许小数 */
+  shares: number
+  gross_amount: number
+  fee: number
+  cash_after: number
+  /** 0=空仓 1=持仓（状态，不是股数） */
+  position_after: 0 | 1
+  round_trip_pnl: number | null
+  round_trip_return: number | null
+}
+
+/** 基准曲线点：首个有效回测日开盘买入并持有，不含成本滑点（页面标注「买入持有基准（不含成本）」） */
+export interface BenchmarkCurvePoint {
+  trade_date: string
+  benchmark_equity: number
+}
+
+/** 回撤曲线点：非正比例值 */
+export interface DrawdownCurvePoint {
+  trade_date: string
+  drawdown: number
 }

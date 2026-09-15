@@ -28,6 +28,12 @@ const shortHash = computed(() => {
   return `${hash.slice(0, 8)}…${hash.slice(-8)}`
 })
 
+// C 在 Issue #11 指出：data_as_of 是上下文组装时间，不能当作行情截至日；
+// 真正的行情截至取快照 provenance.market_end_date（legacy 报告无快照则不显示）
+const marketEndDate = computed(
+  () => report.value?.context_snapshot?.provenance.market_end_date ?? null,
+)
+
 async function load() {
   if (!Number.isInteger(reportId.value) || reportId.value <= 0) {
     loading.value = false
@@ -100,8 +106,8 @@ watch(reportId, load, { immediate: true })
       <!-- 历史标记横幅 -->
       <div class="history-banner">
         <span class="banner-text">
-          历史报告 · 生成于 {{ formatDateTime(report.created_at) }} · 数据截至
-          {{ formatDateTime(report.data_as_of) }}
+          历史报告 · 生成于 {{ formatDateTime(report.created_at) }}
+          <template v-if="marketEndDate"> · 行情截至 {{ marketEndDate }}</template>
         </span>
         <span class="mode-chip">{{ SOURCE_MODE_LABEL[report.source_mode] }}</span>
       </div>

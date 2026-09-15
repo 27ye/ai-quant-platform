@@ -121,7 +121,7 @@ watch(
               <span>{{ formatDateTime(item.created_at) }}</span>
               <span>{{ item.model_name }}</span>
               <span>{{ SOURCE_MODE_LABEL[item.source_mode] }}</span>
-              <span v-if="item.data_as_of">数据截至 {{ formatDateTime(item.data_as_of) }}</span>
+              <!-- data_as_of 是上下文组装时间（C 于 Issue #11 指出），口径待 D 确认后再展示 -->
             </div>
           </div>
           <span class="arrow" aria-hidden="true">›</span>
