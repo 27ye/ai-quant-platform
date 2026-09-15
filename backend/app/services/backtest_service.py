@@ -19,7 +19,7 @@ import hashlib
 import json
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.core.errors import (
     BacktestNotFoundError,
+    DataProviderError,
     DatabaseOperationError,
     InsufficientStockDataError,
     InvalidParameterError,
@@ -40,7 +41,7 @@ from backend.app.services.market_data_service import (
     DEFAULT_MAX_STALE_DAYS,
     MarketDataSource,
 )
-from backend.app.services.stock_service import DEFAULT_MIN_KLINE_ROWS, DEFAULT_WINDOW_DAYS
+from backend.app.services.stock_service import DEFAULT_WINDOW_DAYS
 
 SEMANTICS_V1_LEGACY = "v1_legacy"
 SEMANTICS_V2_WINDOWED = "v2_windowed"
@@ -291,7 +292,7 @@ class BacktestService:
         quant_service,
         market_data_source: Optional[MarketDataSource] = None,
         repository: Optional[BacktestRepository] = None,
-        today: Optional[callable] = None,
+        today: Optional[Callable[[], date]] = None,
     ) -> None:
         self._quant = quant_service
         self._market = market_data_source
@@ -429,7 +430,9 @@ class BacktestService:
         self, stock_code: str, start: date, end: date, min_rows: int
     ) -> List[DailyKlineSchema]:
         if self._market is None:
-            return list(self._quant._stock.get_daily_kline(stock_code, start, end, min_rows=min_rows))
+            raise DataProviderError(
+                "backtest requires a market data source to fetch warmup bars"
+            )
         return list(
             self._market.query_daily(
                 stock_code,
