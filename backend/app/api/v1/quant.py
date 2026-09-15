@@ -97,9 +97,18 @@ def list_backtests(
 @router.get("/backtests/{backtest_id}", response_model=ApiResponse[Dict[str, Any]])
 def get_backtest(
     backtest_id: int,
+    include_input_snapshot: bool = False,
     repository: BacktestRepository = Depends(get_backtest_repository),
 ) -> ApiResponse[Dict[str, Any]]:
-    """Saved snapshot detail (parameters, curves, orders) - no refetch, no recompute."""
+    """Saved snapshot detail (parameters, curves, orders) - no refetch, no recompute.
+
+    ``include_input_snapshot=true`` additionally returns the exact rows that were
+    handed to C (warmup included); the default response only reports their count.
+    """
     if backtest_id < 1:
         raise InvalidParameterError("backtest_id must be a positive integer")
-    return ApiResponse(data=repository.get(backtest_id))
+    return ApiResponse(
+        data=repository.get(
+            backtest_id, include_input_snapshot=include_input_snapshot
+        )
+    )

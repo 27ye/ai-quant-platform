@@ -45,3 +45,5 @@ class BacktestResult(Base):
     orders: Mapped[Optional[list]] = mapped_column(JSON)
     effective_parameters: Mapped[Optional[dict]] = mapped_column(JSON)
     data_meta: Mapped[Optional[dict]] = mapped_column(JSON)
+    #: Exact rows handed to C's core (warmup included) - migration v6.
+    input_snapshot: Mapped[Optional[list]] = mapped_column(JSON)

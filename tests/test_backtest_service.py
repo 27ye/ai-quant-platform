@@ -162,9 +162,41 @@ def test_request_schema_distinguishes_omitted_from_explicit_parameters():
     assert explicit_empty.parameters.provided_overrides() == {}
 
 
-def test_warmup_required_days_follows_the_longest_window():
-    assert warmup_required_days(QuantConfig()) == 60  # trend period
+def test_warmup_required_days_honours_the_120_bar_floor():
+    """C requires >=120 warmup bars, and long=120 needs 121 of them."""
+    assert warmup_required_days(QuantConfig()) == 120  # floor, not the 60 trend period
     assert warmup_required_days(resolve_effective_parameters({"ma_long_period": 120})) == 121
+
+
+def test_schema_rejects_numeric_strings_booleans_and_float_periods():
+    """C: reject string numbers, booleans and non-integer periods (no coercion)."""
+    from pydantic import ValidationError
+
+    rejected = [
+        {"ma_short_period": "5"},
+        {"ma_long_period": "20"},
+        {"initial_cash": "100000"},
+        {"transaction_cost": "0.1"},
+        {"slippage": "0"},
+        {"initial_cash": True},   # bool is an int subclass -> must not mean 1.0
+        {"slippage": False},
+        {"ma_short_period": 5.0},
+        {"initial_cash": float("nan")},
+        {"initial_cash": float("inf")},
+    ]
+    for payload in rejected:
+        with pytest.raises(ValidationError):
+            BacktestParametersSchema(**payload)
+
+    accepted = BacktestParametersSchema(
+        ma_short_period=5,
+        ma_long_period=20,
+        initial_cash=100000,   # plain int is still fine for a float field
+        transaction_cost=0.001,
+        slippage=0,
+    )
+    assert accepted.initial_cash == 100000.0
+    assert accepted.provided_overrides()["slippage"] == 0
 
 
 # -- orchestration ---------------------------------------------------------
@@ -214,6 +246,51 @@ def test_windowed_run_records_warmup_window_and_data_hash():
         saved = repository.get(result["backtest_id"])
         assert saved["warmup_start_date"] == result["warmup_start_date"]
         assert saved["data_meta"]["data_hash"] == meta["data_hash"]
+
+
+def test_windowed_run_persists_the_c_input_snapshot():
+    """C asks for the exact rows handed to their core (warmup included)."""
+    market = _FakeMarketSource(_rows())
+    start = date(2025, 6, 1)
+    end = date(2025, 12, 31)
+    with _session() as session:
+        repository = BacktestRepository(session)
+        result = _service(market, repository).run(
+            stock_code=STOCK_CODE,
+            start_date=start,
+            end_date=end,
+            parameters=BacktestParametersSchema(),
+            parameters_provided=True,
+        )
+
+        summary = repository.get(result["backtest_id"])
+        assert summary["input_snapshot_available"] is True
+        assert summary["input_snapshot_rows"] == result["data_meta"]["rows"]
+        assert "input_snapshot" not in summary  # opt-in only
+
+        detail = repository.get(result["backtest_id"], include_input_snapshot=True)
+        snapshot = detail["input_snapshot"]
+        assert len(snapshot) == summary["input_snapshot_rows"]
+        dates = [row["trade_date"] for row in snapshot]
+        assert dates == sorted(dates)  # ascending, as delivered to C
+        assert {"stock_code", "trade_date", "open", "high", "low", "close", "volume"} <= set(
+            snapshot[0]
+        )
+        # warmup rows (before the requested start) are part of the snapshot
+        assert sum(1 for value in dates if date.fromisoformat(value) < start) == result["warmup_rows"]
+
+
+def test_legacy_run_does_not_claim_a_c_input_snapshot():
+    """v1_legacy keeps V1 behaviour: no window split, no warmup snapshot."""
+    market = _FakeMarketSource(_rows())
+    with _session() as session:
+        repository = BacktestRepository(session)
+        result = _service(market, repository).run(
+            stock_code=STOCK_CODE, parameters_provided=False
+        )
+        detail = repository.get(result["backtest_id"])
+        assert detail["input_snapshot_available"] is False
+        assert detail["input_snapshot_rows"] == 0
 
 
 def test_windowed_run_rejects_insufficient_warmup_and_saves_nothing():

@@ -279,9 +279,10 @@ POST /api/v1/backtests
 | 显式非空 `parameters` | `v2_windowed` | 白名单字段覆盖，其余取默认 |
 | `parameters: null` 或含未知字段 | — | **取数前**返回 `40001`，不产生记录 |
 
-- 白名单（V2 B3）：`ma_short_period`、`ma_long_period`、`initial_cash`、`transaction_cost`、`slippage`；周期为整数且 `2 ≤ period ≤ 120`、`short < long`，资金为正，成本/滑点在 `[0,1)`；布尔、NaN、Infinity 一律 `40001`。
-- `v2_windowed` 会按最长均线补取**预热**数据（需要 `max(ma_trend_period, ma_long_period+1)` 根有效 bar）；预热不足返回 `40003`，且不保存任何记录。
-- 响应在 V1 字段之外新增：`backtest_id`、`semantics_version`、`effective_parameters`、`warmup_start_date`、`warmup_rows`、`data_meta`（含请求/实际区间、参与计算行数、`data_hash`）、`snapshot_status`。
+- 白名单（V2 B3）：`ma_short_period`、`ma_long_period`、`initial_cash`、`transaction_cost`、`slippage`；周期为整数且 `2 ≤ period ≤ 120`、`short < long`，资金为正，成本/滑点在 `[0,1)`。
+- 参数为**严格类型**（C 契约）：拒绝数字字符串（如 `"5"`）、布尔值（`true` 不得当作 1 / 1.0）、浮点周期、`NaN`/`Infinity`、未知字段，一律 `40001` 且在**取数前**拒绝。
+- `v2_windowed` 会补取**预热**数据：**至少 120 根有效交易日 bar**（C 的下限，且不小于 `max(ma_trend_period, ma_long_period+1)`）；预热 bar 仅用于指标预热，**不计入交易与收益**，窗口由 C 的 `run_backtest_request` 统一裁剪；预热不足返回 `40003`，且不保存任何记录。
+- 响应在 V1 字段之外新增：`backtest_id`、`semantics_version`、`effective_parameters`、`warmup_start_date`、`warmup_rows`、`data_meta`（含请求/实际区间、参与计算行数、`data_hash`、`warmup_min_bars`、`window_owner`）、`snapshot_status`。
 - `equity_curve` 固定为 `[{ "trade_date": "YYYY-MM-DD", "equity": 100000.0 }]`，不使用 `value/date/nav` 字段。
 - `equity` 表示**账户绝对权益**，默认从 `initial_cash=100000.0` 起；归一化净值 = `equity / initial_cash`，累计收益率 = `equity / initial_cash - 1`。
 - 响应同时返回 `stock_code`、`initial_cash`、`final_equity`、`total_return`。计算由 C 的量化模块提供，B 仅在 FastAPI 层包装并保存快照。
@@ -297,6 +298,7 @@ GET /api/v1/backtests/{backtest_id}
 - 详情返回**保存时**的参数、指标、三条曲线（`equity_curve`/`benchmark_curve`/`drawdown_curve`）、成交明细与 `data_meta`；**GET 不取数、不重算**。
 - 未知 `backtest_id` 返回 HTTP `404` + `40005`（不复用 `40002 股票不存在`）。
 - 旧 V1 记录只存了摘要指标，详情返回 `snapshot_status="missing"` 与 `snapshot_missing_reason`，**不用当前行情补造曲线**。
+- `v2_windowed` 会保存**送进 C 的输入快照**（含预热逐行 bar）。详情默认只返回 `input_snapshot_available` 与 `input_snapshot_rows`；加 `?include_input_snapshot=true` 返回完整 `input_snapshot`（日期升序、日期为 ISO 字符串），供 C 核对。
 
 ## 9. AI 综合分析
 

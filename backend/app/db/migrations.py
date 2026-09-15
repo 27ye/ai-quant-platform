@@ -21,7 +21,7 @@ import backend.app.models  # noqa: F401  (register all ORM models on Base)
 from backend.app.db.base import Base
 
 #: Current schema revision. Bump only when a new migration step is added below.
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 _SCHEMA_VERSION_DDL = (
     "CREATE TABLE IF NOT EXISTS schema_version ("
@@ -139,6 +139,13 @@ def _migration_v5(connection: Connection) -> None:
     _add_missing_columns(connection, "ai_analysis", _V5_AI_ANALYSIS_COLUMNS)
 
 
+def _migration_v6(connection: Connection) -> None:
+    """V2 C 对接: persist the exact input rows handed to C (warmup included)."""
+    _add_missing_columns(
+        connection, "backtest_result", (("input_snapshot", "JSON NULL"),)
+    )
+
+
 #: Ordered ``(version, step)`` pairs. Append new steps; never reorder.
 #: Every step must be idempotent and artifact-based (create-if-missing /
 #: add-column-if-missing): the convergence pass in :func:`apply_migrations`
@@ -151,6 +158,7 @@ MIGRATIONS: List[Tuple[int, Callable[[Connection], None]]] = [
     (3, _migration_v3),
     (4, _migration_v4),
     (5, _migration_v5),
+    (6, _migration_v6),
 ]
 
 

@@ -21,9 +21,16 @@ MAX_MA_PERIOD = 120
 
 
 class BacktestParametersSchema(BaseModel):
-    """Optional V2 parameter overrides; omitted fields keep C's defaults."""
+    """Optional V2 parameter overrides; omitted fields keep C's defaults.
 
-    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    ``strict=True`` enforces C's contract exactly: numeric **strings** (``"5"``),
+    booleans (``True`` is an ``int`` subclass) and float periods are rejected
+    instead of silently coerced - otherwise ``initial_cash=true`` would run a
+    1-unit backtest. Plain integers are still accepted for float fields
+    (``100000`` -> ``100000.0``).
+    """
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False, strict=True)
 
     ma_short_period: Optional[int] = Field(
         default=None, ge=MIN_MA_PERIOD, le=MAX_MA_PERIOD

@@ -58,6 +58,10 @@ ALLOWED_PARAMETER_FIELDS = (
     "slippage",
 )
 
+#: C requires at least this many valid bars *before* the backtest window for
+#: warmup (counted in trading days, not calendar days; covers any legal long ≤ 120).
+WARMUP_MIN_BARS = 120
+
 #: Trading days -> calendar days slack when sizing the warmup fetch window.
 _WARMUP_CALENDAR_FACTOR = 1.7
 _WARMUP_MAX_ATTEMPTS = 3
@@ -83,8 +87,15 @@ def resolve_effective_parameters(overrides: Mapping[str, Any]) -> QuantConfig:
 
 
 def warmup_required_days(config: QuantConfig) -> int:
-    """Valid bars needed *before* the user window (C1: longest MA + 1)."""
-    return max(config.ma_trend_period, config.ma_long_period + 1)
+    """Valid bars needed *before* the user window.
+
+    C requires **at least 120** valid trading days of warmup, and the longest
+    moving average needs ``ma_long_period + 1``; the trend period must also be
+    available. The effective requirement is therefore the maximum of the three.
+    """
+    return max(
+        WARMUP_MIN_BARS, config.ma_trend_period, config.ma_long_period + 1
+    )
 
 
 def _utc_now() -> datetime:
@@ -148,6 +159,7 @@ class BacktestRepository:
         warmup_start_date: Optional[date],
         data_meta: Mapping[str, Any],
         strategy_version: Optional[str] = None,
+        input_snapshot: Optional[Sequence[Mapping[str, Any]]] = None,
     ) -> int:
         """Persist summary + curves + orders atomically; returns the new id."""
         try:
@@ -176,6 +188,7 @@ class BacktestRepository:
                 orders=list(result.get("trades") or []),
                 effective_parameters=dict(effective_parameters),
                 data_meta=dict(data_meta),
+                input_snapshot=list(input_snapshot) if input_snapshot is not None else None,
             )
             self._session.add(record)
             self._session.commit()
@@ -184,14 +197,16 @@ class BacktestRepository:
             self._session.rollback()
             raise DatabaseOperationError() from exc
 
-    def get(self, backtest_id: int) -> Dict[str, Any]:
+    def get(
+        self, backtest_id: int, *, include_input_snapshot: bool = False
+    ) -> Dict[str, Any]:
         try:
             record = self._session.get(BacktestResult, backtest_id)
         except SQLAlchemyError as exc:
             raise DatabaseOperationError() from exc
         if record is None:
             raise BacktestNotFoundError(f"backtest {backtest_id} not found")
-        return self._to_detail(record)
+        return self._to_detail(record, include_input_snapshot=include_input_snapshot)
 
     def list(
         self,
@@ -250,9 +265,12 @@ class BacktestRepository:
         }
 
     @classmethod
-    def _to_detail(cls, record: BacktestResult) -> Dict[str, Any]:
+    def _to_detail(
+        cls, record: BacktestResult, *, include_input_snapshot: bool = False
+    ) -> Dict[str, Any]:
         detail = cls._to_summary(record)
         data_meta = record.data_meta or {}
+        snapshot = record.input_snapshot or []
         detail.update(
             {
                 "warmup_start_date": _iso(record.warmup_start_date),
@@ -267,8 +285,14 @@ class BacktestRepository:
                 "drawdown_curve": record.drawdown_curve or [],
                 "trades": record.orders or [],
                 "data_meta": data_meta,
+                # The snapshot itself is opt-in: it is the full warmup+window row
+                # set, which callers (e.g. C's verification) request explicitly.
+                "input_snapshot_available": bool(snapshot),
+                "input_snapshot_rows": len(snapshot),
             }
         )
+        if include_input_snapshot:
+            detail["input_snapshot"] = snapshot
         if detail["snapshot_status"] == SNAPSHOT_MISSING:
             detail["snapshot_missing_reason"] = (
                 "V1 record stored only summary metrics; curves and orders were "
@@ -383,6 +407,7 @@ class BacktestService:
             "warmup_start_date": fetch_start.isoformat(),
             "warmup_rows": warmup_rows,
             "warmup_required_days": required,
+            "warmup_min_bars": WARMUP_MIN_BARS,
             "rows": len(rows),
             "data_hash": frame_digest(rows),
             "computed_start_date": _iso(result.get("start_date")),
@@ -390,6 +415,7 @@ class BacktestService:
             "current_position": result.get("current_position"),
             "parameters_explicit": explicitly_provided,
             "data_source": "MarketDataSource.query_daily (warmup window)",
+            "window_owner": "C.run_backtest_request (C trims warmup from trades/returns)",
         }
         result.update(
             {
@@ -400,7 +426,12 @@ class BacktestService:
                 "data_meta": data_meta,
             }
         )
-        return self._persist_and_return(stock_code, result, effective, fetch_start, data_meta)
+        # C asks for the exact input snapshot (warmup included) to be persisted;
+        # ``mode="json"`` keeps dates as ISO strings so the JSON column round-trips.
+        input_snapshot = [row.model_dump(mode="json") for row in rows]
+        return self._persist_and_return(
+            stock_code, result, effective, fetch_start, data_meta, input_snapshot
+        )
 
     def _fetch_with_warmup(
         self, stock_code: str, start: date, end: date, required: int
@@ -453,6 +484,7 @@ class BacktestService:
         effective: QuantConfig,
         warmup_start_date: Optional[date],
         data_meta: Mapping[str, Any],
+        input_snapshot: Optional[Sequence[Mapping[str, Any]]] = None,
     ) -> Dict[str, Any]:
         if self._repository is None:
             result.setdefault("backtest_id", None)
@@ -465,6 +497,7 @@ class BacktestService:
             warmup_start_date=warmup_start_date,
             data_meta=data_meta,
             strategy_version=result.get("strategy_version"),
+            input_snapshot=input_snapshot,
         )
         result["backtest_id"] = backtest_id
         result["snapshot_status"] = SNAPSHOT_COMPLETE
