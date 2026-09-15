@@ -41,6 +41,19 @@ $env:MYSQL_DATABASE="ai_quant_test"   # 本地验证建议用独立库，不要�
 - 完整性判定：**≥1000 行**且代码唯一才算成功；否则记 `failed` 且**不写部分目录**。
 - 实测：5915 只、34.6 秒、来源 `push2delay.eastmoney.com/api/qt/clist/get`。
 
+## 3.1 多股票预热（V01/V02 交付前必做）
+
+```powershell
+# 验收三只（600519 / 000001 / 300750），单轮，股票间隔 5 秒
+.\.venv\Scripts\python.exe scripts\warm_market_data.py
+# 源抖动时的低频重试：3 轮，轮间隔 600 秒；成功即提前结束
+.\.venv\Scripts\python.exe scripts\warm_market_data.py --rounds 3 --interval 600
+```
+
+- 逐只输出 `rows/window/mode/source/秒数`，失败如实输出错误并**以退出码 1 结束**（不缺报成成功）。
+- 只影响"首次取数"：已入库股票走缓存，源不可用时仍能服务。
+- 该脚本即 `docs/V2_B_DATA_EVIDENCE.md` 中 300750 恢复方案的落地形式。
+
 ## 4. 启动与验证
 
 ```powershell
