@@ -67,11 +67,12 @@ $baseDir = [IO.Path]::GetFullPath((Join-Path $MySqlBin '..')).Replace('\', '/')
 $dataOption = $dataDir.Replace('\', '/')
 $initError = Join-Path $runtime 'initialize.stderr.log'
 $initOutput = Join-Path $runtime 'initialize.stdout.log'
-$initialize = Start-Process -FilePath $mysqld -WindowStyle Hidden -PassThru -ArgumentList @(
-    '--no-defaults', '--initialize', '--console', "--basedir=`"$baseDir`"", "--datadir=`"$dataOption`""
-) -RedirectStandardError $initError -RedirectStandardOutput $initOutput
-if (-not $initialize.WaitForExit(60000)) { throw 'Initialization still running; data retained. Inspect the private runtime directory.' }
-if ($initialize.ExitCode -ne 0) { throw 'MySQL initialization failed; private logs and data retained.' }
+$savedErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+& $mysqld --no-defaults --initialize --console "--basedir=$baseDir" "--datadir=$dataOption" 1> $initOutput 2> $initError
+$initializeExitCode = $LASTEXITCODE
+$ErrorActionPreference = $savedErrorActionPreference
+if ($initializeExitCode -ne 0) { throw 'MySQL initialization failed; private logs and data retained.' }
 
 $rootPassword = New-LocalPassword
 $appPassword = New-LocalPassword

@@ -3,6 +3,7 @@ from datetime import date
 from backend.app.schemas.ai import (
     BacktestMetricsContext,
     MarketSnapshotContext,
+    MarketDataProvenance,
     NewsItemContext,
     QuantScoreContext,
     StockAnalysisContext,
@@ -30,6 +31,15 @@ class FakeStockService:
         return TechnicalIndicatorContext(
             trade_date=date(2026, 8, 31),
             ma5=1440.0,
+        )
+
+    def get_market_provenance(self, stock_code):
+        return MarketDataProvenance(
+            source_mode="cache",
+            provider="test-provider",
+            market_start_date=date(2026, 1, 1),
+            market_end_date=date(2026, 8, 31),
+            market_rows=120,
         )
 
 
@@ -80,4 +90,7 @@ def test_service_context_provider_calls_all_public_service_interfaces():
     assert context.backtest_metrics is not None
     assert context.backtest_metrics.total_return == 0.21
     assert context.news[0].source == "交易所"
+    assert context.provenance.source_mode == "cache"
+    assert context.provenance.news_status == "available"
+    assert context.provenance.news_count == 1
     assert news_service.requested_limit == 10

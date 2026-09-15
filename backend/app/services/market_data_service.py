@@ -129,6 +129,14 @@ class MarketDataSource(Protocol):
         """
         ...
 
+    def get_query_provenance(self, stock_code: str) -> dict[str, str]:
+        """Return ``source_mode``/``provider`` for the last query of a stock.
+
+        Persisted into AI report snapshots, so a source that cannot attest its
+        own provenance must fail loudly instead of silently omitting it.
+        """
+        ...
+
 
 class MarketDataRepository:
     """Upsert/read access to ``stock_basic`` and ``stock_daily``."""
@@ -268,6 +276,7 @@ class MarketDataService:
         self._stock = stock_service or StockService()
         self._repository = repository
         self._trading_days = trading_days
+        self._query_source_modes: dict[str, str] = {}
 
     def sync_daily(
         self,
@@ -296,6 +305,7 @@ class MarketDataService:
             )
         if self._repository is not None:
             self._repository.upsert_daily(rows)
+        self._query_source_modes[stock_code] = "live"
         return rows
 
     def query_daily(
@@ -334,8 +344,15 @@ class MarketDataService:
             if self._is_cache_complete(
                 cached, start_date, end_date, min_rows, max_stale_days, max_gap_days, trading_days
             ):
+                self._query_source_modes[stock_code] = "cache"
                 return cached
         return self.sync_daily(stock_code, start_date, end_date, min_rows=min_rows)
+
+    def get_query_provenance(self, stock_code: str) -> dict[str, str]:
+        return {
+            "source_mode": self._query_source_modes.get(stock_code, "unknown"),
+            "provider": self._stock.provider_name,
+        }
 
     @staticmethod
     def _gaps_valid(cached: Sequence[DailyKlineSchema], max_gap_days: int) -> bool:

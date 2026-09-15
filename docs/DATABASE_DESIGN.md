@@ -135,11 +135,20 @@ CREATE TABLE ai_analysis (
     risks JSON,
     conclusion TEXT,
     model_name VARCHAR(100),
+    context_snapshot JSON NULL,
+    context_hash CHAR(64) NULL,
+    source_mode VARCHAR(16) NULL,
+    data_as_of DATETIME NULL,
+    prompt_version VARCHAR(32) NULL,
+    context_schema_version VARCHAR(32) NULL,
+    output_schema_version VARCHAR(32) NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_ai_stock (stock_code),
     INDEX idx_ai_created_at (created_at)
 );
 ```
+
+V2 新增字段全部允许 `NULL`，以兼容 V1 历史记录。`context_snapshot` 与报告正文在同一事务写入；V1 旧记录读取时返回 `snapshot_status=legacy_missing`。V2 保留 `idx_ai_stock` 和 `idx_ai_created_at`，首版不增加复合索引。
 
 ## 8. ORM 与 Schema
 

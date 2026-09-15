@@ -3,6 +3,10 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+PROMPT_VERSION = "v2.0"
+CONTEXT_SCHEMA_VERSION = "v2.0"
+OUTPUT_SCHEMA_VERSION = "v2.0"
+
 
 class StrictSchema(BaseModel):
     model_config = ConfigDict(extra="forbid", protected_namespaces=(), allow_inf_nan=False)
@@ -67,6 +71,24 @@ class NewsItemContext(StrictSchema):
     url: Optional[str] = None
 
 
+SourceMode = Literal["live", "cache", "frozen", "unknown"]
+SnapshotStatus = Literal["complete", "legacy_missing"]
+
+
+class MarketDataProvenance(StrictSchema):
+    source_mode: SourceMode
+    provider: str = Field(min_length=1)
+    market_start_date: date
+    market_end_date: date
+    market_rows: int = Field(ge=1)
+
+
+class DataProvenance(MarketDataProvenance):
+    news_status: Literal["available", "empty"]
+    news_count: int = Field(ge=0)
+    retrieved_at: datetime
+
+
 class AnalysisContext(StrictSchema):
     stock: StockAnalysisContext
     market_snapshot: MarketSnapshotContext
@@ -75,6 +97,7 @@ class AnalysisContext(StrictSchema):
     backtest_metrics: Optional[BacktestMetricsContext] = None
     news: List[NewsItemContext] = Field(default_factory=list)
     data_as_of: datetime
+    provenance: DataProvenance
 
 
 class AIAnalysisStructuredOutput(StrictSchema):
@@ -114,3 +137,45 @@ class AIAnalysisData(AIAnalysisStructuredOutput):
     stock_code: str = Field(pattern=r"^\d{6}$")
     quant_score: Optional[int] = Field(default=None, ge=0, le=100)
     model_name: str = Field(min_length=1)
+
+
+class AIReportMetadata(StrictSchema):
+    data_as_of: datetime
+    source_mode: SourceMode
+    prompt_version: str = Field(min_length=1, max_length=32)
+    context_schema_version: str = Field(min_length=1, max_length=32)
+    output_schema_version: str = Field(min_length=1, max_length=32)
+    context_hash: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+
+
+class AIReportSummary(StrictSchema):
+    report_id: int = Field(gt=0)
+    stock_code: str = Field(pattern=r"^\d{6}$")
+    quant_score: Optional[int] = Field(default=None, ge=0, le=100)
+    trend: Literal["bullish", "neutral", "bearish"]
+    summary: str = Field(min_length=1)
+    model_name: str = Field(min_length=1)
+    data_as_of: Optional[datetime] = None
+    created_at: datetime
+    source_mode: SourceMode
+    snapshot_status: SnapshotStatus
+
+
+class AIReportDetail(AIAnalysisData):
+    report_id: int = Field(gt=0)
+    created_at: datetime
+    data_as_of: Optional[datetime] = None
+    source_mode: SourceMode
+    prompt_version: Optional[str] = None
+    context_schema_version: Optional[str] = None
+    output_schema_version: Optional[str] = None
+    context_hash: Optional[str] = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
+    snapshot_status: SnapshotStatus
+    context_snapshot: Optional[AnalysisContext] = None
+
+
+class PaginatedAIReports(StrictSchema):
+    items: List[AIReportSummary]
+    total: int = Field(ge=0)
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1, le=100)

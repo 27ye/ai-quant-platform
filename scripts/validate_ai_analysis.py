@@ -40,8 +40,30 @@ class ValidationRepository:
     def __init__(self) -> None:
         self.saved = []
 
-    def save(self, analysis) -> None:
-        self.saved.append(analysis)
+    def save(self, analysis, context, metadata):
+        from backend.app.schemas.ai import AIReportDetail
+
+        result = AIReportDetail(
+            **analysis.model_dump(),
+            report_id=1,
+            created_at=datetime.now(timezone.utc),
+            data_as_of=metadata.data_as_of,
+            source_mode=metadata.source_mode,
+            prompt_version=metadata.prompt_version,
+            context_schema_version=metadata.context_schema_version,
+            output_schema_version=metadata.output_schema_version,
+            context_hash=metadata.context_hash,
+            snapshot_status="complete",
+            context_snapshot=context,
+        )
+        self.saved.append(result)
+        return result
+
+    def list_reports(self, stock_code, page, page_size):
+        raise NotImplementedError
+
+    def get_report(self, report_id):
+        raise NotImplementedError
 
 
 class AcceptanceError(RuntimeError):
@@ -56,6 +78,8 @@ def parse_args(argv=None) -> argparse.Namespace:
                         help="Create an isolated local MySQL DB and validate the actual AI route")
     mode.add_argument("--llm-only", action="store_true",
                       help="Probe real LLM JSON connectivity only; NOT stock/report acceptance")
+    mode.add_argument("--migration-only", action="store_true",
+                      help="Validate a real MySQL V1-to-V2 migration in a new isolated database")
     mode.add_argument("--serve", action="store_true",
                       help="Serve live (or explicitly frozen) API on 127.0.0.1:8000 with a new MySQL DB")
     parser.add_argument("--frozen-dir", default=None,
@@ -186,8 +210,11 @@ def validate_mysql(stock_code: str) -> None:
             if len(records) != 1:
                 raise AcceptanceError("expected exactly one persisted report")
             record = records[0]
-            if any(getattr(record, key) != value for key, value in data.items()):
-                raise AcceptanceError("persisted report does not match API response")
+            mismatches = record_response_mismatches(record, data)
+            if mismatches:
+                raise AcceptanceError(
+                    "persisted report mismatch fields: " + ",".join(mismatches)
+                )
             print(json.dumps({"validated": True, "database": name,
                               "report_id": record.id, "stock_code": record.stock_code,
                               "model": record.model_name}, ensure_ascii=False), flush=True)
@@ -195,11 +222,101 @@ def validate_mysql(stock_code: str) -> None:
         engine.dispose()
 
 
+def validate_mysql_v1_upgrade() -> None:
+    """Prove the incremental migration against a real isolated MySQL 8 schema."""
+    if "backend.app.db.session" in sys.modules:
+        raise AcceptanceError("run --migration-only in a fresh process")
+    name = create_acceptance_database(get_settings())
+    os.environ["MYSQL_DATABASE"] = name
+    get_settings.cache_clear()
+
+    from sqlalchemy import inspect, text
+    from backend.app.db.migrations import apply_migrations, get_schema_version
+    from backend.app.db.session import engine
+
+    try:
+        verify_database_identity(engine, name)
+        with engine.begin() as connection:
+            connection.execute(text(
+                "CREATE TABLE schema_version ("
+                "version INT NOT NULL PRIMARY KEY, "
+                "applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+            ))
+            connection.execute(text("INSERT INTO schema_version (version) VALUES (1)"))
+            connection.execute(text("""
+                CREATE TABLE ai_analysis (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    stock_code VARCHAR(10) NOT NULL,
+                    quant_score INT,
+                    trend VARCHAR(50),
+                    summary TEXT,
+                    technical_analysis TEXT,
+                    quant_analysis TEXT,
+                    news_analysis TEXT,
+                    advantages JSON,
+                    risks JSON,
+                    conclusion TEXT,
+                    model_name VARCHAR(100),
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_ai_stock (stock_code),
+                    INDEX idx_ai_created_at (created_at)
+                )
+            """))
+            connection.execute(text("""
+                INSERT INTO ai_analysis (
+                    stock_code, trend, summary, technical_analysis,
+                    quant_analysis, news_analysis, advantages, risks,
+                    conclusion, model_name
+                ) VALUES (
+                    '600519', 'neutral', 'legacy', 'technical',
+                    'quant', 'news', JSON_ARRAY('advantage'), JSON_ARRAY('risk'),
+                    'conclusion', 'legacy-model'
+                )
+            """))
+
+        version = apply_migrations(engine)
+        columns = {column["name"]: column for column in inspect(engine).get_columns("ai_analysis")}
+        required = {
+            "context_snapshot", "context_hash", "source_mode", "data_as_of",
+            "prompt_version", "context_schema_version", "output_schema_version",
+        }
+        if version != 2 or get_schema_version(engine) != 2 or not required <= columns.keys():
+            raise AcceptanceError("V1-to-V2 migration contract failed")
+        if str(columns["context_hash"]["type"]).upper() != "CHAR(64)":
+            raise AcceptanceError("V2 context hash type mismatch")
+        with engine.connect() as connection:
+            legacy = connection.execute(text(
+                "SELECT stock_code, context_snapshot FROM ai_analysis WHERE id=1"
+            )).one()
+        if legacy.stock_code != "600519" or legacy.context_snapshot is not None:
+            raise AcceptanceError("legacy report changed during migration")
+        print(json.dumps({
+            "validated": True,
+            "mode": "mysql_v1_to_v2_migration",
+            "database": name,
+            "schema_version": version,
+            "legacy_report_preserved": True,
+        }), flush=True)
+    finally:
+        engine.dispose()
+
+
 def validate_mysql_frozen(stock_code: str, frozen_dir: str, metadata: str | None) -> None:
-    from scripts.frozen_acceptance import validate_mysql_frozen as run_frozen
+    from scripts.frozen_acceptance import (
+        FrozenAcceptanceError,
+        validate_mysql_frozen as run_frozen,
+    )
 
     make_llm_client()
-    run_frozen(stock_code, frozen_dir, metadata, lambda: create_acceptance_database(get_settings()))
+    try:
+        run_frozen(
+            stock_code,
+            frozen_dir,
+            metadata,
+            lambda: create_acceptance_database(get_settings()),
+        )
+    except FrozenAcceptanceError as exc:
+        raise AcceptanceError(str(exc)) from exc
 
 
 def verify_database_identity(engine, name: str) -> None:
@@ -217,6 +334,27 @@ def verify_database_identity(engine, name: str) -> None:
     if not str(version).startswith("8.0.") or "MariaDB" in str(version) or int(port) != 3307 or database != name:
         raise AcceptanceError("connected database identity check failed")
     print(json.dumps({"mysql_version": version, "port": port, "database": database}), flush=True)
+
+
+def record_response_mismatches(record, data: dict) -> list[str]:
+    """Shared with ``scripts/frozen_acceptance.py``; keep the name stable."""
+    mismatches = []
+    if record.id != data.get("report_id"):
+        mismatches.append("report_id")
+    ignored = {"report_id", "snapshot_status", "created_at", "data_as_of"}
+    mismatches.extend(
+        key
+        for key, value in data.items()
+        if key not in ignored and getattr(record, key) != value
+    )
+    api_data_as_of = datetime.fromisoformat(data["data_as_of"].replace("Z", "+00:00"))
+    if record.data_as_of != api_data_as_of.replace(tzinfo=None):
+        mismatches.append("data_as_of")
+    return mismatches
+
+
+def _record_matches_response(record, data: dict) -> bool:
+    return not record_response_mismatches(record, data)
 
 
 def install_acceptance_headers(app, package=None) -> None:
@@ -286,6 +424,10 @@ def main(argv=None) -> int:
             if args.frozen_dir:
                 raise AcceptanceError("--llm-only cannot be combined with a frozen package")
             asyncio.run(validate_llm_connection())
+        elif args.migration_only:
+            if args.frozen_dir:
+                raise AcceptanceError("--migration-only cannot use a frozen package")
+            validate_mysql_v1_upgrade()
         elif args.serve:
             serve_acceptance(args.frozen_dir, args.metadata)
         elif args.mysql:

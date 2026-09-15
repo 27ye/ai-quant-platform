@@ -65,6 +65,8 @@ GET  /api/v1/stocks/{stock_code}/news
 POST /api/v1/backtests
 GET  /api/v1/backtests/{backtest_id}
 POST /api/v1/ai/analyze
+GET  /api/v1/ai/reports
+GET  /api/v1/ai/reports/{report_id}
 ```
 
 ## 4. 股票搜索与信息
@@ -251,7 +253,17 @@ AI Service 内部调用 Stock、Quant、Backtest、News Service，前端只传 `
     "advantages": ["..."],
     "risks": ["..."],
     "conclusion": "...",
-    "model_name": "..."
+    "model_name": "...",
+    "report_id": 101,
+    "created_at": "2026-09-15T08:30:00Z",
+    "data_as_of": "2026-09-15T08:29:40Z",
+    "source_mode": "live",
+    "prompt_version": "v2.0",
+    "context_schema_version": "v2.0",
+    "output_schema_version": "v2.0",
+    "context_hash": "64-character SHA-256 hex digest",
+    "snapshot_status": "complete",
+    "context_snapshot": {}
   }
 }
 ```
@@ -264,6 +276,28 @@ AI Service 内部调用 Stock、Quant、Backtest、News Service，前端只传 `
 - `advantages`、`risks` 为字符串数组。
 - 其余分析字段由 LLM 生成，并且必须通过 Structured Output Schema 校验。
 - 数据不足时返回 `40003`，LLM 调用或输出校验失败时返回 `50005`。
+- Prompt 与 `context_snapshot` 使用同一个 `AnalysisContext` 对象；哈希基于字段排序、固定分隔符的 UTF-8 JSON。
+- `source_mode` 允许 `live`、`cache`、`frozen`、`unknown`。新报告为 `complete`；V1 旧记录为 `legacy_missing`，不按当前数据补写历史快照。
+- AI 始终解释默认量化评分与默认回测结果，不引用用户参数化回测。
+
+### 9.1 报告历史列表
+
+```http
+GET /api/v1/ai/reports?stock_code=600519&page=1&page_size=20
+```
+
+- `stock_code` 可选，提供时必须是 6 位字符串。
+- `page` 默认 1、最小 1；`page_size` 默认 20、范围 1–100。
+- 按 `created_at DESC, id DESC` 排序。
+- 返回 `items`、`total`、`page`、`page_size`；列表项不包含 `context_snapshot`。
+
+### 9.2 报告历史详情
+
+```http
+GET /api/v1/ai/reports/101
+```
+
+返回生成时保存的报告和上下文快照，不重新调用行情、量化、新闻或 LLM。报告不存在时返回 HTTP 404、业务码 `40005`、消息 `report not found`。
 
 ## 10. 错误码
 
@@ -273,6 +307,7 @@ AI Service 内部调用 Stock、Quant、Backtest、News Service，前端只传 `
 40002    stock not found
 40003    insufficient stock data
 40004    invalid strategy
+40005    report not found
 50001    data provider error
 50002    database error
 50003    quant calculation error

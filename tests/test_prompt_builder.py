@@ -3,10 +3,24 @@ from datetime import date, datetime
 from backend.app.ai.prompts import SYSTEM_PROMPT, build_analysis_messages
 from backend.app.schemas.ai import (
     AnalysisContext,
+    DataProvenance,
     MarketSnapshotContext,
     NewsItemContext,
     StockAnalysisContext,
 )
+
+
+def _provenance(news_count):
+    return DataProvenance(
+        source_mode="live",
+        provider="test",
+        market_start_date=date(2026, 1, 1),
+        market_end_date=date(2026, 8, 31),
+        market_rows=120,
+        news_status="available" if news_count else "empty",
+        news_count=news_count,
+        retrieved_at=datetime(2026, 8, 31, 15, 0, 0),
+    )
 
 
 def test_prompt_contains_schema_context_and_safety_boundary():
@@ -23,6 +37,7 @@ def test_prompt_contains_schema_context_and_safety_boundary():
             )
         ],
         data_as_of=datetime(2026, 8, 31, 15, 0, 0),
+        provenance=_provenance(1),
     )
 
     messages = build_analysis_messages(context)
@@ -46,6 +61,7 @@ def test_prompt_explicitly_marks_empty_news_as_unavailable():
         ),
         news=[],
         data_as_of=datetime(2026, 8, 31, 15, 0, 0),
+        provenance=_provenance(0),
     )
 
     messages = build_analysis_messages(context)

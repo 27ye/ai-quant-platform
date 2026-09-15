@@ -52,6 +52,13 @@ class StockService:
     def __init__(self, provider: Optional[StockDataProvider] = None) -> None:
         self._provider = provider or AKShareStockProvider()
 
+    @property
+    def provider_name(self) -> str:
+        name = type(self._provider).__name__
+        if name == "AKShareStockProvider":
+            return "akshare"
+        return name
+
     def get_daily_kline(
         self,
         stock_code: str,
