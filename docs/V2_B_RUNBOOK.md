@@ -90,7 +90,6 @@ curl.exe "http://127.0.0.1:8000/api/v1/backtests?stock_code=600519"
 运维建议：目录同步与多股票取数**低频执行**；不要在源抖动时高频重试（会加重限流）。
 
 ## 6. 当前证据（B 侧）
-
 | 编号 | 证据 |
 |---|---|
 | V01 | 600519 / 000001 各 243 行真实日线（2025-09-15~2026-09-15）；300750 在源不可用窗口返回 `50001`，等待下一轮重试 |
@@ -98,4 +97,17 @@ curl.exe "http://127.0.0.1:8000/api/v1/backtests?stock_code=600519"
 | V03 | 注入超时/畸形报文/数据库失败的用例见 `tests/test_provider_retry.py`、`tests/test_stock_catalog.py`、`tests/test_data_status.py`；**API 层错误码契约**见 `tests/test_v2_error_contract.py`（`50001`/`50002`/`40003`/`40005`，且失败不留下成功记录） |
 | V04 | 省略 `parameters` 的旧请求与 V1 冻结基线一致（`final_equity 90834.22588204397`、12 次往返/24 条订单） |
 | V05 | 两组参数产生独立 `backtest_id`；详情 0.02s 读快照；未知 ID `404/40005` |
-| V09 | 空库初始化、V1 库升级（1→4，旧数据保留）、重复执行、旧记录缺快照标注均有用例与真库演练 |
+| V09 | 空库初始化、V1 库升级（1→5，旧数据保留）、重复执行、旧记录缺快照标注均有用例与真库演练 |
+
+## 7. 与 D 的 V2 分支（`feature/v2-d-report-history`）集成注意事项
+
+B 已在本机做了一次集成预演（`feature/v2-b-market-data` + D 分支，**结果 308 passed**）。合并时需处理三处：
+
+| 冲突/缺陷 | 处理 |
+|---|---|
+| `db/migrations.py` | 采用 **B 的统一分步迁移**（D 分支独立重写的 v1→v2 被取代）。AI 快照列已作为 **v5** 纳入同一序列；`apply_migrations` 末尾有收敛步骤，即使版本行与实际结构不一致（两边都曾用「v2」表示不同内容）也会补齐缺失表/列 |
+| `core/errors.py` | **D 的 `ReportNotFoundError` 需从 `40005` 改为 `40006`**：`40005` 已被 `BacktestNotFoundError` 占用。契约口径：`40005 = backtest not found`、`40006 = report not found` |
+| `services/market_data_service.py` | 保留双方：D 的 `get_query_provenance()`（请求内来源，供 AI 快照）与 B 的 `stock_daily_sync`（持久来源，供 data-status）并存，互不替代 |
+| 相关测试 | `tests/test_db_migrations.py`（AI 列现在是第 5 步）、`tests/test_ai_api.py`（报告不存在断言改为 `40006`） |
+
+建议合并次序：**先合 B 的迁移与数据服务，再让 D 的分支 rebase/合并**，由 D 按上表调整三处即可全绿。
