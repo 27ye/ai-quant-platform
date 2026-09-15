@@ -57,6 +57,43 @@ def write_json(path: Path, payload) -> None:
     )
 
 
+def _rows_in_file(path: Path) -> int:
+    if not path.exists():
+        return 0
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return 0
+    return len(payload) if isinstance(payload, list) else 0
+
+
+def _artifact_entry(path: Path, representation: str) -> dict | None:
+    """Describe a delivery file that exists on disk (never an in-memory only run).
+
+    A later capture round that hits an unavailable window must not erase an
+    artefact an earlier round already produced, so the manifest is built from
+    what is actually on disk - including its own actual window.
+    """
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(payload, list) or not payload:
+        return None
+    dates = [row.get("trade_date") for row in payload if row.get("trade_date")]
+    captured = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+    return {
+        "path": str(path.relative_to(PROJECT_ROOT)),
+        "rows": len(payload),
+        "sha256": sha256_of(path),
+        "captured_at_utc": captured.isoformat(),
+        "actual_window": [min(dates), max(dates)] if dates else None,
+        "representation": representation,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stock-code", action="append", dest="codes")
@@ -116,25 +153,24 @@ def main() -> int:
                 normalized_error = f"{type(exc).__name__}: {exc}"[:200]
 
             window = f"{args.start_date:%Y%m%d}_{args.end_date:%Y%m%d}"
-            files = {}
+            raw_path = out_dir / f"{code}_qfq_raw_{window}.json"
+            norm_path = out_dir / f"{code}_qfq_normalized_{window}.json"
             if raw_rows:
-                raw_path = out_dir / f"{code}_qfq_raw_{window}.json"
                 write_json(raw_path, raw_rows)
-                files["raw"] = {
-                    "path": str(raw_path.relative_to(PROJECT_ROOT)),
-                    "rows": len(raw_rows),
-                    "sha256": sha256_of(raw_path),
-                    "representation": "provider-native values (no 4/2/6 rounding)",
-                }
             if normalized_rows:
-                norm_path = out_dir / f"{code}_qfq_normalized_{window}.json"
                 write_json(norm_path, normalized_rows)
-                files["normalized"] = {
-                    "path": str(norm_path.relative_to(PROJECT_ROOT)),
-                    "rows": len(normalized_rows),
-                    "sha256": sha256_of(norm_path),
-                    "representation": "canonical 4/2/6 rounding; this is what B passes to C",
-                }
+
+            # Manifest entries come from disk, so a later round that hits an
+            # unavailable window cannot erase an artefact captured earlier.
+            files = {
+                "raw": _artifact_entry(
+                    raw_path, "provider-native values (no 4/2/6 rounding)"
+                ),
+                "normalized": _artifact_entry(
+                    norm_path,
+                    "canonical 4/2/6 rounding; this is what B passes to C",
+                ),
+            }
 
             def _span(rows):
                 if not rows:
@@ -150,15 +186,23 @@ def main() -> int:
                 "source": "AKShareStockProvider / stock_zh_a_hist (eastmoney)",
                 "required_fields": list(REQUIRED_FIELDS),
                 "extra_fields": ["amount", "turnover_rate", "change_pct"],
-                "raw": {**files.get("raw", {}), "actual_window": _span(raw_rows), "error": raw_error},
+                "raw": {
+                    **(files["raw"] or {}),
+                    "actual_window": _span(raw_rows) or (files["raw"] or {}).get("actual_window"),
+                    "this_run_error": raw_error,
+                    "preserved_from_earlier_round": bool(files["raw"]) and not raw_rows,
+                },
                 "normalized": {
-                    **files.get("normalized", {}),
-                    "actual_window": _span(normalized_rows),
-                    "error": normalized_error,
+                    **(files["normalized"] or {}),
+                    "actual_window": _span(normalized_rows)
+                    or (files["normalized"] or {}).get("actual_window"),
+                    "this_run_error": normalized_error,
+                    "preserved_from_earlier_round": bool(files["normalized"])
+                    and not normalized_rows,
                 },
                 "missing": {
-                    "raw_unavailable": raw_error is not None,
-                    "normalized_unavailable": normalized_error is not None,
+                    "raw_unavailable": files["raw"] is None,
+                    "normalized_unavailable": files["normalized"] is None,
                     "note": "incremental provider availability: retry low-frequency before delivery",
                 },
                 "database": settings.mysql_database,
