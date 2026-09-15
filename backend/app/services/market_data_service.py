@@ -129,6 +129,14 @@ class MarketDataSource(Protocol):
         """
         ...
 
+    def get_query_provenance(self, stock_code: str) -> dict[str, str]:
+        """Return ``source_mode``/``provider`` for the last query of a stock.
+
+        Persisted into AI report snapshots, so a source that cannot attest its
+        own provenance must fail loudly instead of silently omitting it.
+        """
+        ...
+
 
 class MarketDataRepository:
     """Upsert/read access to ``stock_basic`` and ``stock_daily``."""

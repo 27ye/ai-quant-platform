@@ -223,6 +223,9 @@ def test_real_quant_pipeline_and_request_local_cache():
             calls.append("market")
             return list(reversed(rows))
 
+        def get_query_provenance(self, stock_code):
+            return {"source_mode": "cache", "provider": "test-provider"}
+
     def pipeline(frame):
         calls.append("quant")
         return analyze_quant_dataframe(frame)

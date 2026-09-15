@@ -153,11 +153,13 @@ class StockQuantAnalysisAdapter:
         # that same data here; never fetch or round a second copy for Quant.
         frame = pd.DataFrame([row.model_dump() for row in rows])
         frame = frame.sort_values("trade_date").reset_index(drop=True)
-        metadata_getter = getattr(self._market_data_source, "get_query_provenance", None)
-        metadata = metadata_getter(stock_code) if callable(metadata_getter) else {}
+        # MarketDataSource declares this hook; provenance lands in persisted
+        # report snapshots, so a missing/empty answer must surface as an error
+        # rather than a silent "unknown" baked into history.
+        metadata = self._market_data_source.get_query_provenance(stock_code)
         self._market_provenance[stock_code] = MarketDataProvenance(
-            source_mode=metadata.get("source_mode", "unknown"),
-            provider=metadata.get("provider", type(self._market_data_source).__name__),
+            source_mode=metadata["source_mode"],
+            provider=metadata["provider"],
             market_start_date=frame.iloc[0]["trade_date"],
             market_end_date=frame.iloc[-1]["trade_date"],
             market_rows=len(frame),

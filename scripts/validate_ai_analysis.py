@@ -210,7 +210,7 @@ def validate_mysql(stock_code: str) -> None:
             if len(records) != 1:
                 raise AcceptanceError("expected exactly one persisted report")
             record = records[0]
-            mismatches = _record_response_mismatches(record, data)
+            mismatches = record_response_mismatches(record, data)
             if mismatches:
                 raise AcceptanceError(
                     "persisted report mismatch fields: " + ",".join(mismatches)
@@ -336,7 +336,8 @@ def verify_database_identity(engine, name: str) -> None:
     print(json.dumps({"mysql_version": version, "port": port, "database": database}), flush=True)
 
 
-def _record_response_mismatches(record, data: dict) -> list[str]:
+def record_response_mismatches(record, data: dict) -> list[str]:
+    """Shared with ``scripts/frozen_acceptance.py``; keep the name stable."""
     mismatches = []
     if record.id != data.get("report_id"):
         mismatches.append("report_id")
@@ -353,7 +354,7 @@ def _record_response_mismatches(record, data: dict) -> list[str]:
 
 
 def _record_matches_response(record, data: dict) -> bool:
-    return not _record_response_mismatches(record, data)
+    return not record_response_mismatches(record, data)
 
 
 def install_acceptance_headers(app, package=None) -> None:

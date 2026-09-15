@@ -8,6 +8,7 @@ from typing import Optional, Protocol
 
 from pydantic import ValidationError
 from sqlalchemy import func
+from sqlalchemy.engine import Row
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -177,7 +178,9 @@ class SQLAlchemyAIAnalysisRepository:
             raise DatabaseOperationError() from exc
 
     @staticmethod
-    def _to_summary(record: AIAnalysis) -> AIReportSummary:
+    def _to_summary(record: Row) -> AIReportSummary:
+        # ``list_reports`` selects individual columns plus the labeled
+        # ``has_snapshot`` expression, so this receives a Row, not an ORM object.
         return AIReportSummary(
             report_id=record.id,
             stock_code=record.stock_code,

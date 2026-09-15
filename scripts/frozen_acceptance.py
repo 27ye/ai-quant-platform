@@ -210,10 +210,10 @@ def validate_mysql_frozen(stock_code: str, frozen_dir: str, metadata: Optional[s
             if len(records) != 2:
                 raise FrozenAcceptanceError("expected exactly two persisted frozen reports")
             response_data = [first_report.json()["data"], second_report.json()["data"]]
-            from scripts.validate_ai_analysis import _record_response_mismatches
+            from scripts.validate_ai_analysis import record_response_mismatches
 
             for record, data in zip(records, response_data):
-                mismatches = _record_response_mismatches(record, data)
+                mismatches = record_response_mismatches(record, data)
                 if mismatches:
                     raise FrozenAcceptanceError(
                         "persisted report mismatch fields: " + ",".join(mismatches)
