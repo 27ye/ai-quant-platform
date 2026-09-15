@@ -34,3 +34,6 @@ Thumbs.db
 /frozen/
 
 .tmp/
+
+# Local tool session state
+.omx/
