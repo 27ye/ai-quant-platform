@@ -32,14 +32,12 @@ const router = createRouter({
     {
       path: '/stock/:code/ai-reports',
       name: 'ai-report-history',
-      component: () => import('../views/HistoryPlaceholderView.vue'),
-      props: { title: 'AI 报告历史', plannedApi: 'GET /api/v1/ai/reports' },
+      component: () => import('../views/AIReportHistoryView.vue'),
     },
     {
       path: '/ai/reports/:id',
       name: 'ai-report-detail',
-      component: () => import('../views/HistoryPlaceholderView.vue'),
-      props: { title: 'AI 报告详情', plannedApi: 'GET /api/v1/ai/reports/{id}' },
+      component: () => import('../views/AIReportDetailView.vue'),
     },
     {
       // 未匹配路径一律回首页
