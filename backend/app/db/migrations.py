@@ -21,7 +21,7 @@ import backend.app.models  # noqa: F401  (register all ORM models on Base)
 from backend.app.db.base import Base
 
 #: Current schema revision. Bump only when a new migration step is added below.
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 _SCHEMA_VERSION_DDL = (
     "CREATE TABLE IF NOT EXISTS schema_version ("
@@ -63,10 +63,31 @@ def _migration_v2(connection: Connection) -> None:
     connection.execute(text(_STOCK_CATALOG_SYNC_DDL))
 
 
+# Mirrors ``backend.app.models.stock_daily_sync.StockDailySync``.
+_STOCK_DAILY_SYNC_DDL = (
+    "CREATE TABLE IF NOT EXISTS stock_daily_sync ("
+    " stock_code VARCHAR(10) NOT NULL PRIMARY KEY,"
+    " mode VARCHAR(20) NOT NULL,"
+    " source VARCHAR(200) NULL,"
+    " row_count INT NOT NULL DEFAULT 0,"
+    " first_trade_date DATE NULL,"
+    " last_trade_date DATE NULL,"
+    " last_success_at DATETIME NULL,"
+    " last_attempt_at DATETIME NOT NULL,"
+    " last_error VARCHAR(500) NULL)"
+)
+
+
+def _migration_v3(connection: Connection) -> None:
+    """V2 B2: per-stock daily-bar provenance for the data-status endpoint."""
+    connection.execute(text(_STOCK_DAILY_SYNC_DDL))
+
+
 #: Ordered ``(version, step)`` pairs. Append new steps; never reorder.
 MIGRATIONS: List[Tuple[int, Callable[[Connection], None]]] = [
     (1, _migration_v1),
     (2, _migration_v2),
+    (3, _migration_v3),
 ]
 
 

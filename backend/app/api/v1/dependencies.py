@@ -13,6 +13,7 @@ from backend.app.services.ai_analysis import (
     SQLAlchemyAIAnalysisRepository,
 )
 from backend.app.services.ai_context_adapter import StockQuantAnalysisAdapter
+from backend.app.services.data_status_service import DataStatusService
 from backend.app.services.market_data_service import (
     MarketDataRepository, MarketDataService, MarketDataSource,
 )
@@ -74,6 +75,27 @@ def get_market_data_source(
     return MarketDataService(
         stock_service=stock_service,
         repository=MarketDataRepository(db),
+        trading_days=count_trading_days,
+    )
+
+
+def get_data_status_service(
+    db: Session = Depends(get_db),
+    trading_calendar: TradingCalendarProvider = Depends(get_trading_calendar_provider),
+) -> DataStatusService:
+    """Data provenance/freshness for one stock (V2 B2)."""
+
+    def count_trading_days(start, end):
+        try:
+            return trading_calendar.count_between(start, end)
+        except DataProviderError:
+            raise
+        except Exception as exc:
+            raise DataProviderError("trading calendar error") from exc
+
+    return DataStatusService(
+        market_repository=MarketDataRepository(db),
+        catalog_repository=StockCatalogRepository(db),
         trading_days=count_trading_days,
     )
 

@@ -3,6 +3,7 @@ from backend.app.models.backtest_result import BacktestResult
 from backend.app.models.stock_basic import StockBasic
 from backend.app.models.stock_catalog_sync import StockCatalogSync
 from backend.app.models.stock_daily import StockDaily
+from backend.app.models.stock_daily_sync import StockDailySync
 from backend.app.models.stock_indicator import StockIndicator
 from backend.app.models.stock_news import StockNews
 
@@ -12,6 +13,7 @@ __all__ = [
     "StockBasic",
     "StockCatalogSync",
     "StockDaily",
+    "StockDailySync",
     "StockIndicator",
     "StockNews",
 ]

@@ -100,6 +100,8 @@ GET /api/v1/stocks/{stock_code}/data-status
       "last_refreshed_at": "2026-09-14T12:03:00+08:00",
       "coverage": "known",
       "expected_trading_days": 403,
+      "last_attempt_at": "2026-09-15T09:27:53+08:00",
+      "last_error": "StockDataProviderError: ...",
       "freshness": { "status": "stale", "stale_days": 14, "max_stale_days": 3 }
     },
     "as_of": "2026-09-14T12:05:00+08:00"
@@ -109,8 +111,10 @@ GET /api/v1/stocks/{stock_code}/data-status
 
 字段规则：
 
-- `kline.mode` ∈ `cache` | `live` | `frozen`；`freshness.status` ∈ `fresh` | `stale` | `unknown`。
-- `coverage` 与 `expected_trading_days` 来自**交易日历**；覆盖未知必须显式返回 `unknown`，**不得用自然工作日顶替**。
+- `kline.mode` ∈ `live`（实时抓取后落库）| `frozen`（冻结包导入）| `unknown`（**无刷新元数据，不猜**）。
+- `kline.freshness.status` ∈ `fresh` | `stale` | `unknown`（无可用 bar）。
+- `last_refreshed_at` 取**最近一次成功**刷新时间（无元数据时退回 bars 的最后写入时间）；`last_attempt_at`/`last_error` 反映**最近一次尝试**，失败不会抹掉成功信息。
+- `coverage` 与 `expected_trading_days` 来自**交易日历**；日历无法证明时必须返回 `unknown`，**不得用自然工作日顶替**。
 - 状态必须与本次请求实际使用的数据一致，不能单独用来证明历史报告来源（报告/回测仍携带自身快照元信息）。
 
 ## 5. 回测契约（B3 / B4，扩展）
@@ -138,9 +142,14 @@ GET /api/v1/stocks/{stock_code}/data-status
 
 ## 6. 迁移清单（B4）
 
-`schema_version` 由 1 → 2，分步、事务内执行、**成功后才写入版本号**。
+`schema_version` 由 1 → 3，分步、事务内执行、**成功后才写入版本号**。
 
-**v2 新增表**：`stock_catalog_sync`（见 3.1）。
+**新增表**：
+
+| 版本 | 表 | 用途 |
+|---|---|---|
+| v2 | `stock_catalog_sync` | 目录同步元数据（见 3.1） |
+| v3 | `stock_daily_sync` | 每只股票的行情来源元数据（mode / source / 行数 / 区间 / 最近成功与最近尝试 / 最近错误），供 data-status 与诊断使用 |
 
 **v2 新增列（回测快照，字段以 C1 定稿为准）**：
 

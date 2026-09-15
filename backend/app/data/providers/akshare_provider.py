@@ -83,6 +83,8 @@ class AKShareStockProvider(StockDataProvider):
     catalog_market_filter = "m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048"
     #: Which host actually served the last :meth:`fetch_stock_catalog` call.
     last_catalog_source: Optional[str] = None
+    #: Which host actually served the last successful :meth:`get_daily_kline`.
+    last_kline_source: Optional[str] = None
 
     def _call_with_timeout(self, call, timeout):
         """Run ``call`` in a bounded daemon thread, raising if it exceeds ``timeout``.
@@ -173,6 +175,7 @@ class AKShareStockProvider(StockDataProvider):
         except Exception as exc:
             raise StockDataProviderError(f"AKShare request failed for {stock_code}: {exc}") from exc
 
+        self.last_kline_source = "akshare.stock_zh_a_hist"
         return self._normalize_daily_kline(raw_data, stock_code)
 
     def search_stocks(self, keyword: str) -> List[Dict[str, str]]:
@@ -534,6 +537,7 @@ class AKShareStockProvider(StockDataProvider):
             raise StockDataSchemaError(
                 f"delayed host daily kline rows are malformed for {stock_code}"
             )
+        self.last_kline_source = f"{self.delayed_base_url}/api/qt/stock/kline/get"
         return self._normalize_daily_kline(pd.DataFrame(rows), stock_code)
 
     def get_stock_news(self, stock_code: str, limit: int = 10) -> List[Dict[str, Any]]:

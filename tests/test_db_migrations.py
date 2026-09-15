@@ -47,8 +47,8 @@ def test_schema_version_tracker_kept_out_of_base_metadata():
     assert "schema_version" not in Base.metadata.tables
 
 
-def test_v1_database_upgrades_to_v2_without_losing_tables():
-    """An existing V1 database must gain the V2 table through a real step."""
+def test_v1_database_upgrades_without_losing_tables():
+    """An existing V1 database must gain every later table through real steps."""
     from sqlalchemy import text
 
     engine = _engine()
@@ -64,13 +64,15 @@ def test_v1_database_upgrades_to_v2_without_losing_tables():
         )
         connection.execute(text("INSERT INTO schema_version (version) VALUES (1)"))
 
-    assert "stock_catalog_sync" not in set(inspect(engine).get_table_names())
+    before = set(inspect(engine).get_table_names())
+    assert "stock_catalog_sync" not in before
+    assert "stock_daily_sync" not in before
     assert get_schema_version(engine) == 1
 
     assert apply_migrations(engine) == SCHEMA_VERSION
 
     tables = set(inspect(engine).get_table_names())
-    assert "stock_catalog_sync" in tables
+    assert {"stock_catalog_sync", "stock_daily_sync"} <= tables
     assert V1_TABLES <= tables  # V1 tables survive the upgrade
     assert get_schema_version(engine) == SCHEMA_VERSION
 
