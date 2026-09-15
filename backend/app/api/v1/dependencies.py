@@ -18,6 +18,10 @@ from backend.app.services.market_data_service import (
 )
 from backend.app.services.news_service import NewsRepository, NewsService
 from backend.app.services.quant_service import QuantService
+from backend.app.services.stock_catalog_service import (
+    StockCatalogRepository,
+    StockCatalogService,
+)
 from backend.app.services.stock_service import StockService
 from backend.app.services.analysis_context import (
     AnalysisContextProvider,
@@ -37,6 +41,17 @@ def get_stock_service(
     provider: StockDataProvider = Depends(get_data_provider),
 ) -> StockService:
     return StockService(provider=provider)
+
+
+def get_stock_catalog_service(
+    provider: StockDataProvider = Depends(get_data_provider),
+    db: Session = Depends(get_db),
+) -> StockCatalogService:
+    """Catalog-backed search: local MySQL first, live provider only as fallback."""
+    return StockCatalogService(
+        provider=provider,
+        repository=StockCatalogRepository(db),
+    )
 
 
 def get_trading_calendar_provider() -> TradingCalendarProvider:

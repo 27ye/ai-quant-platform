@@ -8,6 +8,7 @@ from backend.app.data.providers.base import InvalidStockCodeError, StockDataProv
 from backend.app.api.v1.dependencies import (
     get_market_data_source,
     get_news_analysis_service,
+    get_stock_catalog_service,
     get_stock_service,
 )
 from backend.app.schemas.common import ApiResponse
@@ -18,6 +19,7 @@ from backend.app.services.market_data_service import (
     DEFAULT_MAX_STALE_DAYS,
     MarketDataSource,
 )
+from backend.app.services.stock_catalog_service import StockCatalogService
 from backend.app.services.stock_service import StockService
 from backend.app.services.stock_service import DEFAULT_MIN_KLINE_ROWS
 
@@ -29,12 +31,18 @@ _SUPPORTED_PERIOD = "daily"
 @router.get("/stocks/search", response_model=ApiResponse[List[StockBasicSchema]])
 def search_stocks(
     keyword: str,
-    service: StockService = Depends(get_stock_service),
+    service: StockCatalogService = Depends(get_stock_catalog_service),
 ) -> ApiResponse[List[StockBasicSchema]]:
-    if not keyword.strip():
-        raise InvalidParameterError("keyword must not be empty")
+    """Search the synced local catalog; live provider only when never synced.
+
+    Response shape is unchanged from V1. A synced catalog answers locally (an
+    empty list is a genuine "no match"); a provider failure on the unsynced
+    fallback path stays ``50001`` rather than looking like "no match".
+    """
     try:
-        data = service.search_stocks(keyword)
+        data = service.search(keyword)
+    except InvalidParameterError:
+        raise
     except StockDataProviderError as exc:
         raise DataProviderError(str(exc)) from exc
     return ApiResponse(data=data)

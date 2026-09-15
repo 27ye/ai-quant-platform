@@ -3,7 +3,7 @@ import math
 import threading
 import time
 from datetime import date, datetime
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 
 import pandas as pd
 
@@ -74,6 +74,15 @@ class AKShareStockProvider(StockDataProvider):
     max_background_workers = 4
     _worker_lock = threading.Lock()
     _active_workers = 0
+
+    #: Delayed-host catalog paging for the V2 stock-catalog sync. The clist
+    #: endpoint hard-caps one page at 100 rows, so a full-market sync walks
+    #: pages at low frequency; this was never viable for online search.
+    catalog_page_size = 100
+    catalog_max_pages = 80
+    catalog_market_filter = "m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048"
+    #: Which host actually served the last :meth:`fetch_stock_catalog` call.
+    last_catalog_source: Optional[str] = None
 
     def _call_with_timeout(self, call, timeout):
         """Run ``call`` in a bounded daemon thread, raising if it exceeds ``timeout``.
@@ -199,6 +208,144 @@ class AKShareStockProvider(StockDataProvider):
                 continue
             result.append({"stock_code": code, "stock_name": str(row[name_col]).strip()})
         return result
+
+    def fetch_stock_catalog(self) -> List[Dict[str, str]]:
+        """Return the full A-share catalog as ``[{stock_code, stock_name}]``.
+
+        Used by the V2 catalog sync (B1), never by online search. The primary
+        source is the same full-market spot snapshot as :meth:`search_stocks`;
+        when the realtime quote cluster is blocked, the same-source delayed host
+        is paged through ``/api/qt/clist/get`` at low frequency. Either way a
+        failure raises ``StockDataProviderError`` - an unreachable source must
+        never be reported as "the market has no stocks".
+        """
+        reasons: List[str] = []
+
+        try:
+            items = self._catalog_from_primary()
+            if items:
+                self.last_catalog_source = "akshare.stock_zh_a_spot_em"
+                return items
+            reasons.append("primary returned no rows")
+        except (*_TRANSIENT_ERRORS, StockDataProviderError) as exc:
+            # ``_call_with_retry`` surfaces the raw transient error (TimeoutError
+            # is OSError-derived), so both shapes must fall through to the
+            # delayed host instead of escaping as an unhandled exception.
+            reasons.append(f"primary: {type(exc).__name__}: {exc}")
+
+        try:
+            items = self._catalog_from_delay_host()
+            if items:
+                self.last_catalog_source = (
+                    f"{self.delayed_base_url}/api/qt/clist/get"
+                )
+                return items
+            reasons.append("delayed host returned no rows")
+        except (*_TRANSIENT_ERRORS, StockDataProviderError) as exc:
+            reasons.append(f"delayed host: {type(exc).__name__}: {exc}")
+
+        raise StockDataProviderError(
+            "stock catalog unavailable (" + "; ".join(reasons) + ")"
+        )
+
+    def _catalog_from_primary(self) -> List[Dict[str, str]]:
+        import akshare as ak
+
+        raw = self._call_with_retry(lambda: ak.stock_zh_a_spot_em())
+        if raw is None or raw.empty:
+            return []
+        code_col = self._pick_column(raw, ("代码", "code", "股票代码"))
+        name_col = self._pick_column(raw, ("名称", "name", "股票简称"))
+        if code_col is None or name_col is None:
+            raise StockDataSchemaError("AKShare spot response missing code/name columns")
+        return self._normalize_catalog_rows(
+            (row[code_col], row[name_col]) for _, row in raw.iterrows()
+        )
+
+    def _catalog_from_delay_host(self) -> List[Dict[str, str]]:
+        import requests
+
+        url = self.delayed_base_url + "/api/qt/clist/get"
+        collected: Dict[str, str] = {}
+        total: Optional[int] = None
+
+        for page in range(1, self.catalog_max_pages + 1):
+            try:
+                response = requests.get(
+                    url,
+                    params={
+                        "pn": str(page),
+                        "pz": str(self.catalog_page_size),
+                        "po": "1",
+                        "np": "1",
+                        "fltt": "2",
+                        "invt": "2",
+                        "fid": "f12",
+                        "fs": self.catalog_market_filter,
+                        "fields": "f12,f14",
+                    },
+                    timeout=self.fallback_timeout_seconds,
+                )
+                if response.status_code != 200:
+                    raise StockDataProviderError(
+                        f"delayed host catalog HTTP {response.status_code}"
+                    )
+                payload = response.json()
+            except StockDataProviderError:
+                raise
+            except Exception as exc:
+                raise StockDataProviderError(
+                    f"delayed host catalog request failed: {exc}"
+                ) from exc
+
+            if not isinstance(payload, dict) or payload.get("rc", 0) != 0:
+                raise StockDataProviderError("delayed host catalog returned a bad payload")
+            data = payload.get("data")
+            if not isinstance(data, dict):
+                raise StockDataProviderError(
+                    "delayed host catalog payload.data is not an object"
+                )
+            rows = data.get("diff")
+            if not isinstance(rows, list):
+                raise StockDataProviderError(
+                    "delayed host catalog payload.diff is not a list"
+                )
+            if total is None and isinstance(data.get("total"), int):
+                total = data["total"]
+
+            rows = [row for row in rows if isinstance(row, dict)]
+            for item in self._normalize_catalog_rows(
+                (row.get("f12"), row.get("f14")) for row in rows
+            ):
+                collected[item["stock_code"]] = item["stock_name"]
+
+            if not rows:
+                break
+            if total is not None and len(collected) >= total:
+                break
+
+        return [
+            {"stock_code": code, "stock_name": name}
+            for code, name in sorted(collected.items())
+        ]
+
+    @staticmethod
+    def _normalize_catalog_rows(pairs: Iterable) -> List[Dict[str, str]]:
+        """Normalize ``(code, name)`` pairs, dropping blank/invalid codes."""
+        items: Dict[str, str] = {}
+        for code_value, name_value in pairs:
+            code = AKShareStockProvider._cell_text(code_value)
+            name = AKShareStockProvider._cell_text(name_value)
+            if not code or not name:
+                continue
+            code = str(code).strip().zfill(6)
+            if len(code) != 6 or not code.isdigit():
+                continue
+            items[code] = str(name).strip()
+        return [
+            {"stock_code": code, "stock_name": name}
+            for code, name in sorted(items.items())
+        ]
 
     def get_stock_info(self, stock_code: str) -> Dict[str, Any]:
         """Return basic stock info (name, industry, market caps) via AKShare."""
