@@ -430,4 +430,3 @@ def test_persist_failure_is_recorded_as_a_failure_not_a_success(tmp_path, monkey
     assert entry["status"] == "export_failed"
     assert "mysql is down" in entry["error"]
     assert (entry["readback"] or {}).get("ok") is False
-
