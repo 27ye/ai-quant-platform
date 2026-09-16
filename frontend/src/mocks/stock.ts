@@ -2,6 +2,7 @@
 import type {
   ApiResponse,
   BacktestData,
+  BacktestRequest,
   IndicatorsItem,
   KlineItem,
   ScoreData,
@@ -154,10 +155,10 @@ export function mockScore(stockCode: string): ApiResponse<ScoreData> {
   }
 }
 
-export function mockBacktest(stockCode: string): ApiResponse<BacktestData> {
+export function mockBacktest(payload: BacktestRequest): ApiResponse<BacktestData> {
   const kline = buildKline(180, 20260902, 1350)
-  const initialCash = 100000
-  // 模拟简单策略：价格涨跌驱动权益，100000 起步的绝对权益
+  const initialCash = payload.parameters?.initial_cash ?? 100000
+  // 模拟简单策略：价格涨跌驱动权益，initial_cash 起步的绝对权益
   let equity = initialCash
   const equityCurve = kline.map((row, index) => {
     const prevClose = index > 0 ? kline[index - 1].close : row.close
@@ -168,20 +169,52 @@ export function mockBacktest(stockCode: string): ApiResponse<BacktestData> {
     }
   })
   const finalEquity = equityCurve[equityCurve.length - 1].equity
-  return {
-    code: 0,
-    message: 'success',
-    data: {
-      stock_code: stockCode,
-      initial_cash: initialCash,
-      final_equity: finalEquity,
-      total_return: Number((finalEquity / initialCash - 1).toFixed(4)),
-      annual_return: 0.21,
-      max_drawdown: -0.12,
-      sharpe_ratio: 1.36,
-      win_rate: 0.54,
-      trade_count: 23,
-      equity_curve: equityCurve,
-    },
+  const data: BacktestData = {
+    stock_code: payload.stock_code,
+    initial_cash: initialCash,
+    final_equity: finalEquity,
+    total_return: Number((finalEquity / initialCash - 1).toFixed(4)),
+    annual_return: 0.21,
+    max_drawdown: -0.12,
+    sharpe_ratio: 1.36,
+    win_rate: 0.54,
+    trade_count: 23,
+    equity_curve: equityCurve,
   }
+  // V2 语义（显式传 parameters）：附记录 ID、语义版本、基准/回撤曲线与成交记录
+  if (payload.parameters) {
+    const firstClose = kline[0].close
+    let peak = -Infinity
+    data.backtest_id = 12
+    data.semantics_version = 'v2_windowed'
+    data.benchmark_curve = kline.map((row) => ({
+      trade_date: row.trade_date,
+      benchmark_equity: Number(((row.close / firstClose) * initialCash).toFixed(2)),
+    }))
+    data.drawdown_curve = equityCurve.map((point) => {
+      peak = Math.max(peak, point.equity)
+      return {
+        trade_date: point.trade_date,
+        drawdown: Number((point.equity / peak - 1).toFixed(4)),
+      }
+    })
+    data.trades = [
+      {
+        order_id: 1,
+        signal_date: kline[0].trade_date,
+        execution_date: kline[1].trade_date,
+        side: 'buy',
+        execution_price: kline[1].open,
+        shares: Number((initialCash / kline[1].open).toFixed(2)),
+        gross_amount: initialCash,
+        fee: Number((initialCash * 0.001).toFixed(2)),
+        cash_after: 0,
+        position_after: 1,
+        round_trip_pnl: null,
+        round_trip_return: null,
+      },
+    ]
+    data.order_count = 1
+  }
+  return { code: 0, message: 'success', data }
 }

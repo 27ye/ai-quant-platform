@@ -2,10 +2,10 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { fetchIndicators, fetchKline, fetchScore, runBacktest } from '../api/stocks'
+import { fetchDataStatus, fetchIndicators, fetchKline, fetchScore } from '../api/stocks'
 import { fetchNews } from '../api/news'
 import type {
-  BacktestData,
+  DataStatus,
   IndicatorsItem,
   KlineItem,
   NewsItem,
@@ -16,6 +16,7 @@ import AIReportCard from '../components/ai/AIReportCard.vue'
 import ScoreCard from '../components/stock/ScoreCard.vue'
 import BacktestPanel from '../components/stock/BacktestPanel.vue'
 import NewsList from '../components/stock/NewsList.vue'
+import DataStatusBadge from '../components/stock/DataStatusBadge.vue'
 import { useHealthStore } from '../stores/health'
 
 const router = useRouter()
@@ -25,12 +26,11 @@ const stockCode = computed(() => String(router.currentRoute.value.params.code ??
 const kline = ref<KlineItem[]>([])
 const indicators = ref<IndicatorsItem[]>([])
 const score = ref<ScoreData | null>(null)
-const backtest = ref<BacktestData | null>(null)
 const news = ref<NewsItem[]>([])
+const dataStatus = ref<DataStatus | null>(null)
 const loading = ref(false)
 const loaded = ref(false)
 const scoreLoading = ref(true)
-const backtestLoading = ref(true)
 const newsLoading = ref(true)
 
 // Epoch 机制：切换股票时递增，过期响应直接丢弃
@@ -64,10 +64,9 @@ async function load() {
   kline.value = []
   indicators.value = []
   score.value = null
-  backtest.value = null
   news.value = []
+  dataStatus.value = null
   scoreLoading.value = true
-  backtestLoading.value = true
   newsLoading.value = true
 
   try {
@@ -96,15 +95,6 @@ async function load() {
     .finally(() => {
       if (epoch.value === currentEpoch) scoreLoading.value = false
     })
-  runBacktest(stockCode.value)
-    .then((res) => {
-      if (epoch.value !== currentEpoch) return
-      backtest.value = res.data
-    })
-    .catch(() => undefined)
-    .finally(() => {
-      if (epoch.value === currentEpoch) backtestLoading.value = false
-    })
   fetchNews(stockCode.value)
     .then((res) => {
       if (epoch.value !== currentEpoch) return
@@ -114,6 +104,13 @@ async function load() {
     .finally(() => {
       if (epoch.value === currentEpoch) newsLoading.value = false
     })
+  // 数据状态徽标：非关键路径，失败静默不展示
+  fetchDataStatus(stockCode.value)
+    .then((res) => {
+      if (epoch.value !== currentEpoch) return
+      dataStatus.value = res.data
+    })
+    .catch(() => undefined)
 }
 
 watch(stockCode, load, { immediate: true })
@@ -128,7 +125,7 @@ onMounted(() => health.refresh())
         <span class="stock-code">{{ stockCode }}</span>
         <span v-if="dateRange" class="date-range">{{ dateRange }}</span>
         <span v-if="health.acceptanceMode" class="mode-badge">{{ health.acceptanceMode }}</span>
-        <span class="v1-badge">V1 冻结演示 · 仅 600519 · 2025-01-02 ~ 2026-08-31</span>
+        <DataStatusBadge v-if="dataStatus" :status="dataStatus" />
       </div>
       <div v-if="latest" class="stock-quote">
         <span class="price">{{ latest.close.toFixed(2) }}</span>
@@ -159,12 +156,9 @@ onMounted(() => health.refresh())
       </div>
     </div>
 
-    <!-- 底部：回测 + 新闻（两列） -->
+    <!-- 底部：回测 + 新闻（两列）；回测面板自包含数据逻辑（v1 快速 + v2 参数化表单） -->
     <div class="bottom-grid">
-      <BacktestPanel v-if="backtest" :data="backtest" />
-      <el-card v-else-if="backtestLoading" shadow="never" class="skeleton-card">
-        <el-skeleton :rows="4" animated />
-      </el-card>
+      <BacktestPanel :stock-code="stockCode" />
 
       <!-- 新闻：加载完成后始终展示模块，空数组时组件内部显示「暂无新闻」 -->
       <NewsList v-if="!newsLoading" :items="news" />
@@ -224,16 +218,7 @@ onMounted(() => health.refresh())
   text-transform: uppercase;
 }
 
-/* V1 冻结演示徽标（详情页同步标注，避免误读为实时行情） */
-.v1-badge {
-  padding: 2px 10px;
-  border: 1px solid rgba(212, 169, 88, 0.4);
-  border-radius: 999px;
-  background: rgba(212, 169, 88, 0.08);
-  color: rgba(212, 169, 88, 0.9);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-}
+/* 数据状态徽标样式在 DataStatusBadge 组件内 */
 
 .stock-quote {
   display: flex;
