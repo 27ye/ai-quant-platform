@@ -5,6 +5,7 @@ successful-but-empty result:
 
 * provider/source failure  -> ``50001`` (HTTP 502)
 * database failure         -> ``50002`` (HTTP 500)
+* V2 engine unavailable    -> ``50004`` (HTTP 500)
 * insufficient warmup/data -> ``40003`` (HTTP 422)
 * unknown backtest id      -> ``40005`` (HTTP 404)
 """
@@ -171,6 +172,27 @@ class _ShortHistorySource:
         return rows
 
 
+class _StubCWindowedEntry:
+    """Minimal stand-in for C's V2 entry points.
+
+    C's code is still local-only, so without a stub a ``v2_windowed`` request
+    fails earlier with ``50004`` - a different failure mode from the warmup check
+    this test exercises.
+    """
+
+    parameters_unset = object()
+
+    def resolve(self, raw_parameters):
+        required = int(raw_parameters.get("ma_long_period", 20))
+        return type("_RequestConfig", (), {"required_warmup_rows": required})()
+
+    def validate_window(self, start_date, end_date):
+        return start_date, end_date
+
+    def run(self, frame, *, start_date, end_date, parameters):  # pragma: no cover
+        raise AssertionError("warmup must fail before C is called")
+
+
 def test_backtest_reports_40003_when_warmup_data_is_insufficient():
     engine = _engine()
     apply_migrations(engine)
@@ -183,6 +205,7 @@ def test_backtest_reports_40003_when_warmup_data_is_insufficient():
         ),
         market_data_source=_ShortHistorySource(),
         repository=repository,
+        c_entry_loader=_StubCWindowedEntry,
     )
     app.dependency_overrides[get_backtest_service] = lambda: service
     app.dependency_overrides[get_backtest_repository] = lambda: repository
@@ -204,4 +227,36 @@ def test_backtest_reports_40003_when_warmup_data_is_insufficient():
     assert response.status_code == 422
     assert response.json()["code"] == 40003
     # A rejected run must not leave a success record behind.
+    assert history.json()["data"]["total"] == 0
+
+
+def test_backtest_reports_50004_when_c_v2_entry_is_unavailable():
+    """C: unavailable V2 must fail loudly, never masquerade as a V1 success."""
+    engine = _engine()
+    apply_migrations(engine)
+    session = Session(bind=engine)
+    repository = BacktestRepository(session)
+    service = BacktestService(
+        quant_service=QuantService(
+            stock_service=StockService(provider=_FailingProvider()),
+            market_data_source=_ShortHistorySource(),
+        ),
+        market_data_source=_ShortHistorySource(),
+        repository=repository,
+        c_entry_loader=lambda: None,
+    )
+    app.dependency_overrides[get_backtest_service] = lambda: service
+    app.dependency_overrides[get_backtest_repository] = lambda: repository
+    try:
+        response = TestClient(app).post(
+            "/api/v1/backtests",
+            json={"stock_code": STOCK_CODE, "parameters": {}},
+        )
+        history = TestClient(app).get("/api/v1/backtests")
+    finally:
+        app.dependency_overrides.clear()
+        session.close()
+
+    assert response.status_code == 500
+    assert response.json()["code"] == 50004
     assert history.json()["data"]["total"] == 0

@@ -135,6 +135,11 @@ GET /api/v1/stocks/{stock_code}/data-status
 ### 5.2 响应与历史接口
 
 - `POST /api/v1/backtests` 响应新增：`backtest_id`、`semantics_version`、`effective_parameters`、`warmup_start_date`、`data_meta`。
+- `effective_parameters` 在 `v2_windowed` 下**只含白名单五字段**（`ma_short_period` / `ma_long_period` / `initial_cash` / `transaction_cost` / `slippage`）：其余算法配置归 C，B 不回填、不覆盖（例如基准口径 `first_open_to_last_close_no_cost`）。`v1_legacy` 仍保存完整 V1 配置。
+- `data_meta` 分别记录 **B 的 `frame_digest`**（交给 C 的那份数据帧摘要）与 **C 的 `c_data_hash`**，两者互不替代；此前把 B 的帧摘要命名为 `data_hash` 与该口径冲突，已改名。
+- 参数与日期的校验**在取数之前**完成；C 的 `resolve_backtest_request` 失败转成 `40001`，**不吞掉校验异常**。
+- C 的完整结果（`algorithm_version`、`warmup`、`initial_equity`、`execution_assumptions`、`input_snapshot` 封套、`data_hash` 等）**原样保存**在 `c_result` 列，历史详情从该快照读取而不是用舍入后的摘要列重拼；`GET /backtests/{id}?include_c_result=true` 返回完整封套。
+- C 的 V2 入口不可用时返回 **`50004 backtest error`** 且**不产生记录**，绝不回退到旧 `run_backtest` 再把结果标成 `v2_windowed`；省略 `parameters` 的 `v1_legacy` 路径行为不变。
 - 新增 `GET /api/v1/backtests?stock_code=&page=&page_size=`（`created_at DESC, id DESC`，`page_size` 默认 20、最大 100）。
 - 新增 `GET /api/v1/backtests/{backtest_id}`：返回**保存时的**参数、指标、曲线、成交与数据元信息；**GET 不取数、不重算**。
 - 未知 `backtest_id` → HTTP **404** + 新业务码 **`40005 backtest not found`**（不复用 `40002 股票不存在`）。
@@ -142,7 +147,7 @@ GET /api/v1/stocks/{stock_code}/data-status
 
 ## 6. 迁移清单（B4）
 
-`schema_version` 由 1 → 5，分步、事务内执行、**成功后才写入版本号**。
+`schema_version` 由 1 → 7，分步、事务内执行、**成功后才写入版本号**。
 
 **新增表**：
 
@@ -160,13 +165,20 @@ GET /api/v1/stocks/{stock_code}/data-status
 | | `equity_curve` JSON | 完整曲线（不靠旧 DECIMAL 摘要列重拼） |
 | | `orders` JSON | 成交明细 |
 | | `warmup_start_date` DATE | 预热区间起点 |
-| | `data_meta` JSON | 来源、模式、行数、实际截至日、数据哈希 |
-| | `effective_parameters` JSON | 本次实际生效参数（含默认值回填） |
+| | `data_meta` JSON | 来源、模式、行数、实际截至日；`frame_digest`（B）与 `c_data_hash`（C）**分开记录** |
+| | `effective_parameters` JSON | `v1_legacy`：完整 V1 配置；`v2_windowed`：**仅白名单五字段**（其余算法配置归 C） |
 
 **v5 新增列（AI，字段由 D 提供，B 写迁移）** —— 已按 D 的 `feature/v2-d-report-history` 落地：
 `ai_analysis` 补 `context_snapshot` JSON、`context_hash` CHAR(64)、`source_mode` VARCHAR(16)、
 `data_as_of` DATETIME、`prompt_version` VARCHAR(32)、`context_schema_version` VARCHAR(32)、
 `output_schema_version` VARCHAR(32)。
+
+**v6 / v7 新增列（C 对接，字段按 PR #10 评审）**：
+
+| 表 | 列 | 用途 |
+|---|---|---|
+| `backtest_result` | `input_snapshot` JSON（v6） | 送进 C 的逐行输入：最后 `long` 条预热 + 区间内全部行情 |
+| `backtest_result` | `c_result` JSON（v7） | C 的 `run_backtest_request` 完整结果，**原样保存**，历史详情自此读取 |
 
 > **版本号冲突提示**：D 的分支曾独立把上述 AI 列记为「v2」，与本文 v2（`stock_catalog_sync`）语义不同。
 > 统一后以 B 的分步序列为准（AI 列 = v5），并增加**收敛步骤**：版本号步骤执行完毕后，再用同一批

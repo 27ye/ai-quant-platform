@@ -17,7 +17,7 @@
 | 场景 | 结果 |
 |---|---|
 | 省略 `parameters`（v1_legacy） | `final_equity 90834.22588204397`、`total_return -0.09165774117956027`、12 次往返 / 24 条订单 —— 与 V1 冻结基线一致 |
-| 显式 `parameters`（v2_windowed，long=120） | `backtest_id=1`、`warmup_start_date=2025-01-29`、`warmup_rows=143`（≥121）、`rows=385`、`data_hash` 已记录 |
+| 显式 `parameters`（v2_windowed，long=120） | `backtest_id=1`、`warmup_start_date=2025-01-29`、`warmup_rows=143`（≥121）、`rows=385`、`data_meta.frame_digest`（B 的帧摘要）已记录；C 的 `data_hash` 单独记为 `data_meta.c_data_hash` |
 | 未知参数 | `400 / 40001`（取数前拒绝） |
 | 历史详情 | `GET /backtests/{id}` 0.02 秒返回 385 点曲线 + 14 条订单（读快照，不重算） |
 | 历史列表 | `total=3`，按 `created_at DESC` 新→旧 |

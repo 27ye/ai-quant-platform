@@ -1,0 +1,110 @@
+{
+ "generated_at_utc": "2026-09-16T00:06:35.589895+00:00",
+ "database": "ai_quant_test",
+ "window": [
+  "2024-12-01",
+  "2026-09-15"
+ ],
+ "note": "data_digest is B's frame_digest over the normalized rows, so the delivered file and the MySQL read-back are compared by value",
+ "stocks": [
+  {
+   "stock_code": "600519",
+   "mysql": {
+    "rows_in_window": 436,
+    "window": [
+     "2024-12-02",
+     "2026-09-15"
+    ],
+    "stored_rows": 539,
+    "stored_window": [
+     "2024-07-01",
+     "2026-09-15"
+    ],
+    "data_digest": "126d4b676d256e587e2d2afa155e58e5092ca5848d3913ebe9d3b515e810ff36",
+    "provenance": {
+     "mode": "live",
+     "source": "akshare.stock_zh_a_hist",
+     "last_success_at": "2026-09-15 01:46:21"
+    }
+   },
+   "normalized_file": {
+    "path": "frozen\\c-delivery\\600519_qfq_normalized_20241201_20260915.json",
+    "rows": 436,
+    "sha256": "75caedb816cd49d6b31f76dc3a398f86be0ac9b639ec43c72b0529c14e57ad7e",
+    "data_digest": "126d4b676d256e587e2d2afa155e58e5092ca5848d3913ebe9d3b515e810ff36"
+   },
+   "match": true,
+   "raw_file": {
+    "path": "frozen\\c-delivery\\600519_qfq_raw_20241201_20260915.json",
+    "sha256": "f645ea1dedf76f18d1676412319e35052d203e7ba36b61f9bf16bb5e83a1ed82",
+    "rows": 436
+   }
+  },
+  {
+   "stock_code": "000001",
+   "mysql": {
+    "rows_in_window": 436,
+    "window": [
+     "2024-12-02",
+     "2026-09-15"
+    ],
+    "stored_rows": 436,
+    "stored_window": [
+     "2024-12-02",
+     "2026-09-15"
+    ],
+    "data_digest": "5f9b06b15a549d2534a2b410625d34c280dd9342cdc770c09a79ff0595722756",
+    "provenance": {
+     "mode": "live",
+     "source": "akshare.stock_zh_a_hist",
+     "last_success_at": "2026-09-15 07:26:22"
+    }
+   },
+   "normalized_file": {
+    "path": "frozen\\c-delivery\\000001_qfq_normalized_20241201_20260915.json",
+    "rows": 436,
+    "sha256": "78189dfa5b8d877b579599803e7d62d2bde42a6cc3185643e67950e71d3cc99a",
+    "data_digest": "5f9b06b15a549d2534a2b410625d34c280dd9342cdc770c09a79ff0595722756"
+   },
+   "match": true,
+   "raw_file": {
+    "path": "frozen\\c-delivery\\000001_qfq_raw_20241201_20260915.json",
+    "sha256": "cf50922b1914cee945357c2cfb118715cc211e49d244a424f7c7b63e2581440e",
+    "rows": 436
+   }
+  },
+  {
+   "stock_code": "300750",
+   "mysql": {
+    "rows_in_window": 436,
+    "window": [
+     "2024-12-02",
+     "2026-09-15"
+    ],
+    "stored_rows": 436,
+    "stored_window": [
+     "2024-12-02",
+     "2026-09-15"
+    ],
+    "data_digest": "ca705033709b15c5c3440da55a865543863d81c7699e93503beed6f3b9203af9",
+    "provenance": {
+     "mode": "live",
+     "source": "akshare.stock_zh_a_hist",
+     "last_success_at": "2026-09-16 00:05:46"
+    }
+   },
+   "normalized_file": {
+    "path": "frozen\\c-delivery\\300750_qfq_normalized_20241201_20260915.json",
+    "rows": 436,
+    "sha256": "a8c03c0a31c7e635d4902c1ab0bbaad66d945307c23f38613480630780c44b21",
+    "data_digest": "ca705033709b15c5c3440da55a865543863d81c7699e93503beed6f3b9203af9"
+   },
+   "match": true,
+   "raw_file": {
+    "path": "frozen\\c-delivery\\300750_qfq_raw_20241201_20260915.json",
+    "sha256": "ceb7b86724f1bcfe23b638776b4355b8c961697914898fe88203ebe1a2ac9030",
+    "rows": 436
+   }
+  }
+ ]
+}

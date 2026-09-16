@@ -279,13 +279,17 @@ POST /api/v1/backtests
 | 显式非空 `parameters` | `v2_windowed` | 白名单字段覆盖，其余取默认 |
 | `parameters: null` 或含未知字段 | — | **取数前**返回 `40001`，不产生记录 |
 
-- 白名单（V2 B3）：`ma_short_period`、`ma_long_period`、`initial_cash`、`transaction_cost`、`slippage`；周期为整数且 `2 ≤ period ≤ 120`、`short < long`，资金为正，成本/滑点在 `[0,1)`。
+- 白名单（V2 B3）：`ma_short_period`、`ma_long_period`、`initial_cash`、`transaction_cost`、`slippage`；周期为整数且 `2 ≤ period ≤ 120`、`short < long`，资金为正，成本/滑点在 `[0,1)`。**只有这五个字段会转发给 C 的 `resolve_backtest_request` / `run_backtest_request`**（C 会拒绝非白名单字段）；其余算法配置归 C 所有，B 的默认值不得覆盖 C 的口径（例如基准 `first_open_to_last_close_no_cost`）。
 - 参数为**严格类型**（C 契约）：拒绝数字字符串（如 `"5"`）、布尔值（`true` 不得当作 1 / 1.0）、浮点周期、`NaN`/`Infinity`、未知字段，一律 `40001` 且在**取数前**拒绝。
 - `v2_windowed` 的**单次请求**只要求开始日前 **`ma_long_period` 条**有效预热 bar（默认 20；`long=120` 时 120 条，即「120 条预热 + 1 条区间内行情」即可，**不要求 121 条**）；预热不足或无区间内行情返回 `40003`。**验收数据包**另有「开始日前 ≥120 条」的覆盖要求（供覆盖全部允许的均线参数），这不是每次请求的门槛。
 - **窗口由 C 统一处理**：B 把「预热+区间」整段规范化数据交给 `run_backtest_request`，由 C 选取实际预热与回测窗口并返回**只覆盖回测区间**的曲线与订单（首日订单 `signal_date` 可在最后一个预热日，`execution_date` 必须在区间内）；B 不再自行裁剪。`data_meta.window_owner` 记录当前由谁裁窗口。
+- **参数与日期校验在取数之前完成**，且校验异常不被吞掉：C 的 `resolve_backtest_request` 失败会转成 `40001`，`validate_backtest_window` 也在取数前调用。
+- **C 的 V2 入口不可用时返回 `50004`，且不产生记录**：此时不得回退到旧 `run_backtest` 并把结果标成 `v2_windowed`。省略 `parameters` 的 `v1_legacy` 路径行为不变。
 - `v2_windowed` 会保存**送进 C 的输入快照**：**最后 `long` 条预热 + 区间内全部行情**（不含 B 为扩窗多取的更早历史）。详情默认只返回 `input_snapshot_available` / `input_snapshot_rows`；加 `?include_input_snapshot=true` 返回完整 `input_snapshot`（日期升序、ISO 字符串），供 C 核对。
+- **C 的完整结果原样保存**（迁移 v7 `c_result` 列），历史详情从该快照读取 `algorithm_version`、`warmup`、`initial_equity`、`execution_assumptions`、`data_hash`，不用舍入后的摘要列重新拼装。详情默认返回这些字段的平铺视图（`c_result_available`、`c_algorithm_version`、`c_data_hash`、`c_initial_equity`、`c_warmup`、`c_execution_assumptions`、`c_semantics_version`）；加 `?include_c_result=true` 返回完整 `c_result`。
 - 参数三种形态保持**互不混淆**：**省略** → `v1_legacy`；**显式 `{}`** → `v2_windowed` 默认参数；**显式 `null`** → `40001`（取数前拒绝）。
-- 响应在 V1 字段之外新增：`backtest_id`、`semantics_version`、`effective_parameters`、`warmup_start_date`、`warmup_rows`、`data_meta`（含请求/实际区间、参与计算行数 `rows`/`rows_in_window`、`data_hash`、`warmup_required_days`、`delivery_warmup_min_bars`、`window_owner`）、`snapshot_status`。
+- 响应在 V1 字段之外新增：`backtest_id`、`semantics_version`、`effective_parameters`、`warmup_start_date`、`warmup_rows`、`data_meta`（含请求/实际区间、参与计算行数 `rows`/`rows_in_window`、**B 的 `frame_digest`**、**C 的 `c_data_hash`**、`warmup_required_days`、`delivery_warmup_min_bars`、`window_owner`）、`snapshot_status`。
+  - `frame_digest`（B：交给 C 的那份数据帧的摘要）与 `c_data_hash`（C：其自身结果的哈希）**分别记录、互不替代**；此前 data_meta 把 B 的帧摘要命名为 `data_hash`，与该口径冲突，已改名。
 - `equity_curve` 固定为 `[{ "trade_date": "YYYY-MM-DD", "equity": 100000.0 }]`，不使用 `value/date/nav` 字段。
 - `equity` 表示**账户绝对权益**，默认从 `initial_cash=100000.0` 起；归一化净值 = `equity / initial_cash`，累计收益率 = `equity / initial_cash - 1`。
 - 响应同时返回 `stock_code`、`initial_cash`、`final_equity`、`total_return`。计算由 C 的量化模块提供，B 仅在 FastAPI 层包装并保存快照。
@@ -301,6 +305,7 @@ GET /api/v1/backtests/{backtest_id}
 - 详情返回**保存时**的参数、指标、三条曲线（`equity_curve`/`benchmark_curve`/`drawdown_curve`）、成交明细与 `data_meta`；**GET 不取数、不重算**。
 - 未知 `backtest_id` 返回 HTTP `404` + `40005`（不复用 `40002 股票不存在`）。
 - 旧 V1 记录只存了摘要指标，详情返回 `snapshot_status="missing"` 与 `snapshot_missing_reason`，**不用当前行情补造曲线**。
+- V2 记录额外返回 C 结果快照的平铺字段（见第 8 节）；`c_result_available=false` 表示该记录没有 C 的结果封套（V1 记录或 C 入口不可用时期的历史数据）。
 
 ## 9. AI 综合分析
 
@@ -364,6 +369,12 @@ AI Service 内部调用 Stock、Quant、Backtest、News Service，前端只传 `
 50004    backtest error
 50005    ai service error
 ```
+
+> **V2 补充口径**：
+> - `40005 = backtest not found`（B）；`40006 = report not found`（D，随 PR #10 落地，勿与 `40005` 互借）。
+> - `50004 backtest error` 用于**回测引擎无法服务该请求**：典型是 `v2_windowed` 请求到达但 C 的
+>   `run_backtest_request` 不可导入。此时接口明确失败并且**不写入任何回测记录**，绝不回退到旧
+>   `run_backtest` 再把结果标成 `v2_windowed`。省略 `parameters` 的 `v1_legacy` 路径不受影响。
 
 ## 11. 修改规则
 

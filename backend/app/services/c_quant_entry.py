@@ -17,10 +17,10 @@ C selects the warmup and backtest windows itself: B hands over the whole
 normalized frame (warmup + window) and must **not** pre-trim it, nor feed that
 frame to the old ``run_backtest`` as if it were the V2 result.
 
-C's code was still local-only when this adapter was written, so it is detected
-at import time: when present the V2 path uses it, and when absent the service
-keeps the previous behaviour and *says so* in ``data_meta.window_owner``
-instead of pretending the window semantics are already C's.
+C's code was still local-only when this adapter was written, so it is detected at
+import time: when present the V2 path uses it; when absent the service **fails
+the request explicitly** (``50004 backtest error``) and persists nothing, rather
+than running the old core and labelling its output ``v2_windowed``.
 """
 
 from __future__ import annotations
@@ -29,9 +29,6 @@ from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 WINDOW_OWNER_C = "C.run_backtest_request"
-WINDOW_OWNER_LEGACY_PENDING = (
-    "legacy run_backtest (pending C.run_backtest_request: C V2 code not pushed yet)"
-)
 SEMANTICS_V1_LEGACY = "v1_legacy"
 SEMANTICS_V2_WINDOWED = "v2_windowed"
 

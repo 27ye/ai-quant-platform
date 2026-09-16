@@ -1,0 +1,57 @@
+{
+ "stock_code": "000001",
+ "adjust": "qfq",
+ "frequency": "daily",
+ "requested_window": [
+  "2024-12-01",
+  "2026-09-15"
+ ],
+ "captured_at_utc": "2026-09-16T00:05:44.354171+00:00",
+ "source": "AKShareStockProvider / stock_zh_a_hist (eastmoney)",
+ "required_fields": [
+  "stock_code",
+  "trade_date",
+  "open",
+  "high",
+  "low",
+  "close",
+  "volume"
+ ],
+ "extra_fields": [
+  "amount",
+  "turnover_rate",
+  "change_pct"
+ ],
+ "raw": {
+  "path": "frozen\\c-delivery\\000001_qfq_raw_20241201_20260915.json",
+  "rows": 436,
+  "sha256": "cf50922b1914cee945357c2cfb118715cc211e49d244a424f7c7b63e2581440e",
+  "captured_at_utc": "2026-09-16T00:05:44.754529+00:00",
+  "actual_window": [
+   "2024-12-02",
+   "2026-09-15"
+  ],
+  "representation": "provider-native values (no 4/2/6 rounding)",
+  "this_run_error": null,
+  "preserved_from_earlier_round": false
+ },
+ "normalized": {
+  "path": "frozen\\c-delivery\\000001_qfq_normalized_20241201_20260915.json",
+  "rows": 436,
+  "sha256": "78189dfa5b8d877b579599803e7d62d2bde42a6cc3185643e67950e71d3cc99a",
+  "captured_at_utc": "2026-09-16T00:05:44.756511+00:00",
+  "actual_window": [
+   "2024-12-02",
+   "2026-09-15"
+  ],
+  "representation": "canonical 4/2/6 rounding; this is what B passes to C",
+  "this_run_error": null,
+  "preserved_from_earlier_round": false
+ },
+ "missing": {
+  "raw_unavailable": false,
+  "normalized_unavailable": false,
+  "note": "incremental provider availability: retry low-frequency before delivery"
+ },
+ "database": "ai_quant_test"
+}

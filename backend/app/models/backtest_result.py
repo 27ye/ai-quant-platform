@@ -47,3 +47,7 @@ class BacktestResult(Base):
     data_meta: Mapped[Optional[dict]] = mapped_column(JSON)
     #: Exact rows handed to C's core (warmup included) - migration v6.
     input_snapshot: Mapped[Optional[list]] = mapped_column(JSON)
+    #: C's complete ``run_backtest_request`` result, verbatim - migration v7.
+    #: History detail reads config/version/hash fields from here instead of
+    #: reassembling them from B's rounded summary columns.
+    c_result: Mapped[Optional[dict]] = mapped_column(JSON)

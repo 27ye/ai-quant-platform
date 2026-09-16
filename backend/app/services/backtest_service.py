@@ -26,6 +26,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from backend.app.core.errors import (
+    ApplicationError,
+    BacktestError,
     BacktestNotFoundError,
     DataProviderError,
     DatabaseOperationError,
@@ -39,7 +41,7 @@ from backend.app.schemas.backtest import BacktestParametersSchema
 from backend.app.schemas.stock import DailyKlineSchema
 from backend.app.services.c_quant_entry import (
     WINDOW_OWNER_C,
-    WINDOW_OWNER_LEGACY_PENDING,
+    CWindowedEntry,
     load_c_windowed_entry,
 )
 from backend.app.services.market_data_service import (
@@ -106,6 +108,20 @@ def warmup_required_days(config: QuantConfig) -> int:
     return config.ma_long_period
 
 
+def whitelisted_parameters(config: QuantConfig) -> Dict[str, Any]:
+    """The only five fields C's V2 entry points accept, taken from B's config.
+
+    C (PR #10 review): handing over the whole ``QuantConfig.to_parameters()``
+    payload makes C reject the request, because everything outside the whitelist
+    (``ma_medium_period``, ``macd_*``, ``benchmark_method``, ...) is C's own
+    algorithm configuration - and B's defaults there would silently overwrite
+    C's baseline (e.g. ``first_open_to_last_close_no_cost``). C owns those; B
+    only forwards the user-overridable five.
+    """
+    parameters = config.to_parameters()
+    return {name: parameters[name] for name in ALLOWED_PARAMETER_FIELDS}
+
+
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -168,6 +184,7 @@ class BacktestRepository:
         data_meta: Mapping[str, Any],
         strategy_version: Optional[str] = None,
         input_snapshot: Optional[Sequence[Mapping[str, Any]]] = None,
+        c_result: Optional[Mapping[str, Any]] = None,
     ) -> int:
         """Persist summary + curves + orders atomically; returns the new id."""
         try:
@@ -197,6 +214,7 @@ class BacktestRepository:
                 effective_parameters=dict(effective_parameters),
                 data_meta=dict(data_meta),
                 input_snapshot=list(input_snapshot) if input_snapshot is not None else None,
+                c_result=dict(c_result) if c_result is not None else None,
             )
             self._session.add(record)
             self._session.commit()
@@ -206,7 +224,11 @@ class BacktestRepository:
             raise DatabaseOperationError() from exc
 
     def get(
-        self, backtest_id: int, *, include_input_snapshot: bool = False
+        self,
+        backtest_id: int,
+        *,
+        include_input_snapshot: bool = False,
+        include_c_result: bool = False,
     ) -> Dict[str, Any]:
         try:
             record = self._session.get(BacktestResult, backtest_id)
@@ -214,7 +236,11 @@ class BacktestRepository:
             raise DatabaseOperationError() from exc
         if record is None:
             raise BacktestNotFoundError(f"backtest {backtest_id} not found")
-        return self._to_detail(record, include_input_snapshot=include_input_snapshot)
+        return self._to_detail(
+            record,
+            include_input_snapshot=include_input_snapshot,
+            include_c_result=include_c_result,
+        )
 
     def list(
         self,
@@ -274,11 +300,16 @@ class BacktestRepository:
 
     @classmethod
     def _to_detail(
-        cls, record: BacktestResult, *, include_input_snapshot: bool = False
+        cls,
+        record: BacktestResult,
+        *,
+        include_input_snapshot: bool = False,
+        include_c_result: bool = False,
     ) -> Dict[str, Any]:
         detail = cls._to_summary(record)
         data_meta = record.data_meta or {}
         snapshot = record.input_snapshot or []
+        c_result = record.c_result if isinstance(record.c_result, Mapping) else None
         detail.update(
             {
                 "warmup_start_date": _iso(record.warmup_start_date),
@@ -301,6 +332,19 @@ class BacktestRepository:
         )
         if include_input_snapshot:
             detail["input_snapshot"] = snapshot
+        # C's own result envelope. History reports the algorithm's configuration
+        # and hashes from here instead of B's rounded summary columns; the full
+        # payload stays opt-in because it repeats the curves and the snapshot.
+        detail["c_result_available"] = c_result is not None
+        if c_result is not None:
+            detail["c_semantics_version"] = c_result.get("semantics_version")
+            detail["c_algorithm_version"] = c_result.get("algorithm_version")
+            detail["c_data_hash"] = c_result.get("data_hash")
+            detail["c_initial_equity"] = c_result.get("initial_equity")
+            detail["c_warmup"] = c_result.get("warmup")
+            detail["c_execution_assumptions"] = c_result.get("execution_assumptions")
+            if include_c_result:
+                detail["c_result"] = c_result
         if detail["snapshot_status"] == SNAPSHOT_MISSING:
             detail["snapshot_missing_reason"] = (
                 "V1 record stored only summary metrics; curves and orders were "
@@ -325,11 +369,15 @@ class BacktestService:
         market_data_source: Optional[MarketDataSource] = None,
         repository: Optional[BacktestRepository] = None,
         today: Optional[Callable[[], date]] = None,
+        c_entry_loader: Callable[[], Optional[CWindowedEntry]] = load_c_windowed_entry,
     ) -> None:
         self._quant = quant_service
         self._market = market_data_source
         self._repository = repository
         self._today = today or date.today
+        #: Injectable so tests can exercise both "C is importable" and "C's V2
+        #: entry points are absent" without patching the quant package.
+        self._load_c_entry = c_entry_loader
 
     def run(
         self,
@@ -388,7 +436,13 @@ class BacktestService:
                 },
             }
         )
-        return self._persist_and_return(stock_code, result, effective, None, {})
+        return self._persist_and_return(
+            stock_code,
+            result,
+            stored_parameters=effective.to_parameters(),
+            warmup_start_date=None,
+            data_meta=result["data_meta"],
+        )
 
     # -- v2_windowed --------------------------------------------------------
 
@@ -405,17 +459,31 @@ class BacktestService:
         if start > end:
             raise InvalidParameterError("start_date must not be after end_date")
 
-        c_entry = load_c_windowed_entry()
+        c_entry = self._load_c_entry()
+        if c_entry is None or c_entry.parameters_unset is None:
+            # C (PR #10 review): running the old V1 core here and labelling its
+            # output ``v2_windowed`` would report the wrong window semantics.
+            # Say V2 is unavailable and persist nothing.
+            raise BacktestError(
+                "v2_windowed backtest is unavailable: C's run_backtest_request "
+                "is not importable; omit `parameters` to use the V1 path"
+            )
+
+        # C owns parameter and window validation. Both run BEFORE any data is
+        # fetched, and their errors are reported (40001), never swallowed.
+        raw_parameters = whitelisted_parameters(effective)
+        try:
+            request_config = c_entry.resolve(raw_parameters)
+        except ApplicationError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - C owns the validation rules
+            raise InvalidParameterError(str(exc)) from exc
+
         required = warmup_required_days(effective)
-        if c_entry is not None:
-            # C owns the requirement once its resolver is available.
-            try:
-                request_config = c_entry.resolve(effective.to_parameters())
-                required = int(
-                    getattr(request_config, "required_warmup_rows", required) or required
-                )
-            except Exception:  # noqa: BLE001 - keep B's contract value on failure
-                pass
+        required = int(
+            getattr(request_config, "required_warmup_rows", required) or required
+        )
+        start, end = c_entry.validate_window(start, end)
 
         rows, warmup_rows, fetch_start = self._fetch_with_warmup(
             stock_code, start, end, required
@@ -428,24 +496,20 @@ class BacktestService:
             )
 
         frame = self._quant.rows_to_frame(rows)
-        if c_entry is not None and c_entry.parameters_unset is not None:
-            # Hand C the WHOLE normalized frame (warmup + window); C selects the
-            # actual warmup/backtest windows and returns window-only results.
-            start, end = c_entry.validate_window(start, end)
-            result = to_json_safe(
-                c_entry.run(
-                    frame,
-                    start_date=start,
-                    end_date=end,
-                    parameters=effective.to_parameters(),
-                )
+        # Hand C the WHOLE normalized frame (warmup + window); C selects the actual
+        # warmup/backtest windows itself and returns window-only results. B never
+        # pre-trims it, and only the five whitelisted parameters are forwarded.
+        c_result = to_json_safe(
+            c_entry.run(
+                frame,
+                start_date=start,
+                end_date=end,
+                parameters=raw_parameters,
             )
-            window_owner = WINDOW_OWNER_C
-        else:
-            result = self._quant.run_backtest(
-                stock_code, fetch_start, end, config=effective, frame=frame
-            )
-            window_owner = WINDOW_OWNER_LEGACY_PENDING
+        )
+        if not isinstance(c_result, Mapping):
+            raise BacktestError("C's run_backtest_request did not return a result object")
+        result = dict(c_result)
 
         data_meta = {
             "semantics_version": SEMANTICS_V2_WINDOWED,
@@ -457,18 +521,25 @@ class BacktestService:
             "delivery_warmup_min_bars": DELIVERY_WARMUP_MIN_BARS,
             "rows": len(rows),
             "rows_in_window": len(window_rows),
-            "data_hash": frame_digest(rows),
+            # B's digest of the exact frame handed to C. Deliberately NOT called
+            # ``data_hash``: C's own ``data_hash`` covers C's result, and the two
+            # are recorded separately and never substituted for each other.
+            "frame_digest": frame_digest(rows),
+            "c_data_hash": c_result.get("data_hash"),
             "computed_start_date": _iso(result.get("start_date")),
             "computed_end_date": _iso(result.get("end_date")),
             "current_position": result.get("current_position"),
             "parameters_explicit": explicitly_provided,
             "data_source": "MarketDataSource.query_daily (warmup window)",
-            "window_owner": window_owner,
+            "window_owner": WINDOW_OWNER_C,
         }
         result.update(
             {
                 "semantics_version": SEMANTICS_V2_WINDOWED,
-                "effective_parameters": effective.to_parameters(),
+                # C owns everything outside the whitelist, so only those five are
+                # stored as "effective parameters": B's QuantConfig defaults for
+                # the rest must not masquerade as C's algorithm configuration.
+                "effective_parameters": raw_parameters,
                 "warmup_start_date": fetch_start.isoformat(),
                 "warmup_rows": warmup_rows,
                 "data_meta": data_meta,
@@ -482,7 +553,13 @@ class BacktestService:
         snapshot_rows.sort(key=lambda item: item.trade_date)
         input_snapshot = [row.model_dump(mode="json") for row in snapshot_rows]
         return self._persist_and_return(
-            stock_code, result, effective, fetch_start, data_meta, input_snapshot
+            stock_code,
+            result,
+            stored_parameters=raw_parameters,
+            warmup_start_date=fetch_start,
+            data_meta=data_meta,
+            input_snapshot=input_snapshot,
+            c_result=c_result,
         )
 
     def _fetch_with_warmup(
@@ -533,10 +610,12 @@ class BacktestService:
         self,
         stock_code: str,
         result: Dict[str, Any],
-        effective: QuantConfig,
+        *,
+        stored_parameters: Mapping[str, Any],
         warmup_start_date: Optional[date],
         data_meta: Mapping[str, Any],
         input_snapshot: Optional[Sequence[Mapping[str, Any]]] = None,
+        c_result: Optional[Mapping[str, Any]] = None,
     ) -> Dict[str, Any]:
         if self._repository is None:
             result.setdefault("backtest_id", None)
@@ -545,11 +624,12 @@ class BacktestService:
             stock_code=stock_code,
             result=result,
             semantics_version=str(result.get("semantics_version")),
-            effective_parameters=effective.to_parameters(),
+            effective_parameters=stored_parameters,
             warmup_start_date=warmup_start_date,
             data_meta=data_meta,
             strategy_version=result.get("strategy_version"),
             input_snapshot=input_snapshot,
+            c_result=c_result,
         )
         result["backtest_id"] = backtest_id
         result["snapshot_status"] = SNAPSHOT_COMPLETE

@@ -122,14 +122,18 @@ CREATE TABLE backtest_result (
     benchmark_curve JSON,
     drawdown_curve JSON,
     orders JSON,
-    effective_parameters JSON,          -- 本次实际生效参数（含默认值回填）
-    data_meta JSON,                     -- 请求/实际区间、行数、data_hash、来源
+    effective_parameters JSON,          -- v1_legacy: 完整 V1 配置；v2_windowed: 仅白名单五字段
+    data_meta JSON,                     -- 请求/实际区间、行数、frame_digest(B)、c_data_hash(C)、来源
+    input_snapshot JSON,                -- V2（v6）送进 C 的逐行输入（最后 long 条预热 + 区间）
+    c_result JSON,                      -- V2（v7）C 的完整结果，原样保存，历史详情自此读取
     INDEX idx_backtest_stock (stock_code),
     INDEX idx_backtest_strategy (strategy_name)
 );
 ```
 
-V1 只写了摘要指标，未保存曲线。**V2 起**同一次计算会把摘要 + 三条曲线 + 成交明细 + 生效参数 + 数据元信息**在一次事务内**写入（迁移 v4 对既有表做增量 `ALTER`）。旧 V1 记录缺快照时，`GET /backtests/{id}` 返回 `snapshot_status="missing"`，**不补造**。
+V1 只写了摘要指标，未保存曲线。**V2 起**同一次计算会把摘要 + 三条曲线 + 成交明细 + 生效参数 + 数据元信息**在一次事务内**写入（迁移 v4 对既有表做增量 `ALTER`；v6 补 `input_snapshot`，v7 补 `c_result`）。旧 V1 记录缺快照时，`GET /backtests/{id}` 返回 `snapshot_status="missing"`，**不补造**。
+
+> **口径分离**：`data_meta.frame_digest` 是 B 交给 C 的那份数据帧的摘要，`c_result.data_hash`（平铺为 `c_data_hash`）是 C 自身结果的哈希，两者分别记录、互不替代。
 
 ## 7. ai_analysis
 

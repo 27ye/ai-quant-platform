@@ -21,7 +21,7 @@ import backend.app.models  # noqa: F401  (register all ORM models on Base)
 from backend.app.db.base import Base
 
 #: Current schema revision. Bump only when a new migration step is added below.
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 _SCHEMA_VERSION_DDL = (
     "CREATE TABLE IF NOT EXISTS schema_version ("
@@ -146,6 +146,18 @@ def _migration_v6(connection: Connection) -> None:
     )
 
 
+def _migration_v7(connection: Connection) -> None:
+    """V2 C 对接: keep C's complete ``run_backtest_request`` result verbatim.
+
+    C (PR #10 review): "建议原样保存 C 完整结果 JSON，历史详情从该快照读取，不用
+    舍入后的摘要列重新拼装". The summary columns stay for list queries, but they are
+    B's rounding of C's numbers; ``c_result`` is what C actually returned, so
+    ``algorithm_version`` / ``warmup`` / ``initial_equity`` / ``execution_assumptions``
+    / the ``input_snapshot`` envelope / ``data_hash`` all survive the round trip.
+    """
+    _add_missing_columns(connection, "backtest_result", (("c_result", "JSON NULL"),))
+
+
 #: Ordered ``(version, step)`` pairs. Append new steps; never reorder.
 #: Every step must be idempotent and artifact-based (create-if-missing /
 #: add-column-if-missing): the convergence pass in :func:`apply_migrations`
@@ -159,6 +171,7 @@ MIGRATIONS: List[Tuple[int, Callable[[Connection], None]]] = [
     (4, _migration_v4),
     (5, _migration_v5),
     (6, _migration_v6),
+    (7, _migration_v7),
 ]
 
 

@@ -98,17 +98,24 @@ def list_backtests(
 def get_backtest(
     backtest_id: int,
     include_input_snapshot: bool = False,
+    include_c_result: bool = False,
     repository: BacktestRepository = Depends(get_backtest_repository),
 ) -> ApiResponse[Dict[str, Any]]:
     """Saved snapshot detail (parameters, curves, orders) - no refetch, no recompute.
 
     ``include_input_snapshot=true`` additionally returns the exact rows that were
     handed to C (warmup included); the default response only reports their count.
+    ``include_c_result=true`` additionally returns C's complete result envelope as
+    it was stored; the default response surfaces only its version/hash/config
+    fields (``c_algorithm_version``, ``c_data_hash``, ``c_warmup``,
+    ``c_initial_equity``, ``c_execution_assumptions``).
     """
     if backtest_id < 1:
         raise InvalidParameterError("backtest_id must be a positive integer")
     return ApiResponse(
         data=repository.get(
-            backtest_id, include_input_snapshot=include_input_snapshot
+            backtest_id,
+            include_input_snapshot=include_input_snapshot,
+            include_c_result=include_c_result,
         )
     )
