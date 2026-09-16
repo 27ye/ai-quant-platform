@@ -171,17 +171,14 @@ def _migration_v8(connection: Connection) -> None:
     than being "corrected" from an approximation.
     """
     columns = {column["name"] for column in inspect(connection).get_columns("backtest_result")}
-    if "c_result_text" in columns:
-        # Fresh databases get the column from the ORM metadata, and a re-run of this
-        # step must not rescan the table.
-        return
-    connection.execute(
-        text("ALTER TABLE backtest_result ADD COLUMN c_result_text LONGTEXT NULL")
-    )
+    if "c_result_text" not in columns:
+        connection.execute(
+            text("ALTER TABLE backtest_result ADD COLUMN c_result_text LONGTEXT NULL")
+        )
     connection.execute(
         text(
             "UPDATE backtest_result SET c_result_text = CAST(c_result AS CHAR) "
-            "WHERE c_result IS NOT NULL"
+            "WHERE c_result IS NOT NULL AND c_result_text IS NULL"
         )
     )
 

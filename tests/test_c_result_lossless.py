@@ -213,6 +213,54 @@ def test_migration_v8_adds_the_column_backfills_and_is_idempotent():
     assert json.loads(stored) == payload
 
 
+def test_migration_v8_resumes_when_column_exists_but_backfill_is_missing():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    apply_migrations(engine)
+
+    payload = {"algorithm_version": "pre-v8", "equity": 1.0}
+    exact_text = json.dumps({"algorithm_version": "post-v8", "equity": 2.0})
+    with engine.begin() as connection:
+        connection.execute(text("DELETE FROM schema_version WHERE version = 8"))
+        connection.execute(
+            text(
+                "INSERT INTO backtest_result "
+                "(stock_code, strategy_name, start_date, end_date, c_result, c_result_text) "
+                "VALUES ('600519', 'pre-v8', '2026-01-01', '2026-01-02', :payload, NULL)"
+            ),
+            {"payload": json.dumps(payload)},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO backtest_result "
+                "(stock_code, strategy_name, start_date, end_date, c_result, c_result_text) "
+                "VALUES ('600519', 'post-v8', '2026-01-03', '2026-01-04', NULL, :exact_text)"
+            ),
+            {"exact_text": exact_text},
+        )
+
+    apply_migrations(engine)
+
+    with engine.connect() as connection:
+        rows = connection.execute(
+            text(
+                "SELECT strategy_name, c_result, c_result_text "
+                "FROM backtest_result ORDER BY id"
+            )
+        ).all()
+        version = migrations.get_schema_version(engine)
+
+    assert version == 8
+    assert rows[0].strategy_name == "pre-v8"
+    assert json.loads(rows[0].c_result_text) == payload
+    assert rows[1].strategy_name == "post-v8"
+    assert rows[1].c_result is None
+    assert rows[1].c_result_text == exact_text
+
+
 def test_legacy_row_upgraded_by_v8_still_reports_exact_false():
     """C's chained path: a v7 JSON row, upgraded, read back in a NEW session.
 
