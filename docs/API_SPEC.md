@@ -297,7 +297,7 @@ GET /api/v1/ai/reports?stock_code=600519&page=1&page_size=20
 GET /api/v1/ai/reports/101
 ```
 
-返回生成时保存的报告和上下文快照，不重新调用行情、量化、新闻或 LLM。报告不存在时返回 HTTP 404、业务码 `40005`、消息 `report not found`。
+返回生成时保存的报告和上下文快照，不重新调用行情、量化、新闻或 LLM。报告不存在时返回 HTTP 404、业务码 `40006`、消息 `report not found`。
 
 ## 10. 错误码
 
@@ -307,7 +307,7 @@ GET /api/v1/ai/reports/101
 40002    stock not found
 40003    insufficient stock data
 40004    invalid strategy
-40005    report not found
+40006    report not found
 50001    data provider error
 50002    database error
 50003    quant calculation error

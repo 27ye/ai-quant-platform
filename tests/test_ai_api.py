@@ -154,7 +154,7 @@ def test_ai_report_detail_not_found_and_invalid_id():
         app.dependency_overrides.clear()
 
     assert missing.status_code == 404
-    assert missing.json() == {"code": 40005, "message": "report not found", "data": None}
+    assert missing.json() == {"code": 40006, "message": "report not found", "data": None}
     assert invalid.status_code == 400
     assert invalid.json()["code"] == 40001
 

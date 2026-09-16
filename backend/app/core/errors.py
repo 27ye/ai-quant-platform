@@ -26,7 +26,7 @@ class InsufficientStockDataError(ApplicationError):
 
 
 class ReportNotFoundError(ApplicationError):
-    code = 40005
+    code = 40006
     message = "report not found"
     status_code = 404
 

@@ -109,7 +109,7 @@ V1 记录返回：
 不存在的报告返回 HTTP 404：
 
 ```json
-{"code":40005,"message":"report not found","data":null}
+{"code":40006,"message":"report not found","data":null}
 ```
 
 ## 数据库增量字段
