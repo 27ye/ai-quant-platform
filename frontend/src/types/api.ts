@@ -364,8 +364,19 @@ export interface BacktestDataMeta {
   window_owner?: string
   frame_digest?: string | null
   c_data_hash?: string | null
-  /** C 输入快照（sha256 为展示用哈希；缺省时回退展示 c_data_hash） */
-  input_snapshot?: { sha256?: string | null; rows?: number } | null
+}
+
+export interface BacktestInitialEquity {
+  trade_date: string
+  equity: number
+  valuation: 'before_open' | 'first_close'
+}
+
+export interface BacktestWarmup {
+  start_date: string
+  end_date: string
+  required_rows: number
+  used_rows: number
 }
 
 /** GET /backtests/{id} 详情：回放保存时快照，GET 不取数不重算 */
@@ -387,8 +398,12 @@ export interface BacktestDetail extends BacktestSummary {
   /** snapshot_status=missing 时附原因 */
   snapshot_missing_reason?: string | null
   c_result_available?: boolean
+  c_result_exact?: boolean
   c_algorithm_version?: string | null
-  c_execution_assumptions?: string | null
+  c_data_hash?: string | null
+  c_initial_equity?: BacktestInitialEquity | null
+  c_warmup?: BacktestWarmup | null
+  c_execution_assumptions?: Record<string, string | boolean> | null
   c_semantics_version?: string | null
   input_snapshot_available?: boolean
   input_snapshot_rows?: number

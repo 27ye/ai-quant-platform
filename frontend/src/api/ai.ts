@@ -36,7 +36,7 @@ export async function fetchAIReports(
   return response.data
 }
 
-// GET /ai/reports/{report_id}：未知 ID 返回 404 + code=40005
+// GET /ai/reports/{report_id}：未知 ID 返回 404 + code=40006
 export async function fetchAIReportDetail(
   reportId: number,
 ): Promise<ApiResponse<AIReportDetail>> {

@@ -134,7 +134,7 @@ const metaRows = computed(() => {
   // C 复核口径：该哈希语义是「C 输入快照」的 sha256，不是结果哈希
   rows.push({
     label: 'C 输入快照哈希',
-    value: short(meta.input_snapshot?.sha256 ?? meta.c_data_hash),
+    value: short(meta.c_data_hash),
   })
   return rows
 })

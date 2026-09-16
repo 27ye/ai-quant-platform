@@ -40,6 +40,7 @@ const CODE_MESSAGES: Record<number, string> = {
   50003: '量化计算异常，请稍后重试',
   50004: 'V2 回测引擎暂不可用，请稍后重试',
   50005: 'AI 分析失败，可手动重试',
+  50006: '行情目录初始化中，请稍后重试',
 }
 
 function resolveMessage(code: number | undefined, fallback: string): string {
