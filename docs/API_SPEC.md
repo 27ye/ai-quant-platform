@@ -97,6 +97,8 @@ GET /api/v1/stocks/search?keyword=茅台
 > **V2 起**：搜索改为查询本地股票目录（MySQL `stock_basic`），由
 > `scripts/sync_stock_catalog.py` 低频同步；路径与响应结构不变。
 > 已成功同步时**不再调用全市场 Provider**，无匹配返回空数组；
+> **已成功同步、但最近一次刷新失败**时**仍只用本地目录**（`mark_failure` 不改 `last_success_at`/`row_count`），
+> 刷新错误如实记在 `/data-status` 的 `last_error`，**搜索照常可用**；
 > **从未成功同步时返回 `50006`（HTTP 503，`stock catalog not synced`）**，并**不调用 Provider**；
 > 目录查询期数据库异常返回 `50002`。同步状态见 4.4。
 >

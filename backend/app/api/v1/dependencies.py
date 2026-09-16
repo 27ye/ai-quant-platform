@@ -49,7 +49,7 @@ def get_stock_catalog_service(
     provider: StockDataProvider = Depends(get_data_provider),
     db: Session = Depends(get_db),
 ) -> StockCatalogService:
-    """Catalog-backed search: local MySQL first, live provider only as fallback."""
+    """Catalog-backed search: answered from local MySQL, never from the provider."""
     return StockCatalogService(
         provider=provider,
         repository=StockCatalogRepository(db),

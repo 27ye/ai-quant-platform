@@ -40,11 +40,14 @@ def search_stocks(
     keyword: str,
     service: StockCatalogService = Depends(get_stock_catalog_service),
 ) -> ApiResponse[List[StockBasicSchema]]:
-    """Search the synced local catalog; live provider only when never synced.
+    """Search the synced local catalog; the provider is never called here.
 
-    Response shape is unchanged from V1. A synced catalog answers locally (an
-    empty list is a genuine "no match"); a provider failure on the unsynced
-    fallback path stays ``50001`` rather than looking like "no match".
+    Response shape is unchanged from V1. A catalog that has been synced successfully
+    answers locally (an empty list is a genuine "no match"), and it keeps answering
+    even if the most recent *refresh* failed - that error stays visible through
+    ``last_error`` on ``/data-status``. Only a catalog that has **never** been synced
+    has nothing to search, and that is reported as ``50006`` (HTTP 503,
+    ``stock catalog not synced``) instead of a misleading provider error.
     """
     try:
         data = service.search(keyword)

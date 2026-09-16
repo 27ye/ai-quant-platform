@@ -89,6 +89,58 @@ def test_search_reports_50006_when_the_catalog_was_never_synced():
     assert response.json()["data"] is None
 
 
+def test_search_still_works_after_a_failed_refresh(monkeypatch):
+    """C's chained HTTP case: a failed refresh is not "never synced".
+
+    The catalog rows and ``last_success_at`` survive a failed refresh, so search must
+    keep answering locally instead of turning that transient error into 50006.
+    """
+    from backend.app.services import stock_catalog_service as catalog_module
+
+    monkeypatch.setattr(catalog_module, "MIN_CATALOG_ROWS", 1)
+    engine = _engine()
+    apply_migrations(engine)
+    session = Session(bind=engine)
+
+    class _CatalogProvider(StockDataProvider):
+        last_catalog_source = "probe"
+
+        def __init__(self) -> None:
+            self.fail = False
+
+        def get_daily_kline(self, *args, **kwargs):  # pragma: no cover - unused
+            raise NotImplementedError
+
+        def search_stocks(self, keyword):  # pragma: no cover - must not be called
+            raise AssertionError("search must not reach the provider")
+
+        def fetch_stock_catalog(self):
+            if self.fail:
+                raise StockDataProviderError("upstream unavailable")
+            return [{"stock_code": STOCK_CODE, "stock_name": "贵州茅台"}]
+
+    provider = _CatalogProvider()
+    service = StockCatalogService(
+        provider=provider, repository=StockCatalogRepository(session)
+    )
+    service.sync()
+
+    provider.fail = True  # the next refresh fails
+    with pytest.raises(StockDataProviderError):
+        service.sync()
+
+    app.dependency_overrides[get_stock_catalog_service] = lambda: service
+    try:
+        response = TestClient(app).get("/api/v1/stocks/search?keyword=茅台")
+    finally:
+        app.dependency_overrides.clear()
+        session.close()
+
+    assert response.status_code == 200, response.text
+    assert response.json()["code"] == 0
+    assert response.json()["data"][0]["stock_code"] == STOCK_CODE
+
+
 def test_search_reports_50002_when_the_catalog_table_is_missing(monkeypatch):
     from backend.app.services import stock_catalog_service as catalog_module
 

@@ -1,5 +1,7 @@
 """V2 B1: local stock catalog sync and MySQL-backed search."""
 
+from datetime import datetime, timezone
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -189,6 +191,42 @@ def test_search_without_a_synced_catalog_reports_50006_and_skips_the_provider():
             service.search("600519")
 
     assert excinfo.value.code == 50006
+    assert provider.search_calls == 0
+
+
+def test_failed_refresh_keeps_the_previous_catalog_searchable(monkeypatch):
+    """C's chained case: a failed *refresh* must not mean "never synced".
+
+    ``mark_failure`` leaves ``last_success_at``/``row_count`` untouched, so the
+    catalog is still complete and search keeps answering from it instead of
+    reporting 50006.
+    """
+    monkeypatch.setattr(catalog_module, "MIN_CATALOG_ROWS", 2)
+    provider = _FakeProvider(
+        catalog=_catalog(("600519", "贵州茅台"), ("000001", "平安银行"))
+    )
+    moment = [datetime(2026, 9, 16, 1, 0, tzinfo=timezone.utc)]
+
+    with _session() as session:
+        service = _service(session, provider, now=lambda: moment[0])
+        service.sync()
+
+        # The next refresh fails.
+        provider._catalog_error = StockDataProviderError("upstream unavailable")
+        with pytest.raises(StockDataProviderError):
+            service.sync()
+
+        state = service.state()
+        assert state.status == "failed"
+        assert state.last_error is not None
+        assert state.last_success_at is not None  # the previous success is kept
+        assert state.is_complete is True
+        assert service.is_catalog_usable() is True
+
+        # Search still answers from the local catalog, without the provider.
+        results = service.search("600519")
+
+    assert [item.stock_code for item in results] == ["600519"]
     assert provider.search_calls == 0
 
 
