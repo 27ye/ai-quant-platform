@@ -2,7 +2,7 @@
 
 核对日期：2026-09-15。对应 [A 的 Issue #11](https://github.com/27ye/ai-quant-platform/issues/11)。
 
-本文依据 C 当前本地实现及实际计算输出，确认参数、成交记录和曲线口径。C 工作分支为 `codex/v2-c-backtest-params`，基底 SHA 为 `8062599b3d85c421f00714de9d27a9fbe11ad083`；C 的 V2 变更尚未提交、推送，基底 SHA 不包含这些实现。本文不能代替 B 的最终 HTTP 契约或最终组合 SHA 验收。
+本文依据 C 实现及实际计算输出，确认参数、成交记录和曲线口径。C 已发布到 `pop17589822299-coder/ai-quant-platform` 的 `feature/v2-c-backtest-params` 分支，代码提交为 `92df017404126e9af920e1ad82e4a136d813f8d1`；按项目命名规则更正后的交付入口见 [C_V2_DELIVERY_20260916.md](C_V2_DELIVERY_20260916.md)。最新组合复核见 [C_V2_COMBINED_15315_REVIEW_20260916.md](C_V2_COMBINED_15315_REVIEW_20260916.md)，本文不能代替 B 的最终 HTTP 契约或最终组合 SHA 验收。下文带日期的旧评审记录保留其当时范围。
 
 完整核心契约见 [C_V2_BACKTEST_CONTRACT.md](C_V2_BACKTEST_CONTRACT.md)，与 D 的边界见 [C_V2_PR10_COORDINATION.md](C_V2_PR10_COORDINATION.md)。
 
