@@ -79,7 +79,7 @@ def parse_args(argv=None) -> argparse.Namespace:
     mode.add_argument("--llm-only", action="store_true",
                       help="Probe real LLM JSON connectivity only; NOT stock/report acceptance")
     mode.add_argument("--migration-only", action="store_true",
-                      help="Validate a real MySQL V1-to-V2 migration in a new isolated database")
+                      help="Validate a real MySQL V1-to-current migration in a new isolated database")
     mode.add_argument("--serve", action="store_true",
                       help="Serve live (or explicitly frozen) API on 127.0.0.1:8000 with a new MySQL DB")
     parser.add_argument("--frozen-dir", default=None,
@@ -231,7 +231,7 @@ def validate_mysql_v1_upgrade() -> None:
     get_settings.cache_clear()
 
     from sqlalchemy import inspect, text
-    from backend.app.db.migrations import apply_migrations, get_schema_version
+    from backend.app.db.migrations import SCHEMA_VERSION, apply_migrations, get_schema_version
     from backend.app.db.session import engine
 
     try:
@@ -280,8 +280,12 @@ def validate_mysql_v1_upgrade() -> None:
             "context_snapshot", "context_hash", "source_mode", "data_as_of",
             "prompt_version", "context_schema_version", "output_schema_version",
         }
-        if version != 2 or get_schema_version(engine) != 2 or not required <= columns.keys():
-            raise AcceptanceError("V1-to-V2 migration contract failed")
+        if (
+            version != SCHEMA_VERSION
+            or get_schema_version(engine) != SCHEMA_VERSION
+            or not required <= columns.keys()
+        ):
+            raise AcceptanceError("V1-to-current migration contract failed")
         if str(columns["context_hash"]["type"]).upper() != "CHAR(64)":
             raise AcceptanceError("V2 context hash type mismatch")
         with engine.connect() as connection:
@@ -292,7 +296,7 @@ def validate_mysql_v1_upgrade() -> None:
             raise AcceptanceError("legacy report changed during migration")
         print(json.dumps({
             "validated": True,
-            "mode": "mysql_v1_to_v2_migration",
+            "mode": "mysql_v1_to_current_migration",
             "database": name,
             "schema_version": version,
             "legacy_report_preserved": True,
