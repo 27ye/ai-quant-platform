@@ -1,0 +1,345 @@
+{
+  "status": "passed",
+  "B_SHA": "9a1b9b45235c07b01b0ab30d0fcbb7ad719fea8b",
+  "C_core_SHA": "92df017404126e9af920e1ad82e4a136d813f8d1",
+  "scope": "Isolated B exact source plus published C quant files; not D final combination; local MySQL; fixed historical normalized input",
+  "core_hashes": {
+    "backtest.py": "b1a3415cef5878867658cc9caa8ef1c4199c65945479db8cffb12a0ef2e110fa",
+    "backtest_config.py": "0e2650229797c497e5d3a2c2fad87d26ef9befc9bda7b8ba77766bf599454b93",
+    "config.py": "130dc8c78de4e27c1313319aac71ccd0b897e4e311d9053e3c95b81bcc1f5f4f",
+    "indicators.py": "9c7d7a800a6908ec350efb662f1bdf79580000c696252fe2b33d3cc9c20fa806",
+    "metrics.py": "8d5481a4ef1aab6d864fa32b61433fe4ff1c965f4e8987d947046ead6dbb3a5a",
+    "pipeline.py": "2476261730a534d383f2146bf65405e5c67d12ea67983f1b8ac8a7093a31cf69",
+    "scoring.py": "70b2225b2b6b57a62ed76e05d072f9eaf9670246c72c06aac46bc2e28c410753",
+    "serialization.py": "55da8ab6b899bb73aebff53a3320aec62451da49606c6933de5383f6f6ba581a",
+    "strategy.py": "030aede59afa8d4cdb052d55626d5e61c00d87172dc9847ee489a92d2fd4fc33",
+    "validators.py": "cd92e9c94cabfa1ab2c428d112b95fa03070a19273a9c1ef150feabc07a84a6e",
+    "windowed_backtest.py": "2c54b1269b3952bc33b288ec097183e8d5ba330b17cb564dc1c289b9ca0536c4",
+    "__init__.py": "2f5fb232fc339a35ce0c48297df53c7da90968f570198aa7903dc9aae448cf5c"
+  },
+  "old_cases": [
+    {
+      "case": "600519-default",
+      "id": 1,
+      "HTTP": 200,
+      "old_response_preserved": true,
+      "original_direct_exact": false,
+      "c_result_exact_reported": false,
+      "c_result_exact_expected": false
+    },
+    {
+      "case": "600519-ma10-30",
+      "id": 2,
+      "HTTP": 200,
+      "old_response_preserved": true,
+      "original_direct_exact": false,
+      "c_result_exact_reported": false,
+      "c_result_exact_expected": false
+    },
+    {
+      "case": "600519-ma20-60-cost",
+      "id": 3,
+      "HTTP": 200,
+      "old_response_preserved": true,
+      "original_direct_exact": false,
+      "c_result_exact_reported": false,
+      "c_result_exact_expected": false
+    },
+    {
+      "case": "000001-default",
+      "id": 4,
+      "HTTP": 200,
+      "old_response_preserved": true,
+      "original_direct_exact": false,
+      "c_result_exact_reported": false,
+      "c_result_exact_expected": false
+    },
+    {
+      "case": "000001-ma10-30",
+      "id": 5,
+      "HTTP": 200,
+      "old_response_preserved": true,
+      "original_direct_exact": false,
+      "c_result_exact_reported": false,
+      "c_result_exact_expected": false
+    },
+    {
+      "case": "000001-ma20-60-cost",
+      "id": 6,
+      "HTTP": 200,
+      "old_response_preserved": true,
+      "original_direct_exact": false,
+      "c_result_exact_reported": false,
+      "c_result_exact_expected": false
+    },
+    {
+      "case": "300750-default",
+      "id": 7,
+      "HTTP": 200,
+      "old_response_preserved": true,
+      "original_direct_exact": false,
+      "c_result_exact_reported": false,
+      "c_result_exact_expected": false
+    },
+    {
+      "case": "300750-ma10-30",
+      "id": 8,
+      "HTTP": 200,
+      "old_response_preserved": true,
+      "original_direct_exact": false,
+      "c_result_exact_reported": false,
+      "c_result_exact_expected": false
+    },
+    {
+      "case": "300750-ma20-60-cost",
+      "id": 9,
+      "HTTP": 200,
+      "old_response_preserved": true,
+      "original_direct_exact": false,
+      "c_result_exact_reported": false,
+      "c_result_exact_expected": false
+    }
+  ],
+  "new_cases": [
+    {
+      "case": "600519-default",
+      "id": 10,
+      "POST_HTTP": 200,
+      "POST_C_fields_exact": true,
+      "POST_effective_parameters_projection_correct": true,
+      "window_points": 283,
+      "GET_HTTP": 200,
+      "new_engine_session": true,
+      "full_result_all_types_exact": true,
+      "c_result_exact": true,
+      "legacy_column_sql_null": true
+    },
+    {
+      "case": "600519-ma10-30",
+      "id": 11,
+      "POST_HTTP": 200,
+      "POST_C_fields_exact": true,
+      "POST_effective_parameters_projection_correct": true,
+      "window_points": 283,
+      "GET_HTTP": 200,
+      "new_engine_session": true,
+      "full_result_all_types_exact": true,
+      "c_result_exact": true,
+      "legacy_column_sql_null": true
+    },
+    {
+      "case": "600519-ma20-60-cost",
+      "id": 12,
+      "POST_HTTP": 200,
+      "POST_C_fields_exact": true,
+      "POST_effective_parameters_projection_correct": true,
+      "window_points": 283,
+      "GET_HTTP": 200,
+      "new_engine_session": true,
+      "full_result_all_types_exact": true,
+      "c_result_exact": true,
+      "legacy_column_sql_null": true
+    },
+    {
+      "case": "000001-default",
+      "id": 13,
+      "POST_HTTP": 200,
+      "POST_C_fields_exact": true,
+      "POST_effective_parameters_projection_correct": true,
+      "window_points": 283,
+      "GET_HTTP": 200,
+      "new_engine_session": true,
+      "full_result_all_types_exact": true,
+      "c_result_exact": true,
+      "legacy_column_sql_null": true
+    },
+    {
+      "case": "000001-ma10-30",
+      "id": 14,
+      "POST_HTTP": 200,
+      "POST_C_fields_exact": true,
+      "POST_effective_parameters_projection_correct": true,
+      "window_points": 283,
+      "GET_HTTP": 200,
+      "new_engine_session": true,
+      "full_result_all_types_exact": true,
+      "c_result_exact": true,
+      "legacy_column_sql_null": true
+    },
+    {
+      "case": "000001-ma20-60-cost",
+      "id": 15,
+      "POST_HTTP": 200,
+      "POST_C_fields_exact": true,
+      "POST_effective_parameters_projection_correct": true,
+      "window_points": 283,
+      "GET_HTTP": 200,
+      "new_engine_session": true,
+      "full_result_all_types_exact": true,
+      "c_result_exact": true,
+      "legacy_column_sql_null": true
+    },
+    {
+      "case": "300750-default",
+      "id": 16,
+      "POST_HTTP": 200,
+      "POST_C_fields_exact": true,
+      "POST_effective_parameters_projection_correct": true,
+      "window_points": 283,
+      "GET_HTTP": 200,
+      "new_engine_session": true,
+      "full_result_all_types_exact": true,
+      "c_result_exact": true,
+      "legacy_column_sql_null": true
+    },
+    {
+      "case": "300750-ma10-30",
+      "id": 17,
+      "POST_HTTP": 200,
+      "POST_C_fields_exact": true,
+      "POST_effective_parameters_projection_correct": true,
+      "window_points": 283,
+      "GET_HTTP": 200,
+      "new_engine_session": true,
+      "full_result_all_types_exact": true,
+      "c_result_exact": true,
+      "legacy_column_sql_null": true
+    },
+    {
+      "case": "300750-ma20-60-cost",
+      "id": 18,
+      "POST_HTTP": 200,
+      "POST_C_fields_exact": true,
+      "POST_effective_parameters_projection_correct": true,
+      "window_points": 283,
+      "GET_HTTP": 200,
+      "new_engine_session": true,
+      "full_result_all_types_exact": true,
+      "c_result_exact": true,
+      "legacy_column_sql_null": true
+    }
+  ],
+  "existing_databases_modified": false,
+  "mysql_settings_changed": false,
+  "live_provider_or_llm": false,
+  "mysql_version": "8.0.31",
+  "sort_buffer_size": 262144,
+  "migration": {
+    "from_version": 7,
+    "to_version": 8,
+    "text_type": "LONGTEXT",
+    "backfilled_rows": 9,
+    "old_json_fingerprints_preserved": true,
+    "v1_upgrade_tested": false,
+    "repeat_versions_and_all_snapshot_fingerprints_unchanged": true
+  },
+  "source_hashes": {
+    "600519": "75caedb816cd49d6b31f76dc3a398f86be0ac9b639ec43c72b0529c14e57ad7e",
+    "000001": "78189dfa5b8d877b579599803e7d62d2bde42a6cc3185643e67950e71d3cc99a",
+    "300750": "a8c03c0a31c7e635d4902c1ab0bbaad66d945307c23f38613480630780c44b21"
+  },
+  "data_boundary": "Same frozen normalized files; window 2025-07-04..2026-08-31 only; does not accept the known 600519 2026-09-15 whole-batch discrepancy.",
+  "original_source_database_unchanged": true,
+  "new_lossless_cases_passed": 9,
+  "old_records_wrongly_marked_exact": 0,
+  "harness_sha256": "b2f6ee73bc982e81b36dd34129b186387483fe8fe55564bf0b1990e53f62d275",
+  "database_scope": "Unique isolated local acceptance database; original V7 database read-only; local identifier omitted",
+  "list_cases": [
+    {
+      "case": "default",
+      "HTTP": 200,
+      "total": 18,
+      "ids": [
+        18,
+        17,
+        16,
+        15,
+        14,
+        13,
+        12,
+        11,
+        10,
+        9,
+        8,
+        7,
+        6,
+        5,
+        4,
+        3,
+        2,
+        1
+      ],
+      "query_count": 2
+    },
+    {
+      "case": "page_size_1",
+      "HTTP": 200,
+      "total": 18,
+      "ids": [
+        18
+      ],
+      "query_count": 2
+    },
+    {
+      "case": "page2",
+      "HTTP": 200,
+      "total": 18,
+      "ids": [
+        14,
+        13,
+        12,
+        11
+      ],
+      "query_count": 2
+    },
+    {
+      "case": "600519",
+      "HTTP": 200,
+      "total": 6,
+      "ids": [
+        12,
+        11,
+        10,
+        3,
+        2,
+        1
+      ],
+      "query_count": 2
+    },
+    {
+      "case": "000001",
+      "HTTP": 200,
+      "total": 6,
+      "ids": [
+        15,
+        14,
+        13,
+        6,
+        5,
+        4
+      ],
+      "query_count": 2
+    },
+    {
+      "case": "300750",
+      "HTTP": 200,
+      "total": 6,
+      "ids": [
+        18,
+        17,
+        16,
+        9,
+        8,
+        7
+      ],
+      "query_count": 2
+    },
+    {
+      "case": "empty",
+      "HTTP": 200,
+      "total": 0,
+      "ids": [],
+      "query_count": 2
+    }
+  ]
+}

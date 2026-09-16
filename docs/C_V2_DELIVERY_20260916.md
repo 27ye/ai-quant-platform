@@ -9,7 +9,8 @@
 - 仓库及分支：[pop17589822299-coder/ai-quant-platform](https://github.com/pop17589822299-coder/ai-quant-platform/tree/feature/v2-c-backtest-params)。
 - C 实现提交：`92df017404126e9af920e1ad82e4a136d813f8d1`；算法核心保持此版本。
 - 组合复核证据提交：`f114a3816105727630ea3b1b5acb52a63ebf3f8b`，仅增加 7 份文档/JSON。
-- 最新已执行检查与待修项：[C_V2_COMBINED_15315_REVIEW_20260916.md](C_V2_COMBINED_15315_REVIEW_20260916.md)。当前不能签发最终全链路通过结论。
+- 最新状态：[C 项目进度看板](C_PROGRESS.md)；后续复验：[C_V2_FOLLOWUP_REVIEW_20260916.md](C_V2_FOLLOWUP_REVIEW_20260916.md)。B9a1 的原两项待修、A0108410 的状态/标签问题已在对应版本通过，等待 D 新组合验收。
+- [C_V2_COMBINED_15315_REVIEW_20260916.md](C_V2_COMBINED_15315_REVIEW_20260916.md) 保留旧组合的历史发现，不再作为最新分支未修清单。后续 C 进展按看板中的约定同轮同步 GitHub。
 
 ```bash
 git fetch https://github.com/pop17589822299-coder/ai-quant-platform.git feature/v2-c-backtest-params
