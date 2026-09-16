@@ -31,9 +31,9 @@ Deliberate boundaries (C's §2):
   files into its own success list.
 
 Usage:
-    python scripts/export_c_delivery.py --batch 20260916
-    python scripts/export_c_delivery.py --batch 20260916 --start-date 2024-12-01 \
-        --end-date 2026-09-15
+    python scripts/export_c_delivery.py --batch 20260916 --last-complete-trading-day 2026-09-15
+    python scripts/export_c_delivery.py --batch 20260916 --last-complete-trading-day 2026-09-15 \
+        --start-date 2024-12-01 --end-date 2026-09-15
 """
 
 from __future__ import annotations
@@ -339,6 +339,22 @@ def ensure_publishable_dir(out_dir: Path) -> None:
         )
 
 
+def require_settled_day(settled_day: Optional[str]) -> str:
+    """The batch's last complete trading day is mandatory.
+
+    A delivery batch must state which settled session its window ends on: without it
+    a provider response that reaches into an in-progress session would be published
+    as final, which is exactly the defect C reproduced on 843f513.
+    """
+    if not settled_day:
+        raise BatchError(
+            "--last-complete-trading-day is required: state the last settled trading "
+            "day (ISO date) this batch's window ends on, so an in-progress session "
+            "can never be published as final"
+        )
+    return settled_day
+
+
 def rows_beyond_settled_day(batch: StockBatch, settled_day: Optional[str]) -> List[str]:
     """Rows the provider returned after the batch's last complete trading day."""
     if not settled_day:
@@ -378,6 +394,14 @@ def export_stock(
         "raw": None,
         "normalized": None,
     }
+
+    # Enforced here as well as in the CLI so the invariant cannot be bypassed by
+    # calling export_stock directly - and before the provider is touched.
+    if not settled_day:
+        entry["status"] = "missing_settled_day"
+        entry["error"] = "--last-complete-trading-day is required"
+        entry["readback"] = {"ok": False, "reason": "gate rejected the batch"}
+        return entry
 
     try:
         batch = fetch_stock_batch(
@@ -464,7 +488,10 @@ def main() -> int:
     parser.add_argument(
         "--last-complete-trading-day",
         default=None,
-        help="the settled trading day this batch's window ends on (ISO date)",
+        help=(
+            "REQUIRED. The settled trading day (ISO date) this batch's window ends "
+            "on; a provider row after this day aborts the batch before any write"
+        ),
     )
     parser.add_argument("--output-dir", default=None)
     args = parser.parse_args()
@@ -473,23 +500,22 @@ def main() -> int:
     window_token = f"{args.start_date:%Y%m%d}_{args.end_date:%Y%m%d}"
     out_dir = Path(args.output_dir or PROJECT_ROOT / "docs" / "evidence" / f"c-delivery-{args.batch}")
 
-    # Both gates run before any provider call, file write or database write.
+    # All gates run before any provider call, file write or database write.
     try:
+        settled_day = require_settled_day(args.last_complete_trading_day)
         ensure_publishable_dir(out_dir)
     except BatchError as exc:
         print(f"REFUSED: {exc}", file=sys.stderr)
         return 2
 
-    settled_day = args.last_complete_trading_day
-    if settled_day is not None:
-        settled = date.fromisoformat(settled_day)
-        if args.end_date > settled:
-            print(
-                f"REFUSED: --end-date {args.end_date} is after "
-                f"--last-complete-trading-day {settled_day}",
-                file=sys.stderr,
-            )
-            return 2
+    settled = date.fromisoformat(settled_day)
+    if args.end_date > settled:
+        print(
+            f"REFUSED: --end-date {args.end_date} is after "
+            f"--last-complete-trading-day {settled_day}",
+            file=sys.stderr,
+        )
+        return 2
 
     # Imported lazily so the pure helpers stay importable without a DB/provider.
     from backend.app.db.migrations import apply_migrations  # noqa: PLC0415

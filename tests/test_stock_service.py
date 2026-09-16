@@ -218,15 +218,23 @@ def test_endpoint_provider_error_returns_50001():
     assert response.json()["code"] == 50001
 
 
-def test_search_stocks_returns_list():
-    """V2: an unsynced catalog falls back to the live provider (same response)."""
+def test_search_stocks_returns_list(monkeypatch):
+    """V2 B1: search answers from the synced catalog, without a provider call."""
+    from backend.app.services import stock_catalog_service as catalog_module
+
+    monkeypatch.setattr(catalog_module, "MIN_CATALOG_ROWS", 1)
 
     class FakeProvider(StockDataProvider):
+        last_catalog_source = "fake-catalog"
+
         def get_daily_kline(self, *args, **kwargs):  # pragma: no cover - unused
             raise NotImplementedError
 
-        def search_stocks(self, keyword):
+        def fetch_stock_catalog(self):
             return [{"stock_code": STOCK_CODE, "stock_name": "贵州茅台"}]
+
+        def search_stocks(self, keyword):  # pragma: no cover - must not be called
+            raise AssertionError("search must be answered from the local catalog")
 
     engine = create_engine(
         "sqlite://",
@@ -239,6 +247,7 @@ def test_search_stocks_returns_list():
         provider=FakeProvider(),
         repository=StockCatalogRepository(session),
     )
+    service.sync()
     app.dependency_overrides[get_stock_catalog_service] = lambda: service
 
     try:

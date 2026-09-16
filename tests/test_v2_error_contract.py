@@ -63,10 +63,58 @@ def _engine():
     )
 
 
-def test_search_reports_50001_when_never_synced_and_provider_fails():
+def test_search_reports_50006_when_the_catalog_was_never_synced():
+    """V2 B1: a cold start reports the catalog state instead of guessing.
+
+    The removed provider fallback could never succeed - a full-market spot snapshot
+    needs ~34 s against a 4 s retry budget - so it only produced a 50001 after a
+    multi-second wait. The provider must not be touched at all.
+    """
     engine = _engine()
     apply_migrations(engine)
     session = Session(bind=engine)
+    provider = _FailingProvider()
+    service = StockCatalogService(
+        provider=provider, repository=StockCatalogRepository(session)
+    )
+    app.dependency_overrides[get_stock_catalog_service] = lambda: service
+    try:
+        response = TestClient(app).get("/api/v1/stocks/search?keyword=贵州")
+    finally:
+        app.dependency_overrides.clear()
+        session.close()
+
+    assert response.status_code == 503
+    assert response.json()["code"] == 50006
+    assert response.json()["data"] is None
+
+
+def test_search_reports_50002_when_the_catalog_table_is_missing(monkeypatch):
+    from backend.app.services import stock_catalog_service as catalog_module
+
+    monkeypatch.setattr(catalog_module, "MIN_CATALOG_ROWS", 1)
+    engine = _engine()
+    apply_migrations(engine)
+    session = Session(bind=engine)
+
+    class _CatalogProvider(StockDataProvider):
+        last_catalog_source = "probe"
+
+        def get_daily_kline(self, *args, **kwargs):  # pragma: no cover - unused
+            raise NotImplementedError
+
+        def search_stocks(self, keyword):  # pragma: no cover - not used
+            raise AssertionError("search must not reach the provider")
+
+        def fetch_stock_catalog(self):
+            return [{"stock_code": STOCK_CODE, "stock_name": "贵州茅台"}]
+
+    # A complete sync state, and then the table it points at disappears.
+    StockCatalogService(
+        provider=_CatalogProvider(), repository=StockCatalogRepository(session)
+    ).sync()
+    StockBasic.__table__.drop(engine)
+
     service = StockCatalogService(
         provider=_FailingProvider(), repository=StockCatalogRepository(session)
     )
@@ -77,34 +125,8 @@ def test_search_reports_50001_when_never_synced_and_provider_fails():
         app.dependency_overrides.clear()
         session.close()
 
-    assert response.status_code == 502
-    assert response.json()["code"] == 50001
-    assert response.json()["data"] is None
-
-
-def test_search_reports_50002_when_catalog_query_fails():
-    engine = _engine()
-    apply_migrations(engine)
-    session = Session(bind=engine)
-    # Simulate a broken schema: the catalog row says "synced" but the table is gone.
-    StockBasic.__table__.drop(engine)
-    repository = StockCatalogRepository(session)
-    service = StockCatalogService(provider=_FailingProvider(), repository=repository)
-
-    class _Service:
-        def search(self, keyword):
-            return service.search(keyword)
-
-    app.dependency_overrides[get_stock_catalog_service] = lambda: _Service()
-    try:
-        # No synced state -> falls back to the provider -> 50001, not 50002.
-        fallback = TestClient(app).get("/api/v1/stocks/search?keyword=贵州")
-    finally:
-        app.dependency_overrides.clear()
-        session.close()
-
-    assert fallback.status_code == 502
-    assert fallback.json()["code"] == 50001
+    assert response.status_code == 500
+    assert response.json()["code"] == 50002
 
 
 def test_data_status_reports_50002_when_the_bars_table_is_missing():

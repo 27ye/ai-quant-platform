@@ -375,8 +375,10 @@ class BacktestRepository:
         """Return C's envelope plus whether it came from the exact text column.
 
         ``c_result_text`` (migration v8) holds the bytes B wrote, so parsing it is
-        lossless. ``c_result`` is the legacy JSON column whose numbers MySQL already
-        normalised, kept only so rows saved before v8 stay readable.
+        lossless - but only for rows B wrote itself. Rows upgraded from v7 had their
+        text backfilled from the JSON column, whose numbers MySQL had already
+        normalised; only those rows still carry the legacy column (new rows leave it
+        NULL), which is what marks the envelope as inexact.
         """
         text = record.c_result_text
         if text:
@@ -385,7 +387,7 @@ class BacktestRepository:
             except (TypeError, ValueError):
                 payload = None
             if isinstance(payload, Mapping):
-                return payload, True
+                return payload, record.c_result is None
         legacy = record.c_result
         if isinstance(legacy, Mapping):
             return legacy, False

@@ -95,8 +95,12 @@ GET /api/v1/stocks/search?keyword=茅台
 > **V2 起**：搜索改为查询本地股票目录（MySQL `stock_basic`），由
 > `scripts/sync_stock_catalog.py` 低频同步；路径与响应结构不变。
 > 已成功同步时**不再调用全市场 Provider**，无匹配返回空数组；
-> 从未成功同步时回退实时 Provider，其失败仍返回 `50001`（不伪装成"无匹配"）；
+> **从未成功同步时返回 `50006`（HTTP 503，`stock catalog not synced`）**，并**不调用 Provider**；
 > 目录查询期数据库异常返回 `50002`。同步状态见 4.4。
+>
+> **为什么不再回退实时 Provider**：一次全市场快照实测约 34 秒（5915 行），而 Provider 的重试预算是 4 秒，
+> 所以旧回退**永远不可能成功**——它只会在约 4.7 秒后抛出 `50001`，把「目录还没初始化」误报成「数据源故障」。
+> 现在改为一目了然的瞬时可重试状态，前端可提示「行情目录初始化中，请稍后重试」并触发同步。
 
 ### 4.2 股票信息
 
@@ -372,6 +376,7 @@ AI Service 内部调用 Stock、Quant、Backtest、News Service，前端只传 `
 50003    quant calculation error
 50004    backtest error
 50005    ai service error
+50006    stock catalog not synced
 ```
 
 > **V2 补充口径**：

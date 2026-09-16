@@ -213,5 +213,49 @@ def test_migration_v8_adds_the_column_backfills_and_is_idempotent():
     assert json.loads(stored) == payload
 
 
+def test_legacy_row_upgraded_by_v8_still_reports_exact_false():
+    """C's chained path: a v7 JSON row, upgraded, read back in a NEW session.
+
+    The two halves were covered separately before - "an old row reads as inexact"
+    inserted *after* the migration, and "v8 backfills text" - which missed the path
+    where the backfilled text makes an old row look exact.
+    """
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    apply_migrations(engine)
+
+    payload = {"algorithm_version": "pre-v8", "equity": 99633.35582084299}
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE backtest_result DROP COLUMN c_result_text"))
+        connection.execute(
+            text(
+                "INSERT INTO backtest_result "
+                "(stock_code, strategy_name, start_date, end_date, c_result) "
+                "VALUES ('600519', 'pre-v8', '2026-01-01', '2026-01-02', :payload)"
+            ),
+            {"payload": json.dumps(payload)},
+        )
+
+    # Upgrade through the documented entry point, then read in a fresh session.
+    apply_migrations(engine)
+    with Session(bind=engine) as session:
+        detail = BacktestRepository(session).get(1)
+        full = BacktestRepository(session).get(1, include_c_result=True)
+
+    assert detail["c_result_available"] is True
+    assert detail["c_result_exact"] is False  # backfilled from the normalised JSON
+    assert full["c_result"] == payload
+
+    # A repeated migration must not change the verdict.
+    apply_migrations(engine)
+    with Session(bind=engine) as session:
+        again = BacktestRepository(session).get(1)
+
+    assert again["c_result_exact"] is False
+
+
 def test_schema_version_is_eight():
     assert migrations.SCHEMA_VERSION == 8

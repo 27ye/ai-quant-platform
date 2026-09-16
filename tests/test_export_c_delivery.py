@@ -357,14 +357,49 @@ def test_rows_up_to_the_settled_day_are_accepted(tmp_path):
     assert (tmp_path / f"{STOCK}_qfq_normalized_{WINDOW_TOKEN}.json").exists()
 
 
-def test_absent_settled_day_is_recorded_as_null(tmp_path):
+def test_absent_settled_day_is_refused_before_any_side_effect(tmp_path):
+    """C: the last complete trading day is mandatory, not just recorded."""
     sessions = _session_factory()
 
     entry = _export([_row("2026-09-15")], None, tmp_path, sessions)
 
-    assert entry["last_complete_trading_day"] is None
-    assert entry["rows_beyond_settled_day"] == []
-    assert entry["status"] == "ok"
+    assert entry["status"] == "missing_settled_day"
+    assert entry["status"] != "ok"
+    assert list(tmp_path.iterdir()) == []
+    with sessions() as session:
+        assert mod.MarketDataRepository(session).list_daily(
+            STOCK, date(2024, 12, 1), date(2026, 12, 31)
+        ) == []
+
+
+def test_require_settled_day_rejects_a_missing_value():
+    with pytest.raises(mod.BatchError) as excinfo:
+        mod.require_settled_day(None)
+
+    assert "required" in str(excinfo.value)
+    assert mod.require_settled_day("2026-09-15") == "2026-09-15"
+
+
+def test_cli_refuses_when_the_settled_day_is_omitted(tmp_path, monkeypatch, capsys):
+    """The gate must fire before any provider call, write or database access."""
+    batch_dir = tmp_path / "c-delivery-20260916"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "export_c_delivery.py",
+            "--batch",
+            "20260916",
+            "--output-dir",
+            str(batch_dir),
+        ],
+    )
+
+    exit_code = mod.main()
+
+    assert exit_code == 2
+    assert not batch_dir.exists()
+    assert "required" in capsys.readouterr().err
 
 
 def test_export_failure_is_recorded_as_a_failure_not_a_success(tmp_path, monkeypatch):

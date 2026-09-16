@@ -19,6 +19,21 @@ class StockNotFoundError(ApplicationError):
     status_code = 404
 
 
+class CatalogNotSyncedError(ApplicationError):
+    """V2 B1 ``50006``: search needs the local catalog, which was never synced.
+
+    The live-provider fallback this replaces could not work: a full-market spot
+    snapshot needs far longer than the provider's bounded retry budget (measured
+    ~34 s for 5915 rows against a 4 s budget), so every cold-start search ended in
+    ``50001`` after ~4.7 s having achieved nothing. A distinct, retryable code lets
+    the client say "catalog is initialising" instead of guessing at a timeout.
+    """
+
+    code = 50006
+    message = "stock catalog not synced"
+    status_code = 503
+
+
 class InsufficientStockDataError(ApplicationError):
     code = 40003
     message = "insufficient stock data"

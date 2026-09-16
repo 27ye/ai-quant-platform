@@ -8,9 +8,10 @@ stopped working. V2 keeps a catalog in MySQL instead:
   catalog is actually complete (``stock_catalog_sync``);
 * search is answered locally, so it no longer depends on the realtime quote
   cluster;
-* when the catalog was never synced successfully, search still falls back to the
-  live provider - and a provider failure stays a failure (``50001``) instead of
-  being reported as "no matching stock".
+* when the catalog was never synced successfully, search reports ``50006 catalog not
+  synced`` (HTTP 503) rather than downloading the market snapshot: the fallback could
+  never fit the provider's retry budget, so it only ever produced a misleading
+  ``50001`` after a multi-second wait.
 """
 
 from __future__ import annotations
@@ -23,7 +24,11 @@ from sqlalchemy import bindparam, func, insert, or_, select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from backend.app.core.errors import DatabaseOperationError, InvalidParameterError
+from backend.app.core.errors import (
+    CatalogNotSyncedError,
+    DatabaseOperationError,
+    InvalidParameterError,
+)
 from backend.app.data.providers.base import StockDataProvider, StockDataProviderError
 from backend.app.models.stock_basic import StockBasic
 from backend.app.models.stock_catalog_sync import StockCatalogSync
@@ -285,15 +290,12 @@ class StockCatalogService:
             # here is a genuine "no match".
             return self._repository.search(keyword, limit)
 
-        # Never synced: fall back to live search. A provider failure must stay a
-        # failure (50001) instead of being reported as an empty result.
-        items = self._provider.search_stocks(keyword)
-        results = [
-            StockBasicSchema(
-                stock_code=str(item["stock_code"]).strip(),
-                stock_name=str(item["stock_name"]).strip(),
-            )
-            for item in items
-            if item.get("stock_code") and item.get("stock_name")
-        ]
-        return results[:limit]
+        # Never synced: the catalog is the only viable source. Downloading the whole
+        # market snapshot inside a search request is not an option - it measured ~34 s
+        # for 5915 rows while the provider's retry budget is 4 s, so the old fallback
+        # always ended in 50001 after ~4.7 s without ever succeeding. Report the state
+        # explicitly instead, so the caller can trigger a sync and retry.
+        raise CatalogNotSyncedError(
+            "stock catalog has never been synced successfully; sync it "
+            "(scripts/sync_stock_catalog.py) and retry"
+        )
