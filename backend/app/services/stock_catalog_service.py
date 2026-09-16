@@ -57,7 +57,16 @@ class CatalogSyncState:
 
     @property
     def is_complete(self) -> bool:
-        return self.status == _STATUS_SUCCESS and self.row_count >= MIN_CATALOG_ROWS
+        """True when a successful sync has left a usable catalog behind.
+
+        Deliberately **not** ``status == "success"``: :meth:`StockCatalogRepository.mark_failure`
+        keeps ``last_success_at``/``row_count`` and records the error separately, so a
+        failed *refresh* must not discard a catalog that is still sitting in
+        ``stock_basic``. Search keeps answering from those rows while the refresh error
+        stays visible in ``last_error``. Only "never had a successful sync" means there
+        is nothing to search (``50006``).
+        """
+        return self.last_success_at is not None and self.row_count >= MIN_CATALOG_ROWS
 
 
 @dataclass(frozen=True)
