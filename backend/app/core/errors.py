@@ -47,3 +47,26 @@ class DatabaseOperationError(ApplicationError):
     code = 50002
     message = "database error"
     status_code = 500
+
+
+class BacktestNotFoundError(ApplicationError):
+    """V2: unknown ``backtest_id`` (distinct from "stock not found")."""
+
+    code = 40005
+    message = "backtest not found"
+    status_code = 404
+
+
+class BacktestError(ApplicationError):
+    """V2 ``50004``: the backtest engine cannot serve this request.
+
+    Raised when a ``v2_windowed`` request arrives while C's windowed entry points
+    (``resolve_backtest_request`` / ``validate_backtest_window`` /
+    ``run_backtest_request``) are not importable. Running the old V1 core and
+    labelling its output ``v2_windowed`` would misreport the window semantics, so
+    the request fails explicitly and **nothing is persisted**.
+    """
+
+    code = 50004
+    message = "backtest error"
+    status_code = 500

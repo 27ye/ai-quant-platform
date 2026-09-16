@@ -26,6 +26,7 @@ class AIAnalysis(Base):
     risks: Mapped[Optional[list]] = mapped_column(JSON)
     conclusion: Mapped[Optional[str]] = mapped_column(Text)
     model_name: Mapped[Optional[str]] = mapped_column(String(100))
+    # -- V2 report snapshot (migration v5; fields owned by D, migration by B) --
     context_snapshot: Mapped[Optional[dict]] = mapped_column(JSON)
     context_hash: Mapped[Optional[str]] = mapped_column(CHAR(64))
     source_mode: Mapped[Optional[str]] = mapped_column(String(16))

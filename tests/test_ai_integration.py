@@ -339,6 +339,19 @@ def test_stock_quant_and_ai_routes_project_same_pipeline_window_and_params(graph
     context = context_of(graph)
     backtest_data = backtest.json()["data"].copy()
     backtest_data.pop("stock_code")
+    # V2 adds saved-snapshot metadata on top of the same C projection; the
+    # calculation fields themselves must still match the direct pipeline.
+    for extra in (
+        "backtest_id",
+        "semantics_version",
+        "effective_parameters",
+        "warmup_start_date",
+        "warmup_rows",
+        "data_meta",
+        "snapshot_status",
+    ):
+        backtest_data.pop(extra, None)
+    assert backtest.json()["data"]["semantics_version"] == "v1_legacy"
 
     assert indicators.json()["data"] == pipeline["series"]["indicators"]
     assert score.json()["data"] == pipeline["score"]

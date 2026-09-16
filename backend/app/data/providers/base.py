@@ -30,3 +30,14 @@ class StockDataProvider(ABC):
         adjust: str = "qfq",
     ) -> pd.DataFrame:
         """Fetch daily kline data and return normalized snake_case columns."""
+
+    def fetch_stock_catalog(self) -> list:
+        """Return the full A-share catalog as ``[{stock_code, stock_name}]``.
+
+        Used by the V2 catalog sync, not by online search. Providers that cannot
+        enumerate the market keep this default and fail loudly instead of
+        returning an empty catalog (which would look like "no stocks exist").
+        """
+        raise StockDataProviderError(
+            "stock catalog fetch is not supported by this provider"
+        )

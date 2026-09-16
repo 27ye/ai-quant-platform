@@ -102,6 +102,11 @@ class StockService:
             for item in items
         ]
 
+    @property
+    def last_kline_source(self) -> Optional[str]:
+        """Which host served the most recent successful daily fetch (V2 B2)."""
+        return getattr(self._provider, "last_kline_source", None)
+
     def get_stock_info(self, stock_code: str) -> StockBasicSchema:
         """Return basic stock info (name, industry, market caps) via AKShare."""
         info = self._provider.get_stock_info(stock_code)
