@@ -1,0 +1,80 @@
+{
+  "as_of": "2026-09-16",
+  "B_SHA": "25c11aa7b55d67fa5f77b3c603ca84b5369dc48e",
+  "C_core_SHA": "92df017404126e9af920e1ad82e4a136d813f8d1",
+  "A_checked_SHA": "010841099b20b500ed322b15cec32d9e7add97cd",
+  "D_last_checked_SHA": "15315c6fbf9339694eceaab0172d3d3f05e7ec2e",
+  "status": "B failed-refresh search issue closed at tested SHA; final combination pending",
+  "suite": {
+    "tests": 359,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 359,
+    "warnings": 1,
+    "warning": "Existing Starlette/AnyIO deprecation",
+    "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+    "compileall_exit_code": 0,
+    "compile_targets": [
+      "backend",
+      "scripts",
+      "tests"
+    ]
+  },
+  "source_files_verified_unchanged_after_tests": 200,
+  "api_cases_passed": 7,
+  "provider_calls_during_all_search_gets": 0,
+  "unchanged_components": [
+    "backtest calculation",
+    "backtest persistence",
+    "schema migrations",
+    "delivery exporter"
+  ],
+  "prior_evidence": {
+    "sha": "9a1b9b45235c07b01b0ab30d0fcbb7ad719fea8b",
+    "path": "../c-followup-20260916/summary.json",
+    "note": "Prior real MySQL and exporter results stay bound to B9a1. They were not rerun or relabelled as B25c MySQL tests."
+  },
+  "pending": [
+    {
+      "owner": "A",
+      "item": "Publish 50006 Chinese mapping and verify actual HTTP503 handling"
+    },
+    {
+      "owner": "D",
+      "item": "Integrate current B/A, validate V1-to-V8 and live UI/API, provide final full SHA"
+    },
+    {
+      "owner": "C",
+      "item": "Reverify final combined SHA"
+    },
+    {
+      "owner": "B/C",
+      "item": "New real data package and whole-package consistency remain separate acceptance"
+    }
+  ],
+  "not_retested_here": [
+    "real MySQL",
+    "V1-to-V8 upgrade",
+    "frontend browser or build",
+    "live provider or LLM",
+    "D final combination"
+  ],
+  "deferred_existing_policy": "Catalog completeness threshold >=1000 versus upstream total remains a B/D policy question; unchanged by this fix",
+  "source_comment": "https://github.com/27ye/ai-quant-platform/issues/11#issuecomment-5694407714",
+  "evidence": {
+    "coldstart.json": {
+      "source_report_sha256": "23d08886b1e7d5b80f6ba52d651e6f43996fc9521d67c1f9315c03f43d84fa37",
+      "published_sha256": "23d08886b1e7d5b80f6ba52d651e6f43996fc9521d67c1f9315c03f43d84fa37"
+    },
+    "source-comparison.json": {
+      "source_report_sha256": "7c8fd4e1e1de354bb364b11b28c68a59d7367570b26f3cb1f044dbec07151236",
+      "published_sha256": "7eb5fde33cadbd3cbdfc56ef6c559bc524a1c9b0a4afb173617f5295f75a56d9"
+    },
+    "a-interface.json": {
+      "source_report_sha256": "74b78a90178c7046e9b0f4ae05ba6d3aaf3832cb75ed93da06234c9475f195c7",
+      "published_sha256": "16edd7428fe8eef9a2380cbd22fabe91d37cf64c71714eea009d4f4fa0da597b"
+    }
+  },
+  "raw_test_log_sha256": "ba1a882729b5ab7503a5ad2ef972414ae396a0a09558dd25b1df8d01bdae2300"
+}
