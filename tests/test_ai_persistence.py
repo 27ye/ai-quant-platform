@@ -194,6 +194,9 @@ def test_repository_reads_legacy_row_without_reconstructing_snapshot(repository)
     assert result.context_snapshot is None
     assert result.context_hash is None
     assert result.prompt_version is None
+    page = repo.list_reports("600519", page=1, page_size=20)
+    assert page.items[0].snapshot_status == "legacy_missing"
+    assert page.items[0].source_mode == "unknown"
 
 
 def test_repository_rejects_corrupted_new_snapshot(repository):
@@ -228,6 +231,8 @@ def test_repository_rejects_corrupted_new_snapshot(repository):
 
 def test_repository_does_not_treat_partial_v2_metadata_as_legacy(repository):
     repo, db = repository
+    context = _context()
+    snapshot, context_hash = serialize_analysis_context(context)
     partial = AIAnalysis(
         stock_code="600519",
         quant_score=50,
@@ -240,7 +245,8 @@ def test_repository_does_not_treat_partial_v2_metadata_as_legacy(repository):
         risks=["风险"],
         conclusion="结论",
         model_name="test-model",
-        context_hash="0" * 64,
+        context_snapshot=snapshot,
+        context_hash=context_hash,
         created_at=datetime(2026, 8, 31),
     )
     db.add(partial)
@@ -248,3 +254,5 @@ def test_repository_does_not_treat_partial_v2_metadata_as_legacy(repository):
 
     with pytest.raises(DatabaseOperationError):
         repo.get_report(partial.id)
+    with pytest.raises(DatabaseOperationError):
+        repo.list_reports("600519", page=1, page_size=20)

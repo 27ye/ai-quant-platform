@@ -130,10 +130,24 @@ class SQLAlchemyAIAnalysisRepository:
     ) -> PaginatedAIReports:
         try:
             count_query = self._db.query(func.count(AIAnalysis.id))
-            has_snapshot = (
+            has_complete_snapshot = (
                 AIAnalysis.context_snapshot.is_not(None)
                 & AIAnalysis.context_hash.is_not(None)
-            ).label("has_snapshot")
+                & AIAnalysis.source_mode.is_not(None)
+                & AIAnalysis.data_as_of.is_not(None)
+                & AIAnalysis.prompt_version.is_not(None)
+                & AIAnalysis.context_schema_version.is_not(None)
+                & AIAnalysis.output_schema_version.is_not(None)
+            ).label("has_complete_snapshot")
+            is_legacy_report = (
+                AIAnalysis.context_snapshot.is_(None)
+                & AIAnalysis.context_hash.is_(None)
+                & AIAnalysis.source_mode.is_(None)
+                & AIAnalysis.data_as_of.is_(None)
+                & AIAnalysis.prompt_version.is_(None)
+                & AIAnalysis.context_schema_version.is_(None)
+                & AIAnalysis.output_schema_version.is_(None)
+            ).label("is_legacy_report")
             page_query = self._db.query(
                 AIAnalysis.id,
                 AIAnalysis.stock_code,
@@ -144,7 +158,8 @@ class SQLAlchemyAIAnalysisRepository:
                 AIAnalysis.data_as_of,
                 AIAnalysis.created_at,
                 AIAnalysis.source_mode,
-                has_snapshot,
+                has_complete_snapshot,
+                is_legacy_report,
             )
             if stock_code is not None:
                 count_query = count_query.filter(AIAnalysis.stock_code == stock_code)
@@ -180,7 +195,10 @@ class SQLAlchemyAIAnalysisRepository:
     @staticmethod
     def _to_summary(record: Row) -> AIReportSummary:
         # ``list_reports`` selects individual columns plus the labeled
-        # ``has_snapshot`` expression, so this receives a Row, not an ORM object.
+        # snapshot-state expressions, so this receives a Row, not an ORM object.
+        if not record.has_complete_snapshot and not record.is_legacy_report:
+            raise ValueError("stored report snapshot metadata is incomplete")
+        complete = bool(record.has_complete_snapshot)
         return AIReportSummary(
             report_id=record.id,
             stock_code=record.stock_code,
@@ -190,8 +208,8 @@ class SQLAlchemyAIAnalysisRepository:
             model_name=record.model_name,
             data_as_of=_as_utc(record.data_as_of),
             created_at=_as_utc(record.created_at),
-            source_mode=record.source_mode or "unknown",
-            snapshot_status="complete" if record.has_snapshot else "legacy_missing",
+            source_mode=record.source_mode if complete else "unknown",
+            snapshot_status="complete" if complete else "legacy_missing",
         )
 
     @staticmethod
