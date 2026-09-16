@@ -115,12 +115,12 @@ watch(
 }
 
 .ai-card :deep(.el-card__body::-webkit-scrollbar-thumb) {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--border-strong);
   border-radius: 3px;
 }
 
 .ai-card :deep(.el-card__body::-webkit-scrollbar-thumb:hover) {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--text-faint);
 }
 
 .card-header {
@@ -145,7 +145,7 @@ watch(
 }
 
 .history-link:hover {
-  color: var(--accent, #d4a958);
+  color: var(--accent);
 }
 
 .idle p {

@@ -77,7 +77,7 @@ function formatTime(iso: string | null): string {
   width: 6px;
 }
 .news-card :deep(.el-card__body::-webkit-scrollbar-thumb) {
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--border-strong);
   border-radius: 3px;
 }
 .news-card :deep(.el-card__body::-webkit-scrollbar-track) {
@@ -92,7 +92,7 @@ function formatTime(iso: string | null): string {
 
 .news-item {
   padding: 12px 0;
-  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.07));
+  border-bottom: 1px solid var(--border);
 }
 .news-item:last-child {
   border-bottom: none;
@@ -100,7 +100,7 @@ function formatTime(iso: string | null): string {
 
 .title {
   display: block;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-main);
   font-size: 14px;
   font-weight: 500;
   line-height: 1.5;
@@ -108,7 +108,7 @@ function formatTime(iso: string | null): string {
   transition: color 0.12s ease;
 }
 .title:hover {
-  color: var(--accent, #d4a958);
+  color: var(--accent);
 }
 .title.static {
   cursor: default;
@@ -119,7 +119,7 @@ function formatTime(iso: string | null): string {
   align-items: center;
   gap: 10px;
   margin-top: 4px;
-  color: var(--text-faint, rgba(255, 255, 255, 0.38));
+  color: var(--text-faint);
   font-size: 12px;
 }
 .time {
@@ -128,7 +128,7 @@ function formatTime(iso: string | null): string {
 
 .summary {
   margin: 6px 0 0;
-  color: var(--text-sub, rgba(255, 255, 255, 0.55));
+  color: var(--text-sub);
   font-size: 13px;
   line-height: 1.6;
   /* 最多 2 行，溢出省略 */

@@ -48,20 +48,20 @@ const badge = computed<{ text: string; tone: 'green' | 'yellow' | 'gray' }>(() =
 }
 
 .green {
-  color: rgba(74, 222, 128, 0.9);
-  border-color: rgba(74, 222, 128, 0.35);
-  background: rgba(74, 222, 128, 0.08);
+  color: var(--down);
+  border-color: var(--down);
+  background: var(--down-bg);
 }
 
 .yellow {
-  color: rgba(250, 204, 21, 0.9);
-  border-color: rgba(250, 204, 21, 0.35);
-  background: rgba(250, 204, 21, 0.08);
+  color: var(--warn);
+  border-color: var(--warn);
+  background: var(--warn-bg);
 }
 
 .gray {
-  color: rgba(255, 255, 255, 0.45);
-  border-color: rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-faint);
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
 }
 </style>

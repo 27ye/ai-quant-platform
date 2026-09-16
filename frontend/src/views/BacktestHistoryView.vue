@@ -174,7 +174,7 @@ watch(
   gap: 12px;
   padding-bottom: 14px;
   margin-bottom: 14px;
-  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  border-bottom: 1px solid var(--border);
 }
 
 .header-left {
@@ -193,7 +193,7 @@ watch(
 }
 
 .back-link:hover {
-  color: var(--accent, #d4a958);
+  color: var(--accent);
 }
 
 .page-title {
@@ -211,8 +211,8 @@ watch(
 }
 
 .panel {
-  background: var(--surface, #14171d);
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
 }
 
@@ -230,8 +230,8 @@ watch(
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  background: var(--surface, #14171d);
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   cursor: pointer;
   transition:
@@ -240,8 +240,8 @@ watch(
 }
 
 .bt-item:hover {
-  background: var(--surface-hover, #181c23);
-  border-color: var(--border-strong, rgba(255, 255, 255, 0.16));
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
 }
 
 .item-main {
@@ -271,14 +271,14 @@ watch(
 }
 
 .tag-v2 {
-  border: 1px solid rgba(212, 169, 88, 0.4);
-  background: rgba(212, 169, 88, 0.08);
-  color: rgba(212, 169, 88, 0.9);
+  border: 1px solid var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent);
 }
 
 .tag-v1,
 .tag-missing {
-  border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.16));
+  border: 1px solid var(--border-strong);
   color: var(--text-faint);
 }
 
@@ -312,11 +312,11 @@ watch(
 }
 
 .return.up {
-  color: var(--up, #ff4d4f);
+  color: var(--up);
 }
 
 .return.down {
-  color: var(--down, #00b386);
+  color: var(--down);
 }
 
 .arrow {

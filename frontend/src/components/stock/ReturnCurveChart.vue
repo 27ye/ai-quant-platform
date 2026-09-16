@@ -8,6 +8,8 @@ import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/compon
 import { CanvasRenderer } from 'echarts/renderers'
 
 import type { BenchmarkCurvePoint } from '../../types/api'
+import { useThemeStore } from '../../stores/theme'
+import { chartPalette, hexToRgba } from '../../utils/chartTheme'
 
 echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
 
@@ -16,6 +18,8 @@ const props = defineProps<{
   benchmarkCurve?: BenchmarkCurvePoint[] | null
   initialCash: number
 }>()
+
+const theme = useThemeStore()
 
 // 以权益曲线日期为轴，基准按日期对齐（契约：两曲线同覆盖回测区间有效交易日）
 const series = computed(() => {
@@ -38,14 +42,16 @@ let chart: echarts.ECharts | null = null
 
 function render() {
   if (!chart) return
+  // 每次渲染从 CSS 变量取色，主题切换后重建即可生效
+  const pal = chartPalette()
   const seriesList: LineSeriesOption[] = [
     {
       name: '策略累计收益',
       type: 'line',
       data: series.value.equityRet,
       symbol: 'none',
-      lineStyle: { width: 1.5, color: '#d4a958' },
-      itemStyle: { color: '#d4a958' },
+      lineStyle: { width: 1.5, color: pal.accent },
+      itemStyle: { color: pal.accent },
       areaStyle: {
         color: {
           type: 'linear',
@@ -54,8 +60,8 @@ function render() {
           x2: 0,
           y2: 1,
           colorStops: [
-            { offset: 0, color: 'rgba(212,169,88,0.16)' },
-            { offset: 1, color: 'rgba(212,169,88,0)' },
+            { offset: 0, color: hexToRgba(pal.accent, 0.16) },
+            { offset: 1, color: hexToRgba(pal.accent, 0) },
           ],
         },
       },
@@ -67,8 +73,8 @@ function render() {
       type: 'line',
       data: series.value.benchRet,
       symbol: 'none',
-      lineStyle: { width: 1.2, color: 'rgba(255,255,255,0.45)', type: 'dashed' },
-      itemStyle: { color: 'rgba(255,255,255,0.45)' },
+      lineStyle: { width: 1.2, color: pal.textFaint, type: 'dashed' },
+      itemStyle: { color: pal.textFaint },
     })
   }
   chart.setOption(
@@ -76,10 +82,10 @@ function render() {
       animation: false,
       tooltip: {
         trigger: 'axis',
-        backgroundColor: '#14171d',
-        borderColor: 'rgba(255,255,255,0.12)',
+        backgroundColor: pal.surface,
+        borderColor: pal.borderStrong,
         borderWidth: 1,
-        textStyle: { color: '#f2f2f2' },
+        textStyle: { color: pal.textMain },
         valueFormatter: (value: number | null) =>
           value == null ? '—' : `${(value * 100).toFixed(2)}%`,
       },
@@ -87,7 +93,7 @@ function render() {
         ? {
             top: 0,
             right: 0,
-            textStyle: { color: 'rgba(255,255,255,0.5)', fontSize: 11 },
+            textStyle: { color: pal.textSub, fontSize: 11 },
             itemWidth: 16,
             itemHeight: 8,
           }
@@ -96,19 +102,19 @@ function render() {
       xAxis: {
         type: 'category',
         data: series.value.dates.map((d) => d.slice(5)),
-        axisLabel: { color: 'rgba(255,255,255,0.45)', fontSize: 11 },
-        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.12)' } },
+        axisLabel: { color: pal.textFaint, fontSize: 11 },
+        axisLine: { lineStyle: { color: pal.borderStrong } },
         axisTick: { show: false },
       },
       yAxis: {
         type: 'value',
         scale: true,
         axisLabel: {
-          color: 'rgba(255,255,255,0.45)',
+          color: pal.textFaint,
           fontSize: 11,
           formatter: (value: number) => `${(value * 100).toFixed(0)}%`,
         },
-        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+        splitLine: { lineStyle: { color: pal.border } },
       },
       series: seriesList,
     },
@@ -124,6 +130,8 @@ onMounted(() => {
 })
 
 watch(series, render)
+// 主题切换：重建 option 应用新调色板
+watch(() => theme.theme, render)
 
 onBeforeUnmount(() => {
   chart?.dispose()
