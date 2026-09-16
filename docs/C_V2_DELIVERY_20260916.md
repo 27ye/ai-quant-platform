@@ -2,6 +2,23 @@
 
 本说明用于把 C 已有实现交给 B/D，并接续三股票验收。包内完整 Git SHA、文件哈希、实际测试结果和未验证项以交付包根目录的 manifest.json 为准。较早的协调记录保留当时状态，不用它们推断当前实现已推送或整个 V2 已验收。
 
+## 当前公开交付入口（2026-09-16 更新）
+
+按 [COLLABORATION.md 第 6 节](COLLABORATION.md#6-git-分支与协作流程统一规则) 的 `feature/<模块>-<功能>` 规则，以及 [V2_DEVELOPMENT_PLAN.md](V2_DEVELOPMENT_PLAN.md) 第 7 节明确列出的 C 名称，正式交付分支统一为 **`feature/v2-c-backtest-params`**。旧 `codex/v2-c-backtest-params` 已重命名，不再用作交付入口。
+
+- 仓库及分支：[pop17589822299-coder/ai-quant-platform](https://github.com/pop17589822299-coder/ai-quant-platform/tree/feature/v2-c-backtest-params)。
+- C 实现提交：`92df017404126e9af920e1ad82e4a136d813f8d1`；算法核心保持此版本。
+- 组合复核证据提交：`f114a3816105727630ea3b1b5acb52a63ebf3f8b`，仅增加 7 份文档/JSON。
+- 最新已执行检查与待修项：[C_V2_COMBINED_15315_REVIEW_20260916.md](C_V2_COMBINED_15315_REVIEW_20260916.md)。当前不能签发最终全链路通过结论。
+
+```bash
+git fetch https://github.com/pop17589822299-coder/ai-quant-platform.git feature/v2-c-backtest-params
+git rev-parse FETCH_HEAD
+git show FETCH_HEAD:backend/app/quant/windowed_backtest.py
+```
+
+下文有关本地打包/早期接线的内容保留为历史交付过程，当前是否已发布及验收状态以上述公开入口与最新复核报告为准。
+
 ## 1. 交付边界
 
 交付包括 C 的量化核心变更、C 测试、离线校验脚本、字段契约与 JSON 样例。没有修改 A 前端、B 的 HTTP/数据库/行情代码或 D 的 AI 代码。测试中的合成数据始终单列，不冒充 B 的三股真实样本。
