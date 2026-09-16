@@ -1,57 +1,57 @@
 # C 项目进度看板
 
-更新：2026-09-16。维护人：C。正式分支：`feature/v2-c-backtest-params`；审阅入口：[PR #12](https://github.com/27ye/ai-quant-platform/pull/12)。
+更新：2026-09-16。维护人：C。正式分支：`feature/v2-c-backtest-params`。**[PR #10](https://github.com/27ye/ai-quant-platform/pull/10) 为唯一最终集成；[PR #12](https://github.com/27ye/ai-quant-platform/pull/12) 保留 C 来源/审阅记录，不另行合并 main。**
 
-**当前：C 量化实现已发布，B/C 指定版本联调已通过；等待 D 集成新版本后完成最终验收。** 下表的“通过”只绑定被测 SHA，不表示这些修复已经进入 D 分支。
+**当前：D 候选组合 cc57482 的 C 阶段检查通过；等待新真实数据包、D 完成剩余关口并指定最终 SHA，随后做 C 最终签字。**
 
 ## 阶段视图
 
 ```mermaid
 flowchart LR
-    C["C 量化实现<br/>已发布 · 92df017"] --> BC["B/C 隔离联调<br/>已通过 · B 9a1b9b4 + C 92df017"]
-    A["A 状态与哈希标签<br/>定向复验通过 · 0108410"] --> D["D 新组合<br/>待集成与指定 SHA"]
-    BC --> D
-    S["B 搜索状态边界<br/>已通过 · 25c11aa"] --> D
-    P["A 50006 中文提示<br/>待提交"] --> D
-    D --> F["最终组合验收<br/>待复验"]
+    C["C 算法已发布<br/>92df017"] --> D["D 候选组合<br/>cc57482"]
+    AB["A/B 修复已集成<br/>D 补迁移与前端契约"] --> D
+    D --> T["C 阶段检查通过<br/>523 tests · MySQL 恢复"]
+    B["B 新真实数据包<br/>待交付"] --> V["D 验包与剩余验收<br/>指定最终 SHA"]
+    T --> V
+    V --> F["C 最终组合复验<br/>待签字"]
     classDef done fill:#dafbe1,stroke:#1a7f37,color:#1f2328
     classDef pending fill:#fff8c5,stroke:#9a6700,color:#1f2328
-    class C,BC,A,S done
-    class P,D,F pending
+    class C,AB,D,T done
+    class B,V,F pending
 ```
 
 ## 当前状态与责任人
 
-| 事项 | 负责人 | 状态 | 被测版本 / 证据 | 下一步 |
-|---|---|---|---|---|
-| V2 参数化与窗口回测，V1 默认兼容 | C | ✅ 已发布 | 核心 `92df017`；[原组合复核](C_V2_COMBINED_15315_REVIEW_20260916.md) | 保持核心版本；复验最终组合 |
-| MySQL 历史列表 1038 / 50002 | B，C 复验 | ✅ 指定版本通过 | B `9a1b9b4`；18 条记录、7 项列表、每次 2 SQL；[证据](evidence/c-followup-20260916/mysql-v8.json) | D 集成后再验 |
-| 新结果无损保存、旧记录 exact 标记 | B，C 复验 | ✅ 指定版本通过 | B `9a1b9b4` + C `92df017`；新九组完整对象精确一致、旧九条均 false；[证据](evidence/c-followup-20260916/mysql-v8.json) | D 验 V1→v8 与最终组合 |
-| 导出完整日必填、批次与失败保护 | B，C 复验 | ✅ 指定版本通过 | B `9a1b9b4`；8 项实际 CLI/函数探针；[证据](evidence/c-followup-20260916/export-cli.json) | 新真实数据包另验 |
-| A 三条面板状态路径、输入哈希标签 | A，C 复验 | ✅ 定向检查通过 | A `0108410`；7 项原 SFC 受控探针；[证据](evidence/c-followup-20260916/a-panel-state.json) | D 集成后做浏览器/真实 API 验证 |
-| 曾成功同步后刷新失败，仍可用旧目录搜索 | B，C 复验 | ✅ 指定版本通过 | B `25c11aa`；7 项实际 API 场景通过、GET provider 调用均 0；[证据](evidence/c-b25c-20260916/coldstart.json) | D 集成后复验 |
-| 50006 中文提示与 HTTP 503 展示 | A | 🟠 待对齐 | 核对 A `0108410` 时尚无消息映射 | 提交映射与接口提示验证 |
-| 新组合、V1→v8、旧历史与页面联调 | D | ⏳ 待集成 | 核对时 PR #10 仍为 `15315c6` | 交付完整新 SHA 和验证证据 |
-| 最终组合验收结论 | C | ⏳ 等待组合版本 | 不沿用隔离副本或旧 SHA 签新版本 | 对 D 指定 SHA 复验后发布结论 |
-| 新真实数据包及整包一致性 | B，C 复验 | 🟠 待交付 / 待验 | 600519 的 2026-09-15 旧包差异仍在 | 新批次、来源、hash、独立 MySQL 回读齐备后验收 |
+| 事项 | 负责人 | 当前状态 | 证据 / 下一步 |
+|---|---|---|---|
+| 参数化、窗口、V1 默认兼容 | C | ✅ 核心保持 | D 的 12 文件与 C 92df017 Git blob 一致 |
+| 候选组合全量测试 | C 复核 D | ✅ cc57482 通过 | 523 passed、compileall、7 项离线 C/AI 兼容检查 |
+| v8 中断恢复与精确文本保护 | D/B，C 复验 | ✅ cc57482 通过 | MySQL 8.0.31：故障版本仍7，重试补齐旧9条，exact=false，新文本与重复迁移不变 |
+| 搜索刷新失败后仍可用旧目录 | B，C 复验 | ✅ 已进入候选 | B25c 原7项 API 通过；D 本轮全量测试覆盖；真实浏览器成功搜索仍由 D 收尾 |
+| 50006 / C detail / 哈希路径 / AI404 | D 实现，C 核对 | ✅ 当前源码对齐 | 本轮8项静态核对；不再列成 A 未提交；两处哈希注释可随文档收尾 |
+| 新记录完整 MySQL 九组与列表 | B/C | ✅ 原 B9a1 隔离版本通过；⏳ 最终 SHA 待复验 | [原证据](evidence/c-followup-20260916/mysql-v8.json)，不转签新包/新 SHA |
+| 新独立真实数据包 | B，D/C 验证 | 🟠 待交付 | B ab774a6 回复仍待导出；600519 9/15 旧包差异未以新批次关闭 |
+| V1→v8、真实 LLM、部分页面 | D | 📋 D 已报告通过 | 见 PR #10；C 本轮未重新执行这些真实环境项目 |
+| 剩余浏览器/首轮自动回测失败说明/CI | D | 🟠 待收尾 | 以 PR #10 门槛为准；无状态不等于 CI 通过 |
+| 最终组合验收结论 | C | ⏳ 等新包与最终 SHA | 按[新阶段计划](C_V2_D_PLAN_ALIGNMENT_20260916.md)复验后再签 |
 
-状态含义：✅ 已在写明的范围和 SHA 上完成；🟠 有明确待办或已复现问题；⏳ 等待前置交付。没有用估算百分比代表项目完成度。
+✅ 仅表示写明范围、版本的完成；📋 表示成员报告；🟠/⏳ 表示待办/前置依赖。不用估算百分比代替验收。
 
 ## 版本与证据入口
 
-| 角色 | 结论绑定的完整 SHA | 入口 |
-|---|---|---|
-| C 算法核心 | `92df017404126e9af920e1ad82e4a136d813f8d1` | [C 正式分支](https://github.com/pop17589822299-coder/ai-quant-platform/tree/feature/v2-c-backtest-params) / [PR #12](https://github.com/27ye/ai-quant-platform/pull/12) |
-| B 最新搜索已验版本 | `25c11aa7b55d67fa5f77b3c603ca84b5369dc48e` | [本轮复验报告](C_V2_B25C_REVIEW_20260916.md) |
-| B 原 MySQL / 导出已验版本 | `9a1b9b45235c07b01b0ab30d0fcbb7ad719fea8b` | [C 前轮复核回复](https://github.com/27ye/ai-quant-platform/issues/11#issuecomment-5694237707) |
-| A 定向已验版本 | `010841099b20b500ed322b15cec32d9e7add97cd` | [C 复核回复](https://github.com/27ye/ai-quant-platform/issues/11#issuecomment-5693951734) |
-| D 最近核对的组合 | `15315c6fbf9339694eceaab0172d3d3f05e7ec2e` | [PR #10](https://github.com/27ye/ai-quant-platform/pull/10)；不包含本表后续修复的验收结论 |
+| 对象 | 完整 SHA |
+|---|---|
+| 本轮 D 候选 | `cc574827c6c08d2336336a48d9f7a09e9582c60a` |
+| C 核心 | `92df017404126e9af920e1ad82e4a136d813f8d1` |
+| D 声明的 C 来源 | `1d9cae17070dc7fe06a7c916ef8a0849e6790660`；后续 C 提交只补契约、进度与证据 |
+| D 声明的 A / B | `010841099b20b500ed322b15cec32d9e7add97cd` / `25c11aa7b55d67fa5f77b3c603ca84b5369dc48e` |
+| B 后续迁移修复 | `ab774a6591f2e9b5b25b2feee733c4c6c83b9be1`；与 D v8 执行 AST 相同，合并安排由 D 决定 |
 
-- [最新 B25c 搜索复验报告](C_V2_B25C_REVIEW_20260916.md) / [本轮机器可读摘要及原报告哈希](evidence/c-b25c-20260916/summary.json)
-- [前轮 B9a1 / A0108410 复验记录](C_V2_FOLLOWUP_REVIEW_20260916.md) / [前轮证据摘要](evidence/c-followup-20260916/summary.json)
-- [早期组合 15315c6 历史报告](C_V2_COMBINED_15315_REVIEW_20260916.md)：保留当时发现，不将已修复问题继续当成最新分支待修。
+- [最新 D 计划调整与候选复核](C_V2_D_PLAN_ALIGNMENT_20260916.md) / [机器可读证据](evidence/c-dplan-20260916/summary.json)
+- [B25c 搜索复验](C_V2_B25C_REVIEW_20260916.md) / [B9a1 MySQL 与 A 定向复验](C_V2_FOLLOWUP_REVIEW_20260916.md)
+- [旧 D15315 复核](C_V2_COMBINED_15315_REVIEW_20260916.md)：保留当时发现；不当作新候选的待修清单。
 
-本轮 B25c 完整测试 **359 passed**、compileall 和 7 项 API 检查通过，Python **3.12.10**。回测/持久化/迁移/导出代码与 B9a1 相同；原 MySQL **8.0.31** 的 v7→v8 证据仍绑定 B9a1，本轮未重复执行或改写其版本归属。A 原状态探针已通过、50006映射仍待提交。没有据此宣布 V1→v8、远端部署、浏览器端到端、实时行情/LLM或整包数据已全部通过。
+本轮不修改算法和其他成员生产代码；未把合成/SQLite 检查、植入的迁移夹具或 D 的真实环境报告写成新真实数据包验收。后续每次结论绑定实际最终 SHA。
 
 ## C 后续同步约定
 

@@ -9,7 +9,7 @@
 - 仓库及分支：[pop17589822299-coder/ai-quant-platform](https://github.com/pop17589822299-coder/ai-quant-platform/tree/feature/v2-c-backtest-params)。
 - C 实现提交：`92df017404126e9af920e1ad82e4a136d813f8d1`；算法核心保持此版本。
 - 组合复核证据提交：`f114a3816105727630ea3b1b5acb52a63ebf3f8b`，仅增加 7 份文档/JSON。
-- 最新状态：[C 项目进度看板](C_PROGRESS.md)；最新搜索复验：[C_V2_B25C_REVIEW_20260916.md](C_V2_B25C_REVIEW_20260916.md)；前轮 MySQL / A 状态复验：[C_V2_FOLLOWUP_REVIEW_20260916.md](C_V2_FOLLOWUP_REVIEW_20260916.md)。B9a1 原两项、A0108410 状态/标签、B25c 搜索边界均已在对应版本通过，A 消息映射与 D 新组合验收仍待完成。
+- 最新状态：[C 项目进度看板](C_PROGRESS.md)；最新阶段计划与候选复核：[C_V2_D_PLAN_ALIGNMENT_20260916.md](C_V2_D_PLAN_ALIGNMENT_20260916.md)。D cc57482 已含迁移和前端契约修复，C 独立 523 tests / 7 项兼容 / 真实 MySQL 中断恢复通过；新真实数据包和最终 SHA 签字仍待完成。PR #10 为唯一最终集成，PR #12 只保留来源/审阅，不重复合并 main。
 - [C_V2_COMBINED_15315_REVIEW_20260916.md](C_V2_COMBINED_15315_REVIEW_20260916.md) 保留旧组合的历史发现，不再作为最新分支未修清单。后续 C 进展按看板中的约定同轮同步 GitHub。
 
 ```bash

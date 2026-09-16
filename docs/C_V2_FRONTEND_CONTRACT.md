@@ -1,8 +1,8 @@
 # C 对 Issue #11 的前端契约确认
 
-核对日期：2026-09-15。对应 [A 的 Issue #11](https://github.com/27ye/ai-quant-platform/issues/11)。
+更新核对：2026-09-16；下文保留 2026-09-15 的历史记录。对应 [A 的 Issue #11](https://github.com/27ye/ai-quant-platform/issues/11)。
 
-本文依据 C 实现及实际计算输出，确认参数、成交记录和曲线口径。C 已发布到 `pop17589822299-coder/ai-quant-platform` 的 `feature/v2-c-backtest-params` 分支，代码提交为 `92df017404126e9af920e1ad82e4a136d813f8d1`；按项目命名规则更正后的交付入口见 [C_V2_DELIVERY_20260916.md](C_V2_DELIVERY_20260916.md)。最新组合复核见 [C_V2_COMBINED_15315_REVIEW_20260916.md](C_V2_COMBINED_15315_REVIEW_20260916.md)，本文不能代替 B 的最终 HTTP 契约或最终组合 SHA 验收。下文带日期的旧评审记录保留其当时范围。
+本文依据 C 实现及实际计算输出，确认参数、成交记录和曲线口径。C 已发布到 `pop17589822299-coder/ai-quant-platform` 的 `feature/v2-c-backtest-params` 分支，代码提交为 `92df017404126e9af920e1ad82e4a136d813f8d1`；按项目命名规则更正后的交付入口见 [C_V2_DELIVERY_20260916.md](C_V2_DELIVERY_20260916.md)。最新组合复核见 [C_V2_D_PLAN_ALIGNMENT_20260916.md](C_V2_D_PLAN_ALIGNMENT_20260916.md)，本文不能代替 B 的最终 HTTP 契约或最终组合 SHA 验收。下文带日期的旧评审记录保留其当时范围。
 
 完整核心契约见 [C_V2_BACKTEST_CONTRACT.md](C_V2_BACKTEST_CONTRACT.md)，与 D 的边界见 [C_V2_PR10_COORDINATION.md](C_V2_PR10_COORDINATION.md)。
 
@@ -114,10 +114,31 @@ V1 保留首日收盘基准口径。历史页依据保存的 `semantics_version`
 
 这些检查不代表 A 页面构建、B 正式 HTTP、真实行情或 MySQL 已通过。
 
-## 7. 仍由 A/B/D 协调的事项
+## 7. 2026-09-15 历史协调事项（非当前待办）
+
+以下保留当时判断，包括“仅本地”和旧错误码描述；已被第 8 节及最新阶段计划更新，不能据此判定当前版本。
 
 1. B：`data-status` 真实 JSON、覆盖/新鲜度枚举、行情截至日和实际刷新时间；回测列表/详情包装、ID、创建时间、快照状态及分页。C 同意统一分页建议，但不声明 B 已实现。
 2. B/D：未知回测与 AI 报告的错误码最终统一。现有协商目标为回测 `40005`、报告 `40006`，均 HTTP 404；已核对的 D PR #10 草稿仍有报告 `40005`，不能直接把目标写成已上线事实。
 3. D：PR #10 合并时间线及 AI 时间字段语义。已核对的 PR #10 中 `data_as_of` 使用上下文组装时间，不宜直接标成“行情截至日期”；应确认使用已保存的实际行情日期字段，例如上下文中的 `provenance.market_end_date` / `market_snapshot.trade_date`，由 D 确认最终对外路径。
 4. A：本次从公共 GitHub 入口未能读取 issue 提到的 `feature/v2-a-backtest-form` / `1ada4ee`，请提供可读取分支及完整 SHA。此次未检验 A 实际页面实现、typecheck 或 build；不能把 issue 中的内部变量名称直接当作已发生的接口错误。
 5. C：实现和本说明仍在本地，后续提供可读取提交后，A/B 再进行真实接口联调；最终在 D 确认的组合 SHA 上验收。本轮不关闭仍含 B/D 待确认项的 Issue #11。
+
+
+## 8. 2026-09-16 D cc57482 的实际 HTTP 对齐
+
+D 当前组合 `cc574827c6c08d2336336a48d9f7a09e9582c60a` 已补齐以下契约，C 本轮静态核对通过；页面端到端范围以 D 浏览器证据为准。
+
+| 真实 HTTP 路径 / 字段 | 用途 |
+|---|---|
+| `data_meta.c_data_hash` | 详情页显示的 **C 输入快照哈希**；不是结果哈希，不用 `frame_digest` 替代 |
+| `c_data_hash` | 详情的顶层 C hash 投影；前端元信息显示按上一行路径读取 |
+| `c_result_exact` | 新精确文本结果 true，旧经 MySQL JSON 规范化的结果 false；旧记录不能据此回算 |
+| `c_initial_equity` / `c_warmup` / `c_execution_assumptions` | 保存时的本金估值、预热和成交假设，类型允许缺失/null |
+| `input_snapshot_available` / `input_snapshot_rows` | 顶层快照可用性与行数，继续保留 |
+
+`BacktestDataMeta.input_snapshot` 从未是本版真实 HTTP 元信息字段，D 已从类型和 mock 移除。**这不删除 C 算法返回的 `input_snapshot` envelope**：第 6 节核心样例仍合法；详情显式请求完整 `c_result` 时其中保留 C 原始对象；B 的顶层逐行输入快照也是独立的按需返回字段。不能将三者的类型和层级混在一起。
+
+AI 报告不存在为 HTTP 404/40006；回测不存在为 404/40005；目录未成功同步为 503/50006，对应中文“行情目录初始化中，请稍后重试”。历史读取不调用行情/算法/新闻/LLM，默认 AI 不受参数回测影响。
+
+本轮只冻结字段与语义，不要求新增精度徽章或页面功能。两处现有代码注释误称“结果哈希”由 A/B/D 收尾，实际显示标签和路径已正确。PR #10 为最终集成；PR #12 仅为 C 来源与审阅记录。最终签字仍等待新包和最终 SHA。
