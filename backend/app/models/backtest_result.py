@@ -2,7 +2,8 @@ from datetime import date
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import BIGINT, DECIMAL, Date, DateTime, Index, Integer, JSON, String, func
+from sqlalchemy import BIGINT, DECIMAL, Date, DateTime, Index, Integer, JSON, String, Text, func
+from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.app.db.base import Base
@@ -50,4 +51,14 @@ class BacktestResult(Base):
     #: C's complete ``run_backtest_request`` result, verbatim - migration v7.
     #: History detail reads config/version/hash fields from here instead of
     #: reassembling them from B's rounded summary columns.
+    #: NOTE: this JSON column normalises number leaves to ~15 significant digits,
+    #: so it is **not** read back exactly (C measured 1-ULP changes on every numeric
+    #: leaf). New rows are written to ``c_result_text`` instead; this column stays
+    #: as the read fallback for rows saved before migration v8.
     c_result: Mapped[Optional[dict]] = mapped_column(JSON)
+    #: C's result as exact JSON *text* - migration v8. ``json.dumps`` emits the
+    #: shortest string that round-trips a float, so storing the text and parsing it
+    #: back returns the identical numbers; the API still exposes the parsed object.
+    c_result_text: Mapped[Optional[str]] = mapped_column(
+        Text().with_variant(LONGTEXT(), "mysql")
+    )

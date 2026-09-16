@@ -30,9 +30,10 @@ from backend.app.services.backtest_service import (
 )
 
 STOCK = "600519"
-#: Columns whose values are large JSON and must never be projected by ``list``.
+#: Columns whose values are large and must never be projected by ``list``.
 BIG_JSON_COLUMNS = (
     "c_result",
+    "c_result_text",
     "input_snapshot",
     "orders",
     "benchmark_curve",

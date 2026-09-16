@@ -89,6 +89,7 @@ _LIST_DEFERRED_JSON = (
     "orders",
     "input_snapshot",
     "c_result",
+    "c_result_text",
     "parameters",
     "effective_parameters",
     "data_meta",
@@ -250,7 +251,22 @@ class BacktestRepository:
                 effective_parameters=dict(effective_parameters),
                 data_meta=dict(data_meta),
                 input_snapshot=list(input_snapshot) if input_snapshot is not None else None,
-                c_result=dict(c_result) if c_result is not None else None,
+                # C's envelope is stored as exact text, not in the JSON column:
+                # MySQL normalises JSON numbers to ~15 significant digits, so an
+                # exact read-back was impossible (C measured 1-ULP changes on every
+                # numeric leaf). ``json.dumps`` emits the shortest string that
+                # round-trips a float, so parsing this text returns identical numbers.
+                c_result_text=(
+                    json.dumps(
+                        c_result,
+                        ensure_ascii=False,
+                        allow_nan=False,
+                        separators=(",", ":"),
+                        default=str,
+                    )
+                    if c_result is not None
+                    else None
+                ),
             )
             self._session.add(record)
             self._session.commit()
@@ -354,6 +370,27 @@ class BacktestRepository:
             "created_at": _iso(record.created_at),
         }
 
+    @staticmethod
+    def _read_c_result(record) -> Tuple[Optional[Mapping[str, Any]], bool]:
+        """Return C's envelope plus whether it came from the exact text column.
+
+        ``c_result_text`` (migration v8) holds the bytes B wrote, so parsing it is
+        lossless. ``c_result`` is the legacy JSON column whose numbers MySQL already
+        normalised, kept only so rows saved before v8 stay readable.
+        """
+        text = record.c_result_text
+        if text:
+            try:
+                payload = json.loads(text)
+            except (TypeError, ValueError):
+                payload = None
+            if isinstance(payload, Mapping):
+                return payload, True
+        legacy = record.c_result
+        if isinstance(legacy, Mapping):
+            return legacy, False
+        return None, False
+
     @classmethod
     def _to_detail(
         cls,
@@ -365,7 +402,7 @@ class BacktestRepository:
         detail = cls._to_summary(record)
         data_meta = record.data_meta or {}
         snapshot = record.input_snapshot or []
-        c_result = record.c_result if isinstance(record.c_result, Mapping) else None
+        c_result, c_result_exact = cls._read_c_result(record)
         detail.update(
             {
                 "warmup_start_date": _iso(record.warmup_start_date),
@@ -392,6 +429,7 @@ class BacktestRepository:
         # and hashes from here instead of B's rounded summary columns; the full
         # payload stays opt-in because it repeats the curves and the snapshot.
         detail["c_result_available"] = c_result is not None
+        detail["c_result_exact"] = c_result_exact
         if c_result is not None:
             detail["c_semantics_version"] = c_result.get("semantics_version")
             detail["c_algorithm_version"] = c_result.get("algorithm_version")

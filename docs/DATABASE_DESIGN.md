@@ -125,13 +125,16 @@ CREATE TABLE backtest_result (
     effective_parameters JSON,          -- v1_legacy: 完整 V1 配置；v2_windowed: 仅白名单五字段
     data_meta JSON,                     -- 请求/实际区间、行数、frame_digest(B)、c_data_hash(C)、来源
     input_snapshot JSON,                -- V2（v6）送进 C 的逐行输入（最后 long 条预热 + 区间）
-    c_result JSON,                      -- V2（v7）C 的完整结果，原样保存，历史详情自此读取
+    c_result JSON,                      -- V2（v7）旧记录封套；v8 起不再写入，仅作旧记录读回退
+    c_result_text LONGTEXT,             -- V2（v8）C 完整结果的**原文 JSON 文本**，无损保存
     INDEX idx_backtest_stock (stock_code),
     INDEX idx_backtest_strategy (strategy_name)
 );
 ```
 
-V1 只写了摘要指标，未保存曲线。**V2 起**同一次计算会把摘要 + 三条曲线 + 成交明细 + 生效参数 + 数据元信息**在一次事务内**写入（迁移 v4 对既有表做增量 `ALTER`；v6 补 `input_snapshot`，v7 补 `c_result`）。旧 V1 记录缺快照时，`GET /backtests/{id}` 返回 `snapshot_status="missing"`，**不补造**。
+V1 只写了摘要指标，未保存曲线。**V2 起**同一次计算会把摘要 + 三条曲线 + 成交明细 + 生效参数 + 数据元信息**在一次事务内**写入（迁移 v4 对既有表做增量 `ALTER`；v6 补 `input_snapshot`，v7 补 `c_result`，v8 补 `c_result_text`）。旧 V1 记录缺快照时，`GET /backtests/{id}` 返回 `snapshot_status="missing"`，**不补造**。
+
+> **为什么 v8 要把封套改成文本**：MySQL 的 JSON 列会把数值叶子归一化到约 15 位有效数字（实测 `99633.35582084299` 回读为 `99633.355820843`，C 在九组记录上量到 1439 处 1 ULP 差异）。`LONGTEXT` 保存 B 写出的确切字节，API 读回时解析为对象，前端结构不变；详情用 `c_result_exact` 区分「来自文本列」与「v8 之前由 JSON 列保存」。
 
 > **口径分离**：`data_meta.frame_digest` 是 B 交给 C 的那份数据帧的摘要，`c_result.data_hash`（平铺为 `c_data_hash`）是 C 自身结果的哈希，两者分别记录、互不替代。
 
