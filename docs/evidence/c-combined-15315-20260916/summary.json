@@ -1,0 +1,387 @@
+{
+  "combined_sha": "15315c6fbf9339694eceaab0172d3d3f05e7ec2e",
+  "quant_code_sha": "92df017404126e9af920e1ad82e4a136d813f8d1",
+  "reviewed_b_tools_sha": "2871253240edb3d0ecc8ade946a754b2326a9274",
+  "source_archive_sha256": "657329782117d813f28deb49c44e38f05601a365d0c085d07e76300991c2a7f9",
+  "conclusion": "Not final acceptance: MySQL history list, exact JSON persistence, and frontend panel states require fixes",
+  "backend_pytest": {
+    "passed": 477,
+    "warnings": 1,
+    "exit_code": 0
+  },
+  "frontend_build": "passed; existing chunk warning",
+  "c_d_seven_checks": [
+    "default_C_projection_and_fresh_AI_context_unchanged_after_custom_V2",
+    "AI_default_pipeline_and_market_called_once_per_context",
+    "D_15_digit_and_negative_zero_normalization_only_changes_AI_copy",
+    "C_input_snapshot_hash_preserved_and_AI_context_hash_reproducible",
+    "SQLite_new_engine_and_session_history_matches_without_external_calls",
+    "legacy_missing_and_unknown_ID_do_not_recompute",
+    "tampered_AI_context_hash_rejected_without_recompute"
+  ],
+  "frozen_v1": {
+    "status": "passed",
+    "combined_SHA": "15315c6fbf9339694eceaab0172d3d3f05e7ec2e",
+    "scope": "Frozen V1; actual FastAPI/service/repository with isolated SQLite; no real MySQL/live provider/LLM",
+    "baseline_files_sha256": {
+      "input.json": "4d8970845118bc450c1659c6dddc8d1127496ce08579c118aadf1755610d5e6d",
+      "v1-quant.json": "81a94bb3ce73e7e047b4f996ad4a2f49a372fcc893de87ea481c94d7d7009dee",
+      "v1-legacy.json": "66a031a4544533f0ae8623713f0cf25884f4b393f13a6ea8d3b25efcf4461b8d"
+    },
+    "full_quant_json_equal": true,
+    "full_legacy_json_equal": true,
+    "direct_service_score_exact": true,
+    "direct_service_backtest_exact": true,
+    "score": 33,
+    "order_count": 24,
+    "round_trip_count": 12,
+    "equity_curve_points": 403,
+    "database_schema_version": 7,
+    "harness_sha256": "bc829ef1c3da3211823a7a7874bca5fcfba390e2a00e5a89e37794b812421ed3",
+    "HTTP_score_exact": true,
+    "HTTP_POST_backtest_exact": true,
+    "reopened_history_curves_orders_counts_exact": true,
+    "history_scalar_summary_matches_declared_storage": {
+      "total_return_decimals": 8,
+      "final_equity_decimals": 2
+    },
+    "history_refetch_or_recompute_calls": 0,
+    "V1_c_result_available": false,
+    "V1_history_note": "Legacy service saves curves/orders/summary, not the full C V2 envelope; no claim of V1 full c_result equality",
+    "backtest_id": 1,
+    "http_requests": 3,
+    "safety": {
+      "blocked_network_calls": 0,
+      "blocked_env_reads": 0
+    }
+  },
+  "sqlite_matrix": {
+    "cases": 9,
+    "http_requests": 18,
+    "full_c_result_exact": true
+  },
+  "mysql_market": {
+    "mode": "fixed historical normalized JSON -> isolated local MySQL stock_daily -> commit -> new engine/session repository readback -> C input; no live provider or B new export batch",
+    "stocks": [
+      {
+        "stock_code": "600519",
+        "rows_written": 436,
+        "rows_read": 436,
+        "new_session": true,
+        "new_engine": true,
+        "all_fields_exact": true,
+        "start_date": "2024-12-02",
+        "end_date": "2026-09-15"
+      },
+      {
+        "stock_code": "000001",
+        "rows_written": 436,
+        "rows_read": 436,
+        "new_session": true,
+        "new_engine": true,
+        "all_fields_exact": true,
+        "start_date": "2024-12-02",
+        "end_date": "2026-09-15"
+      },
+      {
+        "stock_code": "300750",
+        "rows_written": 436,
+        "rows_read": 436,
+        "new_session": true,
+        "new_engine": true,
+        "all_fields_exact": true,
+        "start_date": "2024-12-02",
+        "end_date": "2026-09-15"
+      }
+    ]
+  },
+  "mysql_history": {
+    "database_server": "8.0.31",
+    "read_only": true,
+    "session_or_global_settings_changed": false,
+    "sort_buffer_size": 262144,
+    "row_count": 9,
+    "full_row_query_plan": {
+      "query_block": {
+        "select_id": 1,
+        "cost_info": {
+          "query_cost": "225.91"
+        },
+        "ordering_operation": {
+          "using_filesort": true,
+          "cost_info": {
+            "sort_cost": "5.00"
+          },
+          "table": {
+            "table_name": "backtest_result",
+            "access_type": "ALL",
+            "rows_examined_per_scan": 5,
+            "rows_produced_per_join": 5,
+            "filtered": "100.00",
+            "cost_info": {
+              "read_cost": "220.41",
+              "eval_cost": "0.50",
+              "prefix_cost": "220.91",
+              "data_read_per_join": "3K"
+            },
+            "used_columns": [
+              "id",
+              "stock_code",
+              "strategy_name",
+              "start_date",
+              "end_date",
+              "initial_cash",
+              "total_return",
+              "annual_return",
+              "max_drawdown",
+              "sharpe_ratio",
+              "win_rate",
+              "trade_count",
+              "benchmark_return",
+              "parameters",
+              "created_at",
+              "semantics_version",
+              "strategy_version",
+              "final_equity",
+              "order_count",
+              "warmup_start_date",
+              "equity_curve",
+              "benchmark_curve",
+              "drawdown_curve",
+              "orders",
+              "effective_parameters",
+              "data_meta",
+              "input_snapshot",
+              "c_result"
+            ]
+          }
+        }
+      }
+    },
+    "snapshot_sizes": [
+      {
+        "id": 1,
+        "c_result_bytes": 130015,
+        "input_bytes": 68649
+      },
+      {
+        "id": 2,
+        "c_result_bytes": 131161,
+        "input_bytes": 70889
+      },
+      {
+        "id": 3,
+        "c_result_bytes": 136058,
+        "input_bytes": 77637
+      },
+      {
+        "id": 4,
+        "c_result_bytes": 130887,
+        "input_bytes": 69093
+      },
+      {
+        "id": 5,
+        "c_result_bytes": 130272,
+        "input_bytes": 71373
+      },
+      {
+        "id": 6,
+        "c_result_bytes": 136058,
+        "input_bytes": 78213
+      },
+      {
+        "id": 7,
+        "c_result_bytes": 130015,
+        "input_bytes": 69093
+      },
+      {
+        "id": 8,
+        "c_result_bytes": 130574,
+        "input_bytes": 71373
+      },
+      {
+        "id": 9,
+        "c_result_bytes": 135471,
+        "input_bytes": 78213
+      }
+    ],
+    "diagnostic_scalar_projection": {
+      "success": true,
+      "ids": [
+        9,
+        8,
+        7,
+        6,
+        5,
+        4,
+        3,
+        2,
+        1
+      ],
+      "all_have_curves": true,
+      "production_code_changed": false
+    },
+    "list_http_cases": [
+      {
+        "params": {},
+        "status_code": 500,
+        "body": {
+          "code": 50002,
+          "message": "database error",
+          "data": null
+        }
+      },
+      {
+        "params": {
+          "stock_code": "600519"
+        },
+        "status_code": 500,
+        "body": {
+          "code": 50002,
+          "message": "database error",
+          "data": null
+        }
+      },
+      {
+        "params": {
+          "page": 1,
+          "page_size": 1
+        },
+        "status_code": 500,
+        "body": {
+          "code": 50002,
+          "message": "database error",
+          "data": null
+        }
+      }
+    ],
+    "exact_case_count": 0,
+    "numerical_post_direct_fresh_mysql_detail": "0/9 exact",
+    "history_list": "failed"
+  },
+  "source_integrity": {
+    "status": "passed",
+    "combined_SHA": "15315c6fbf9339694eceaab0172d3d3f05e7ec2e",
+    "published_C_SHA": "92df017404126e9af920e1ad82e4a136d813f8d1",
+    "data_byte_transformation": "none",
+    "data_files": [
+      {
+        "file": "600519_qfq_raw_20241201_20260915.json",
+        "expected": "f645ea1dedf76f18d1676412319e35052d203e7ba36b61f9bf16bb5e83a1ed82",
+        "actual": "f645ea1dedf76f18d1676412319e35052d203e7ba36b61f9bf16bb5e83a1ed82",
+        "match": true
+      },
+      {
+        "file": "600519_qfq_normalized_20241201_20260915.json",
+        "expected": "75caedb816cd49d6b31f76dc3a398f86be0ac9b639ec43c72b0529c14e57ad7e",
+        "actual": "75caedb816cd49d6b31f76dc3a398f86be0ac9b639ec43c72b0529c14e57ad7e",
+        "match": true
+      },
+      {
+        "file": "000001_qfq_raw_20241201_20260915.json",
+        "expected": "cf50922b1914cee945357c2cfb118715cc211e49d244a424f7c7b63e2581440e",
+        "actual": "cf50922b1914cee945357c2cfb118715cc211e49d244a424f7c7b63e2581440e",
+        "match": true
+      },
+      {
+        "file": "000001_qfq_normalized_20241201_20260915.json",
+        "expected": "78189dfa5b8d877b579599803e7d62d2bde42a6cc3185643e67950e71d3cc99a",
+        "actual": "78189dfa5b8d877b579599803e7d62d2bde42a6cc3185643e67950e71d3cc99a",
+        "match": true
+      },
+      {
+        "file": "300750_qfq_raw_20241201_20260915.json",
+        "expected": "ceb7b86724f1bcfe23b638776b4355b8c961697914898fe88203ebe1a2ac9030",
+        "actual": "ceb7b86724f1bcfe23b638776b4355b8c961697914898fe88203ebe1a2ac9030",
+        "match": true
+      },
+      {
+        "file": "300750_qfq_normalized_20241201_20260915.json",
+        "expected": "a8c03c0a31c7e635d4902c1ab0bbaad66d945307c23f38613480630780c44b21",
+        "actual": "a8c03c0a31c7e635d4902c1ab0bbaad66d945307c23f38613480630780c44b21",
+        "match": true
+      }
+    ],
+    "quant_files": [
+      {
+        "file": "backend/app/quant/__init__.py",
+        "C_git_blob_sha256": "68471afb7db565c3608b3d4d5fd545aa2424494178e00fd728c7227ec997fa31",
+        "combined_sha256": "68471afb7db565c3608b3d4d5fd545aa2424494178e00fd728c7227ec997fa31",
+        "match": true
+      },
+      {
+        "file": "backend/app/quant/backtest.py",
+        "C_git_blob_sha256": "56933f9ec8456b0d99221e19df0b9afee96302544bbc557ebfd902b9557a1ef4",
+        "combined_sha256": "56933f9ec8456b0d99221e19df0b9afee96302544bbc557ebfd902b9557a1ef4",
+        "match": true
+      },
+      {
+        "file": "backend/app/quant/backtest_config.py",
+        "C_git_blob_sha256": "0e2650229797c497e5d3a2c2fad87d26ef9befc9bda7b8ba77766bf599454b93",
+        "combined_sha256": "0e2650229797c497e5d3a2c2fad87d26ef9befc9bda7b8ba77766bf599454b93",
+        "match": true
+      },
+      {
+        "file": "backend/app/quant/config.py",
+        "C_git_blob_sha256": "064d9300c8fb519e1f42b1b4cdaf76cb5a0a5b03e0730744c1ff887619d37fb6",
+        "combined_sha256": "064d9300c8fb519e1f42b1b4cdaf76cb5a0a5b03e0730744c1ff887619d37fb6",
+        "match": true
+      },
+      {
+        "file": "backend/app/quant/indicators.py",
+        "C_git_blob_sha256": "261c37216f2ad57c298d171e99b63d70cd2ac8f68935d53d984f208cc821c9fd",
+        "combined_sha256": "261c37216f2ad57c298d171e99b63d70cd2ac8f68935d53d984f208cc821c9fd",
+        "match": true
+      },
+      {
+        "file": "backend/app/quant/metrics.py",
+        "C_git_blob_sha256": "778a8bba0fd1a1597ce88179b4992e4d3eb747431a98b79746a67ff49ea9388b",
+        "combined_sha256": "778a8bba0fd1a1597ce88179b4992e4d3eb747431a98b79746a67ff49ea9388b",
+        "match": true
+      },
+      {
+        "file": "backend/app/quant/pipeline.py",
+        "C_git_blob_sha256": "16eb006f8b05559643f04bd33822af3af1c6c16222e055f3f38237b05ec467f7",
+        "combined_sha256": "16eb006f8b05559643f04bd33822af3af1c6c16222e055f3f38237b05ec467f7",
+        "match": true
+      },
+      {
+        "file": "backend/app/quant/scoring.py",
+        "C_git_blob_sha256": "da96571755caceb3a0d312276da48610245a7b3d865727fee789d9e9e0f8888f",
+        "combined_sha256": "da96571755caceb3a0d312276da48610245a7b3d865727fee789d9e9e0f8888f",
+        "match": true
+      },
+      {
+        "file": "backend/app/quant/serialization.py",
+        "C_git_blob_sha256": "365ba06027b65c8b37cfdd67756a1befda5f3890a009c3b7aba036766f6f108e",
+        "combined_sha256": "365ba06027b65c8b37cfdd67756a1befda5f3890a009c3b7aba036766f6f108e",
+        "match": true
+      },
+      {
+        "file": "backend/app/quant/strategy.py",
+        "C_git_blob_sha256": "d475f0a69a71eb06d18cffdd02b8e9569bab174cd40beea03686a3949de5bfdb",
+        "combined_sha256": "d475f0a69a71eb06d18cffdd02b8e9569bab174cd40beea03686a3949de5bfdb",
+        "match": true
+      },
+      {
+        "file": "backend/app/quant/validators.py",
+        "C_git_blob_sha256": "710db6dbd43753efc47ce7060367fdd54b01c5c6665a4d1049affcbde91897df",
+        "combined_sha256": "710db6dbd43753efc47ce7060367fdd54b01c5c6665a4d1049affcbde91897df",
+        "match": true
+      },
+      {
+        "file": "backend/app/quant/windowed_backtest.py",
+        "C_git_blob_sha256": "2c54b1269b3952bc33b288ec097183e8d5ba330b17cb564dc1c289b9ca0536c4",
+        "combined_sha256": "2c54b1269b3952bc33b288ec097183e8d5ba330b17cb564dc1c289b9ca0536c4",
+        "match": true
+      }
+    ]
+  },
+  "not_verified": [
+    "remote deployment",
+    "live provider",
+    "real LLM",
+    "new B real export batch",
+    "V1-to-v7 upgrade in this C run"
+  ]
+}
