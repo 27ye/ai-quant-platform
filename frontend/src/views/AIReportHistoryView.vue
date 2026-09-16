@@ -25,7 +25,12 @@ function trendClass(trend: TrendValue): string {
   return ''
 }
 
+// 过期请求防护（同 StockDetailView 的 epoch 模式）：
+// 快速翻页/切股时，只有当前 epoch 的请求允许更新状态
+const epoch = ref(0)
+
 async function load() {
+  const currentEpoch = ++epoch.value
   loading.value = true
   failed.value = false
   try {
@@ -34,12 +39,14 @@ async function load() {
       page: page.value,
       page_size: pageSize,
     })
+    if (epoch.value !== currentEpoch) return
     items.value = res.data.items
     total.value = res.data.total
   } catch {
+    if (epoch.value !== currentEpoch) return
     failed.value = true
   } finally {
-    loading.value = false
+    if (epoch.value === currentEpoch) loading.value = false
   }
 }
 

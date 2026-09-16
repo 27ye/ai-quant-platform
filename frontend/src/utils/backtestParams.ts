@@ -19,6 +19,21 @@ export const BACKTEST_PARAM_DEFAULTS = {
   slippage: 0,
 } as const
 
+const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/
+
+// 严格解析 YYYY-MM-DD：拒绝其他格式（如 2025/07/04）和不存在的日期（如 2025-02-30）
+function parseDateStrict(value: string): { y: number; m: number; d: number } | null {
+  const match = DATE_RE.exec(value)
+  if (!match) return null
+  const y = Number(match[1])
+  const m = Number(match[2])
+  const d = Number(match[3])
+  if (m < 1 || m > 12) return null
+  const daysInMonth = new Date(y, m, 0).getDate()
+  if (d < 1 || d > daysInMonth) return null
+  return { y, m, d }
+}
+
 // 表单原始值：数字输入框清空时为 null
 export interface BacktestFormValues {
   start_date: string
@@ -34,19 +49,32 @@ export interface BacktestFormValues {
 export function validateBacktestForm(values: BacktestFormValues): string[] {
   const errors: string[] = []
 
-  // 日期区间：起 <= 止（C 定稿允许单日），最长五个日历年（按日历计算，不按固定 1825 天）
+  // 日期区间：严格 YYYY-MM-DD 真实日期；起 <= 止（C 定稿允许单日）；最长五个日历年
   if (!values.start_date || !values.end_date) {
     errors.push('请选择回测起止日期')
   } else {
-    const start = new Date(values.start_date)
-    const end = new Date(values.end_date)
-    if (start > end) {
-      errors.push('开始日期不能晚于结束日期')
+    const start = parseDateStrict(values.start_date)
+    const end = parseDateStrict(values.end_date)
+    if (!start || !end) {
+      errors.push('日期须为 YYYY-MM-DD 格式的真实日期')
     } else {
-      const maxEnd = new Date(start)
-      maxEnd.setFullYear(maxEnd.getFullYear() + BACKTEST_PARAM_LIMITS.maxRangeYears)
-      if (end > maxEnd) {
-        errors.push(`回测区间不能超过 ${BACKTEST_PARAM_LIMITS.maxRangeYears} 个日历年`)
+      const startTime = new Date(start.y, start.m - 1, start.d).getTime()
+      const endTime = new Date(end.y, end.m - 1, end.d).getTime()
+      if (startTime > endTime) {
+        errors.push('开始日期不能晚于结束日期')
+      } else {
+        // 五个日历年：目标年无 2 月 29 日时钳制到 2 月 28 日
+        //（不能用 setFullYear，它会把 2020-02-29 + 5 年顺延到 2025-03-01，多放行一天）
+        const maxYear = start.y + BACKTEST_PARAM_LIMITS.maxRangeYears
+        const maxDaysInMonth = new Date(maxYear, start.m, 0).getDate()
+        const maxEnd = new Date(
+          maxYear,
+          start.m - 1,
+          Math.min(start.d, maxDaysInMonth),
+        ).getTime()
+        if (endTime > maxEnd) {
+          errors.push(`回测区间不能超过 ${BACKTEST_PARAM_LIMITS.maxRangeYears} 个日历年`)
+        }
       }
     }
   }

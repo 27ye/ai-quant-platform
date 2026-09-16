@@ -34,7 +34,13 @@ const marketEndDate = computed(
   () => report.value?.context_snapshot?.provenance.market_end_date ?? null,
 )
 
+// 过期请求防护（同 StockDetailView 的 epoch 模式）：
+// 连续切换报告时，只有当前 epoch 的请求允许更新状态——成功、失败、finally 都拦，
+// 避免慢的旧响应覆盖新正文、或旧请求的 finally 提前关闭新请求的 loading
+const epoch = ref(0)
+
 async function load() {
+  const currentEpoch = ++epoch.value
   if (!Number.isInteger(reportId.value) || reportId.value <= 0) {
     loading.value = false
     notFound.value = true
@@ -46,8 +52,10 @@ async function load() {
   report.value = null
   try {
     const res = await fetchAIReportDetail(reportId.value)
+    if (epoch.value !== currentEpoch) return
     report.value = res.data
   } catch (error) {
+    if (epoch.value !== currentEpoch) return
     // 契约：未知 ID 返回 HTTP 404 + code=40005
     if (error instanceof AxiosError && error.response?.status === 404) {
       notFound.value = true
@@ -55,7 +63,7 @@ async function load() {
       failed.value = true
     }
   } finally {
-    loading.value = false
+    if (epoch.value === currentEpoch) loading.value = false
   }
 }
 
