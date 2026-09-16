@@ -20,6 +20,21 @@ def run_backtest(data: pd.DataFrame, config: ConfigInput = None) -> Dict[str, An
     minimum_rows = settings.ma_long_period + 1
     validated = validate_stock_dataframe(data, min_rows=minimum_rows)
     signals = generate_ma_target_signals(validated, settings)
+    return _run_ma_backtest(signals, settings)
+
+
+def _run_ma_backtest(
+    signals: pd.DataFrame,
+    settings: Any,
+    *,
+    first_trading_index: int = 0,
+    windowed: bool = False,
+) -> Dict[str, Any]:
+    """Shared execution engine; rows before the start carry signals, never positions.
+
+    The default path preserves V1 arithmetic and output. The V2 caller supplies
+    validated warmup rows and anchors risk/return metrics at pre-open capital.
+    """
 
     cash = float(settings.initial_cash)
     shares = 0.0
@@ -29,9 +44,10 @@ def run_backtest(data: pd.DataFrame, config: ConfigInput = None) -> Dict[str, An
     equity_values: List[float] = []
     benchmark_values: List[float] = []
     curve_dates: List[str] = []
-    benchmark_base_close = float(signals.iloc[0]["close"])
+    first_row = signals.iloc[first_trading_index]
+    benchmark_base_close = float(first_row["open" if windowed else "close"])
 
-    for index, row in signals.iterrows():
+    for index, row in signals.iloc[first_trading_index:].iterrows():
         if index > 0:
             signal_row = signals.iloc[index - 1]
             desired_position = int(signal_row["target_position"])
@@ -39,13 +55,26 @@ def run_backtest(data: pd.DataFrame, config: ConfigInput = None) -> Dict[str, An
             execution_date = _date_text(row["trade_date"])
             if desired_position == 1 and shares == 0:
                 execution_price = float(row["open"]) * (1.0 + settings.slippage)
+                if windowed and (
+                    not math.isfinite(execution_price)
+                    or not math.isfinite(execution_price * (1.0 + settings.transaction_cost))
+                ):
+                    raise RuntimeError("buy execution exceeds supported numeric precision")
                 quantity = _buy_quantity(cash, execution_price, settings)
+                if windowed and (not math.isfinite(quantity) or quantity <= 0):
+                    raise RuntimeError("buy quantity exceeds supported numeric precision")
                 if quantity > 0:
                     gross_amount = quantity * execution_price
                     fee = gross_amount * settings.transaction_cost
                     total_cost = gross_amount + fee
+                    # Fractional all-in sizing may overshoot by a few binary
+                    # rounding units. Scale only the V2 tolerance to the cash;
+                    # the V1 arithmetic and fixed threshold remain unchanged.
+                    cash_tolerance = 8.0 * math.ulp(cash) if windowed else 1e-8
+                    if windowed and not math.isfinite(total_cost):
+                        raise RuntimeError("buy cost exceeds supported numeric precision")
                     cash -= total_cost
-                    if cash < -1e-8:
+                    if cash < -cash_tolerance:
                         raise RuntimeError("buy execution produced negative cash")
                     cash = max(cash, 0.0)
                     shares = quantity
@@ -108,12 +137,19 @@ def run_backtest(data: pd.DataFrame, config: ConfigInput = None) -> Dict[str, An
             settings.initial_cash * close_price / benchmark_base_close
         )
 
-    equity_series = pd.Series(equity_values, dtype=float)
+    metric_equity_values = (
+        [float(settings.initial_cash)] + equity_values if windowed else equity_values
+    )
+    equity_series = pd.Series(metric_equity_values, dtype=float)
     daily_returns = equity_series.pct_change().dropna()
     drawdowns = equity_series / equity_series.cummax() - 1.0
+    if windowed:
+        drawdowns = drawdowns.iloc[1:]
     final_equity = float(equity_values[-1])
     total_return = final_equity / settings.initial_cash - 1.0
-    effective_trading_days = max(len(equity_values) - 1, 1)
+    effective_trading_days = (
+        len(equity_values) if windowed else max(len(equity_values) - 1, 1)
+    )
     annual_return = (
         (final_equity / settings.initial_cash)
         ** (settings.annualization_days / effective_trading_days)
@@ -134,7 +170,7 @@ def run_backtest(data: pd.DataFrame, config: ConfigInput = None) -> Dict[str, An
         "final_equity": final_equity,
         "total_return": total_return,
         "annual_return": annual_return,
-        "max_drawdown": calculate_max_drawdown(equity_values),
+        "max_drawdown": calculate_max_drawdown(metric_equity_values),
         "sharpe_ratio": calculate_sharpe_ratio(
             daily_returns,
             annualization_days=settings.annualization_days,
