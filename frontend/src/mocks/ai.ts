@@ -1,4 +1,6 @@
 // AI 分析 mock：字段对齐 docs/API_SPEC.md 第 9 节
+import { AxiosError } from 'axios'
+
 import type {
   AIAnalysisData,
   AIReportDetail,
@@ -116,6 +118,16 @@ export function mockAIReportDetail(reportId: number): ApiResponse<AIReportDetail
         context_snapshot: null,
       },
     }
+  }
+  // 未知 ID：模拟契约 404 + code=40006（report not found）
+  if (reportId !== 101) {
+    throw new AxiosError('Request failed with status code 404', 'ERR_BAD_REQUEST', undefined, undefined, {
+      status: 404,
+      statusText: 'Not Found',
+      data: { code: 40006, message: 'report not found' },
+      headers: {},
+      config: {} as never,
+    })
   }
   return {
     code: 0,

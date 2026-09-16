@@ -78,7 +78,7 @@ const trendClass = computed(() => {
   gap: 10px;
   padding-bottom: 12px;
   margin-bottom: 14px;
-  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  border-bottom: 1px solid var(--border);
 }
 
 .verdict-label {
@@ -96,18 +96,18 @@ const trendClass = computed(() => {
 }
 
 .verdict-value.up {
-  color: var(--up, #ff4d4f);
+  color: var(--up);
 }
 
 .verdict-value.down {
-  color: var(--down, #00b386);
+  color: var(--down);
 }
 
 .verdict-divider {
   align-self: center;
   width: 1px;
   height: 12px;
-  background: var(--border-strong, rgba(255, 255, 255, 0.16));
+  background: var(--border-strong);
 }
 
 .score-chip {
@@ -141,7 +141,7 @@ const trendClass = computed(() => {
 /* 导语式摘要 */
 .lede {
   margin: 0 0 16px;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-main);
   font-size: 14px;
   line-height: 1.75;
 }
@@ -190,7 +190,7 @@ section p {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  border-top: 1px solid var(--border);
 }
 
 .two-col ul {
@@ -216,28 +216,28 @@ section p {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.28);
+  background: var(--text-faint);
 }
 
 .adv-list li::before {
-  background: var(--down, #00b386);
+  background: var(--down);
 }
 
 .risk-list li::before {
-  background: var(--up, #ff4d4f);
+  background: var(--up);
 }
 
 .conclusion {
-  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  border-top: 1px solid var(--border);
   padding-top: 14px;
   margin-bottom: 0;
 }
 
 .conclusion p {
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-main);
   font-size: 13px;
   line-height: 1.7;
-  border-left: 2px solid var(--accent, #d4a958);
+  border-left: 2px solid var(--accent);
   padding-left: 10px;
 }
 
@@ -245,7 +245,7 @@ section p {
   display: inline-block;
   margin-top: 10px;
   padding: 3px 8px;
-  border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.16));
+  border: 1px solid var(--border-strong);
   border-radius: 3px;
   color: var(--text-faint);
   font-size: 11px;

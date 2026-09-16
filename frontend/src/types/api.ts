@@ -364,6 +364,8 @@ export interface BacktestDataMeta {
   window_owner?: string
   frame_digest?: string | null
   c_data_hash?: string | null
+  /** C 输入快照（sha256 为展示用哈希；缺省时回退展示 c_data_hash） */
+  input_snapshot?: { sha256?: string | null; rows?: number } | null
 }
 
 /** GET /backtests/{id} 详情：回放保存时快照，GET 不取数不重算 */

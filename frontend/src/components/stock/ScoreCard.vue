@@ -55,7 +55,7 @@ const levelType = computed(() => {
         <span class="bar-label">{{ item.label }}</span>
         <el-progress
           :percentage="item.percent"
-          color="#d4a958"
+          color="var(--accent)"
           :stroke-width="6"
           class="bar"
         />
@@ -128,7 +128,7 @@ const levelType = computed(() => {
 .reasons {
   margin: 0;
   padding: 12px 0 0;
-  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.07));
+  border-top: 1px solid var(--border);
   list-style: none;
 }
 
@@ -147,7 +147,7 @@ const levelType = computed(() => {
   top: 12px;
   width: 5px;
   height: 5px;
-  background: rgba(255, 255, 255, 0.28);
+  background: var(--text-faint);
   border-radius: 50%;
 }
 </style>

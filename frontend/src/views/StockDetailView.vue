@@ -17,10 +17,12 @@ import ScoreCard from '../components/stock/ScoreCard.vue'
 import BacktestPanel from '../components/stock/BacktestPanel.vue'
 import NewsList from '../components/stock/NewsList.vue'
 import DataStatusBadge from '../components/stock/DataStatusBadge.vue'
+import { useAppContext } from '../stores/appContext'
 import { useHealthStore } from '../stores/health'
 
 const router = useRouter()
 const health = useHealthStore()
+const appContext = useAppContext()
 const stockCode = computed(() => String(router.currentRoute.value.params.code ?? ''))
 
 const kline = ref<KlineItem[]>([])
@@ -59,6 +61,8 @@ const dateRange = computed(() => {
 async function load() {
   if (!stockCode.value) return
   const currentEpoch = ++epoch.value
+  // 登记最近访问的股票，供侧栏导航拼链接
+  appContext.setStockCode(stockCode.value)
   loading.value = true
   loaded.value = false
   kline.value = []
@@ -184,7 +188,7 @@ onMounted(() => health.refresh())
   gap: 16px;
   padding-bottom: 14px;
   margin-bottom: 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border);
 }
 
 .stock-identity {
@@ -196,22 +200,22 @@ onMounted(() => health.refresh())
 .stock-code {
   font-size: 20px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--text-main);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
 }
 
 .date-range {
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--text-faint);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
 .mode-badge {
   padding: 1px 6px;
-  border: 1px solid var(--accent, #d4a958);
+  border: 1px solid var(--accent);
   border-radius: 3px;
-  color: var(--accent, #d4a958);
+  color: var(--accent);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -229,7 +233,7 @@ onMounted(() => health.refresh())
 .price {
   font-size: 28px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--text-main);
   font-variant-numeric: tabular-nums;
 }
 
@@ -240,11 +244,11 @@ onMounted(() => health.refresh())
 }
 
 .change.up {
-  color: var(--up, #ff4d4f);
+  color: var(--up);
 }
 
 .change.down {
-  color: var(--down, #00b386);
+  color: var(--down);
 }
 
 /* 主网格：左(图表+评分) + 右AI分析 */
@@ -264,9 +268,6 @@ onMounted(() => health.refresh())
 
 .chart-card {
   flex: 1;
-  background: var(--surface, #14171d);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
   min-height: 0;
 }
 
@@ -285,11 +286,6 @@ onMounted(() => health.refresh())
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
-}
-
-.skeleton-card {
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
 }
 
 @media (max-width: 880px) {

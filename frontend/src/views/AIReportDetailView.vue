@@ -189,7 +189,7 @@ watch(reportId, load, { immediate: true })
 .page-header {
   padding-bottom: 14px;
   margin-bottom: 14px;
-  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  border-bottom: 1px solid var(--border);
 }
 
 .header-left {
@@ -207,7 +207,7 @@ watch(reportId, load, { immediate: true })
 }
 
 .back-link:hover {
-  color: var(--accent, #d4a958);
+  color: var(--accent);
 }
 
 .page-title {
@@ -224,8 +224,8 @@ watch(reportId, load, { immediate: true })
 }
 
 .panel {
-  background: var(--surface, #14171d);
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
 }
 
@@ -237,30 +237,30 @@ watch(reportId, load, { immediate: true })
   gap: 12px;
   padding: 10px 14px;
   margin-bottom: 12px;
-  border: 1px solid rgba(212, 169, 88, 0.4);
+  border: 1px solid var(--accent);
   border-radius: 8px;
-  background: rgba(212, 169, 88, 0.08);
+  background: var(--accent-bg);
 }
 
 .banner-text {
   font-size: 12px;
-  color: rgba(212, 169, 88, 0.9);
+  color: var(--accent);
   font-variant-numeric: tabular-nums;
 }
 
 .mode-chip {
   padding: 1px 8px;
-  border: 1px solid rgba(212, 169, 88, 0.4);
+  border: 1px solid var(--accent);
   border-radius: 999px;
   font-size: 10px;
-  color: rgba(212, 169, 88, 0.9);
+  color: var(--accent);
   white-space: nowrap;
 }
 
 .legacy-notice {
   padding: 10px 14px;
   margin-bottom: 12px;
-  border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.16));
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
   font-size: 12px;
   color: var(--text-faint);
@@ -316,7 +316,7 @@ watch(reportId, load, { immediate: true })
 }
 
 .hint-link {
-  color: var(--accent, #d4a958);
+  color: var(--accent);
   text-decoration: none;
 }
 
