@@ -1,0 +1,116 @@
+{
+  "scope": "C fixed-window request matrix; not evidence of HTTP or MySQL success",
+  "b_delivery_sha": "ad84dbdd6faa11144e1b860c95042deeaf61f367",
+  "trusted_hashes_source": "https://github.com/27ye/ai-quant-platform/pull/10#issuecomment-5689910575",
+  "request_count": 9,
+  "requests": [
+    {
+      "case": "600519-default",
+      "request": {
+        "stock_code": "600519",
+        "start_date": "2025-07-04",
+        "end_date": "2026-08-31",
+        "parameters": {}
+      }
+    },
+    {
+      "case": "600519-ma10-30",
+      "request": {
+        "stock_code": "600519",
+        "start_date": "2025-07-04",
+        "end_date": "2026-08-31",
+        "parameters": {
+          "ma_short_period": 10,
+          "ma_long_period": 30
+        }
+      }
+    },
+    {
+      "case": "600519-ma20-60-cost",
+      "request": {
+        "stock_code": "600519",
+        "start_date": "2025-07-04",
+        "end_date": "2026-08-31",
+        "parameters": {
+          "ma_short_period": 20,
+          "ma_long_period": 60,
+          "initial_cash": 200000,
+          "transaction_cost": 0.002,
+          "slippage": 0.001
+        }
+      }
+    },
+    {
+      "case": "000001-default",
+      "request": {
+        "stock_code": "000001",
+        "start_date": "2025-07-04",
+        "end_date": "2026-08-31",
+        "parameters": {}
+      }
+    },
+    {
+      "case": "000001-ma10-30",
+      "request": {
+        "stock_code": "000001",
+        "start_date": "2025-07-04",
+        "end_date": "2026-08-31",
+        "parameters": {
+          "ma_short_period": 10,
+          "ma_long_period": 30
+        }
+      }
+    },
+    {
+      "case": "000001-ma20-60-cost",
+      "request": {
+        "stock_code": "000001",
+        "start_date": "2025-07-04",
+        "end_date": "2026-08-31",
+        "parameters": {
+          "ma_short_period": 20,
+          "ma_long_period": 60,
+          "initial_cash": 200000,
+          "transaction_cost": 0.002,
+          "slippage": 0.001
+        }
+      }
+    },
+    {
+      "case": "300750-default",
+      "request": {
+        "stock_code": "300750",
+        "start_date": "2025-07-04",
+        "end_date": "2026-08-31",
+        "parameters": {}
+      }
+    },
+    {
+      "case": "300750-ma10-30",
+      "request": {
+        "stock_code": "300750",
+        "start_date": "2025-07-04",
+        "end_date": "2026-08-31",
+        "parameters": {
+          "ma_short_period": 10,
+          "ma_long_period": 30
+        }
+      }
+    },
+    {
+      "case": "300750-ma20-60-cost",
+      "request": {
+        "stock_code": "300750",
+        "start_date": "2025-07-04",
+        "end_date": "2026-08-31",
+        "parameters": {
+          "ma_short_period": 20,
+          "ma_long_period": 60,
+          "initial_cash": 200000,
+          "transaction_cost": 0.002,
+          "slippage": 0.001
+        }
+      }
+    }
+  ]
+}
