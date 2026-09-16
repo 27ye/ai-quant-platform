@@ -319,6 +319,120 @@ def readback_and_verify(
 
 
 # --------------------------------------------------------------------------- #
+# Delivery gates and per-stock orchestration
+# --------------------------------------------------------------------------- #
+
+
+def ensure_publishable_dir(out_dir: Path) -> None:
+    """Refuse to publish into a directory a previous batch already produced.
+
+    Re-running a batch in place used to overwrite the files while the earlier
+    ``status=ok`` manifest stayed behind with hashes that no longer matched the new
+    files. A batch therefore owns a fresh directory; moving an old one away is an
+    explicit human action, never a side effect of this script.
+    """
+    if out_dir.exists() and any(out_dir.iterdir()):
+        raise BatchError(
+            f"batch directory {out_dir} already exists and is not empty; use a new "
+            "--batch id (or move the old directory away) - this script never "
+            "overwrites a previous batch in place"
+        )
+
+
+def rows_beyond_settled_day(batch: StockBatch, settled_day: Optional[str]) -> List[str]:
+    """Rows the provider returned after the batch's last complete trading day."""
+    if not settled_day:
+        return []
+    return [row["trade_date"] for row in batch.raw_rows if row["trade_date"] > settled_day]
+
+
+def export_stock(
+    *,
+    code: str,
+    provider,
+    session,
+    session_factory: Callable[[], Any],
+    out_dir: Path,
+    window_token: str,
+    start_date: date,
+    end_date: date,
+    now: Callable[[], datetime],
+    database: str,
+    settled_day: Optional[str],
+) -> Dict[str, Any]:
+    """Run one stock end to end and return its manifest entry.
+
+    Nothing is written to disk or to the database until the fetch, the canonical
+    rounding check and the settled-day gate have all passed, and every failure mode
+    returns an entry with a non-``ok`` status so the manifest can never advertise a
+    success that did not happen.
+    """
+    entry: Dict[str, Any] = {
+        "stock_code": code,
+        "requested_window": [start_date.isoformat(), end_date.isoformat()],
+        "last_complete_trading_day": settled_day,
+        "source": SOURCE_NOTE,
+        "required_fields": list(REQUIRED_FIELDS),
+        "extra_fields": list(EXTRA_FIELDS),
+        "database": database,
+        "raw": None,
+        "normalized": None,
+    }
+
+    try:
+        batch = fetch_stock_batch(
+            provider, stock_code=code, start_date=start_date, end_date=end_date, now=now
+        )
+    except Exception as exc:  # noqa: BLE001 - a failed fetch is manifest data
+        entry["status"] = "fetch_failed"
+        entry["error"] = f"{type(exc).__name__}: {exc}"[:200]
+        entry["readback"] = {"ok": False, "reason": "no rows fetched"}
+        return entry
+
+    entry["fetched_at_utc"] = batch.fetched_at_utc
+    entry["actual_window"] = list(batch.window) if batch.window else None
+    entry["rows"] = len(batch.raw_rows)
+    entry["rounding_problems"] = list(batch.rounding_problems)
+
+    if not batch.raw_rows:
+        entry["status"] = "empty"
+        entry["readback"] = {"ok": False, "reason": "provider returned no rows"}
+        return entry
+
+    # Gate before any side effect: a window that reaches past the settled day would
+    # publish an in-progress session as if it were final.
+    beyond = rows_beyond_settled_day(batch, settled_day)
+    entry["rows_beyond_settled_day"] = beyond
+    if beyond:
+        entry["status"] = "beyond_settled_day"
+        entry["error"] = (
+            f"provider returned {len(beyond)} row(s) after {settled_day} "
+            f"(first: {beyond[0]}); refusing to write files or database rows"
+        )
+        entry["readback"] = {"ok": False, "reason": "gate rejected the batch"}
+        return entry
+
+    try:
+        files = write_stock_batch(batch, out_dir, window_token)
+        entry["raw"] = files["raw"]
+        entry["normalized"] = files["normalized"]
+        entry["rows_written"] = persist_normalized(session, batch)
+        entry["readback"] = readback_and_verify(batch, session_factory=session_factory)
+    except Exception as exc:  # noqa: BLE001 - a failure must still be recorded
+        entry["status"] = "export_failed"
+        entry["error"] = f"{type(exc).__name__}: {exc}"[:300]
+        entry.setdefault("readback", {"ok": False, "reason": "export raised"})
+        return entry
+
+    entry["status"] = (
+        "ok"
+        if entry["readback"]["ok"] and not batch.rounding_problems
+        else "verification_failed"
+    )
+    return entry
+
+
+# --------------------------------------------------------------------------- #
 # Orchestration (live provider + real MySQL; exercised only by the CLI)
 # --------------------------------------------------------------------------- #
 
@@ -358,7 +472,24 @@ def main() -> int:
     codes = args.codes or list(DEFAULT_STOCKS)
     window_token = f"{args.start_date:%Y%m%d}_{args.end_date:%Y%m%d}"
     out_dir = Path(args.output_dir or PROJECT_ROOT / "docs" / "evidence" / f"c-delivery-{args.batch}")
-    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Both gates run before any provider call, file write or database write.
+    try:
+        ensure_publishable_dir(out_dir)
+    except BatchError as exc:
+        print(f"REFUSED: {exc}", file=sys.stderr)
+        return 2
+
+    settled_day = args.last_complete_trading_day
+    if settled_day is not None:
+        settled = date.fromisoformat(settled_day)
+        if args.end_date > settled:
+            print(
+                f"REFUSED: --end-date {args.end_date} is after "
+                f"--last-complete-trading-day {settled_day}",
+                file=sys.stderr,
+            )
+            return 2
 
     # Imported lazily so the pure helpers stay importable without a DB/provider.
     from backend.app.db.migrations import apply_migrations  # noqa: PLC0415
@@ -371,106 +502,73 @@ def main() -> int:
     settings = get_settings()
 
     manifest: List[Dict[str, Any]] = []
-    session = SessionLocal()
+    aborted: Optional[str] = None
+    session = None
     try:
+        session = SessionLocal()
         for code in codes:
-            entry: Dict[str, Any] = {
-                "stock_code": code,
-                "requested_window": [args.start_date.isoformat(), args.end_date.isoformat()],
-                "source": SOURCE_NOTE,
-                "required_fields": list(REQUIRED_FIELDS),
-                "extra_fields": list(EXTRA_FIELDS),
-                "database": settings.mysql_database,
-            }
-            fetch_error = None
-            try:
-                batch = fetch_stock_batch(
-                    provider,
-                    stock_code=code,
-                    start_date=args.start_date,
-                    end_date=args.end_date,
-                    now=now,
-                )
-            except Exception as exc:  # noqa: BLE001 - a failed fetch is manifest data
-                fetch_error = f"{type(exc).__name__}: {exc}"[:200]
-                entry.update(
-                    {
-                        "status": "fetch_failed",
-                        "fetch_error": fetch_error,
-                        "raw": None,
-                        "normalized": None,
-                        "readback": {"ok": False, "reason": "no rows fetched"},
-                    }
-                )
-                manifest.append(entry)
-                print(f"{code}: FETCH FAILED {fetch_error}", flush=True)
-                continue
-
-            entry["fetched_at_utc"] = batch.fetched_at_utc
-            entry["actual_window"] = list(batch.window) if batch.window else None
-            entry["rows"] = len(batch.raw_rows)
-            entry["rounding_problems"] = list(batch.rounding_problems)
-
-            if not batch.raw_rows:
-                # A failed round must never promote an older file as this batch's.
-                entry.update(
-                    {
-                        "status": "empty",
-                        "raw": None,
-                        "normalized": None,
-                        "readback": {"ok": False, "reason": "provider returned no rows"},
-                    }
-                )
-                manifest.append(entry)
-                print(f"{code}: no rows returned", flush=True)
-                continue
-
-            files = write_stock_batch(batch, out_dir, window_token)
-            entry["raw"] = files["raw"]
-            entry["normalized"] = files["normalized"]
-
-            written = persist_normalized(session, batch)
-            entry["rows_written"] = written
-            entry["readback"] = readback_and_verify(batch, session_factory=SessionLocal)
-
-            entry["status"] = (
-                "ok"
-                if entry["readback"]["ok"] and not batch.rounding_problems
-                else "verification_failed"
+            entry = export_stock(
+                code=code,
+                provider=provider,
+                session=session,
+                session_factory=SessionLocal,
+                out_dir=out_dir,
+                window_token=window_token,
+                start_date=args.start_date,
+                end_date=args.end_date,
+                now=now,
+                database=settings.mysql_database,
+                settled_day=settled_day,
             )
             manifest.append(entry)
             print(
-                f"{code}: rows={len(batch.raw_rows)} written={written} "
-                f"readback_ok={entry['readback']['ok']} status={entry['status']}",
+                f"{code}: status={entry['status']} rows={entry.get('rows')} "
+                f"readback_ok={(entry.get('readback') or {}).get('ok')}",
                 flush=True,
             )
+    except Exception as exc:  # noqa: BLE001 - never exit without a manifest
+        aborted = f"{type(exc).__name__}: {exc}"[:300]
+        print(f"BATCH ABORTED: {aborted}", file=sys.stderr)
     finally:
-        session.close()
-
-    manifest_path = out_dir / "MANIFEST.json"
-    write_json(
-        manifest_path,
-        {
-            "batch": args.batch,
-            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
-            "code_sha": _git_sha(),
-            "requested_window": [args.start_date.isoformat(), args.end_date.isoformat()],
-            "last_complete_trading_day": args.last_complete_trading_day,
-            "canonical_precision": {
-                "price_ndigits": PRICE_NDIGITS,
-                "amount_ndigits": AMOUNT_NDIGITS,
-                "percent_ndigits": PERCENT_NDIGITS,
+        if session is not None:
+            session.close()
+        # Written on every path - a crash must not leave an older success manifest
+        # standing next to files it no longer describes.
+        out_dir.mkdir(parents=True, exist_ok=True)
+        manifest_path = out_dir / "MANIFEST.json"
+        write_json(
+            manifest_path,
+            {
+                "batch": args.batch,
+                "status": (
+                    "aborted"
+                    if aborted
+                    else (
+                        "ok"
+                        if manifest and all(item["status"] == "ok" for item in manifest)
+                        else "failed"
+                    )
+                ),
+                "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+                "code_sha": _git_sha(),
+                "requested_window": [args.start_date.isoformat(), args.end_date.isoformat()],
+                "last_complete_trading_day": settled_day,
+                "aborted_reason": aborted,
+                "canonical_precision": {
+                    "price_ndigits": PRICE_NDIGITS,
+                    "amount_ndigits": AMOUNT_NDIGITS,
+                    "percent_ndigits": PERCENT_NDIGITS,
+                },
+                "note": (
+                    "raw and normalized are derived from ONE frozen provider response per "
+                    "stock; readback is an independent repository read in a new session"
+                ),
+                "stocks": manifest,
             },
-            "note": (
-                "raw and normalized are derived from ONE frozen provider response per "
-                "stock; readback is an independent repository read in a new session"
-            ),
-            "stocks": manifest,
-        },
-    )
-    print("manifest:", manifest_path)
+        )
+        print("manifest:", manifest_path)
 
-    ok = bool(manifest) and all(item["status"] == "ok" for item in manifest)
+    ok = aborted is None and bool(manifest) and all(item["status"] == "ok" for item in manifest)
     print("BATCH OK" if ok else "BATCH FAILED")
     return 0 if ok else 1
 

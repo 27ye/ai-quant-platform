@@ -18,6 +18,8 @@ import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+import pytest
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
@@ -286,3 +288,111 @@ def test_empty_batch_reports_a_failed_readback():
 
     assert readback["ok"] is False
     assert readback["rows"] == 0
+
+
+# -- delivery gates: an existing directory is never overwritten ---------------
+
+
+def test_existing_batch_directory_is_refused(tmp_path):
+    target = tmp_path / "c-delivery-20260916"
+
+    mod.ensure_publishable_dir(target)  # missing is fine
+    target.mkdir()
+    mod.ensure_publishable_dir(target)  # empty is fine
+
+    (target / "MANIFEST.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(mod.BatchError) as excinfo:
+        mod.ensure_publishable_dir(target)
+
+    assert "already exists" in str(excinfo.value)
+
+
+# -- delivery gate: nothing past the last complete trading day ---------------
+
+
+def _export(rows, settled_day, tmp_path, sessions):
+    session = sessions()
+    try:
+        return mod.export_stock(
+            code=STOCK,
+            provider=_CountingProvider(rows),
+            session=session,
+            session_factory=sessions,
+            out_dir=tmp_path,
+            window_token=WINDOW_TOKEN,
+            start_date=date(2024, 12, 1),
+            end_date=date(2026, 9, 15),
+            now=lambda: datetime(2026, 9, 16, 0, 5, 41, tzinfo=timezone.utc),
+            database="probe",
+            settled_day=settled_day,
+        )
+    finally:
+        session.close()
+
+
+def test_rows_after_the_settled_day_are_refused_before_any_side_effect(tmp_path):
+    sessions = _session_factory()
+
+    entry = _export([_row("2026-09-15"), _row("2026-09-16")], "2026-09-15", tmp_path, sessions)
+
+    assert entry["status"] == "beyond_settled_day"
+    assert entry["rows_beyond_settled_day"] == ["2026-09-16"]
+    assert entry["raw"] is None and entry["normalized"] is None
+    assert list(tmp_path.iterdir()) == []  # no file written
+    with sessions() as session:
+        stored = mod.MarketDataRepository(session).list_daily(
+            STOCK, date(2024, 12, 1), date(2026, 12, 31)
+        )
+        assert stored == []  # and nothing written to the database
+
+
+def test_rows_up_to_the_settled_day_are_accepted(tmp_path):
+    sessions = _session_factory()
+
+    entry = _export([_row("2026-09-14"), _row("2026-09-15")], "2026-09-15", tmp_path, sessions)
+
+    assert entry["status"] == "ok"
+    assert entry["rows_beyond_settled_day"] == []
+    assert (tmp_path / f"{STOCK}_qfq_raw_{WINDOW_TOKEN}.json").exists()
+    assert (tmp_path / f"{STOCK}_qfq_normalized_{WINDOW_TOKEN}.json").exists()
+
+
+def test_absent_settled_day_is_recorded_as_null(tmp_path):
+    sessions = _session_factory()
+
+    entry = _export([_row("2026-09-15")], None, tmp_path, sessions)
+
+    assert entry["last_complete_trading_day"] is None
+    assert entry["rows_beyond_settled_day"] == []
+    assert entry["status"] == "ok"
+
+
+def test_export_failure_is_recorded_as_a_failure_not_a_success(tmp_path, monkeypatch):
+    sessions = _session_factory()
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("read-back exploded")
+
+    monkeypatch.setattr(mod, "readback_and_verify", _boom)
+
+    entry = _export([_row("2026-09-15")], "2026-09-15", tmp_path, sessions)
+
+    assert entry["status"] == "export_failed"
+    assert entry["status"] != "ok"
+    assert "read-back exploded" in entry["error"]
+
+
+def test_persist_failure_is_recorded_as_a_failure_not_a_success(tmp_path, monkeypatch):
+    sessions = _session_factory()
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("mysql is down")
+
+    monkeypatch.setattr(mod, "persist_normalized", _boom)
+
+    entry = _export([_row("2026-09-15")], "2026-09-15", tmp_path, sessions)
+
+    assert entry["status"] == "export_failed"
+    assert "mysql is down" in entry["error"]
+    assert (entry["readback"] or {}).get("ok") is False
+
