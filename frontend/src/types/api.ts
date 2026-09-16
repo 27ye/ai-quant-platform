@@ -263,3 +263,131 @@ export interface DrawdownCurvePoint {
   trade_date: string
   drawdown: number
 }
+
+// ============ V2 数据状态（契约已定稿：B 于 Issue #11，docs/API_SPEC.md §4.4）============
+
+export type KlineMode = 'live' | 'frozen' | 'unknown'
+export type CoverageStatus = 'known' | 'unknown'
+export type FreshnessStatus = 'fresh' | 'stale' | 'unknown'
+
+export interface CatalogSyncStatus {
+  synced: boolean
+  row_count: number
+  last_success_at: string | null
+  last_attempt_at: string | null
+  source: string | null
+  last_error: string | null
+}
+
+export interface KlineDataStatus {
+  /** live=实时抓取落库 / frozen=冻结包导入 / unknown=无刷新元数据（不猜） */
+  mode: KlineMode
+  source: string | null
+  rows: number
+  /** 区间起点 YYYY-MM-DD */
+  first_trade_date: string | null
+  /** 行情截至日期（徽标展示用） */
+  last_trade_date: string | null
+  /** 最近一次成功刷新（ISO 8601 UTC）；失败不会抹掉成功信息 */
+  last_refreshed_at: string | null
+  /** known=交易日历可证明 / unknown=无法证明（前端不得显示「完整/已覆盖」） */
+  coverage: CoverageStatus
+  expected_trading_days: number | null
+  last_attempt_at: string | null
+  last_error: string | null
+  freshness: {
+    status: FreshnessStatus
+    stale_days: number | null
+    max_stale_days: number | null
+  }
+}
+
+/** GET /stocks/{code}/data-status 响应 data */
+export interface DataStatus {
+  stock_code: string
+  catalog: CatalogSyncStatus
+  kline: KlineDataStatus
+  as_of: string
+}
+
+// ============ V2 回测历史（契约已定稿：B 于 Issue #11，分页结构与 D 的 AI 契约同构）============
+
+// 注意与 AI 报告的 SnapshotStatus（complete/legacy_missing）区分：回测快照只有 complete/missing
+export type BacktestSnapshotStatus = 'complete' | 'missing'
+
+/** GET /backtests 列表项 */
+export interface BacktestSummary {
+  backtest_id: number
+  stock_code: string
+  strategy_name: string
+  semantics_version: 'v1_legacy' | 'v2_windowed'
+  start_date: string
+  end_date: string
+  initial_cash: number
+  final_equity: number
+  total_return: number
+  annual_return: number | null
+  max_drawdown: number | null
+  /** 无法计算时为 null，显示「—」不转 0 */
+  sharpe_ratio: number | null
+  /** 无已完成往返时为 null，显示「—」 */
+  win_rate: number | null
+  /** 已完成买卖往返次数 */
+  trade_count: number
+  /** 成交记录条数（trades 长度） */
+  order_count: number
+  benchmark_return: number | null
+  snapshot_status: BacktestSnapshotStatus
+  created_at: string
+}
+
+/** GET /backtests 分页响应 data */
+export interface PaginatedBacktests {
+  items: BacktestSummary[]
+  total: number
+  page: number
+  page_size: number
+}
+
+/**
+ * 回测详情的数据元信息（B 契约字段；frame_digest 是 B 交给 C 的数据帧摘要，
+ * c_data_hash 是 C 自身结果的哈希——两者分开，不可混用）
+ */
+export interface BacktestDataMeta {
+  requested_start_date?: string
+  requested_end_date?: string
+  actual_start_date?: string
+  actual_end_date?: string
+  rows?: number
+  rows_in_window?: number
+  warmup_required_days?: number | null
+  window_owner?: string
+  frame_digest?: string | null
+  c_data_hash?: string | null
+}
+
+/** GET /backtests/{id} 详情：回放保存时快照，GET 不取数不重算 */
+export interface BacktestDetail extends BacktestSummary {
+  /** 预热区间起点（v2_windowed；v1_legacy 为 null） */
+  warmup_start_date: string | null
+  /** 请求参数（v2 只含白名单五字段） */
+  parameters: BacktestParameters | null
+  /** 实际生效参数快照 */
+  effective_parameters: BacktestParameters | null
+  /** equity 为账户绝对权益；累计收益率 = equity / initial_cash - 1 */
+  equity_curve: Array<{ trade_date: string; equity: number }> | null
+  benchmark_curve: BenchmarkCurvePoint[] | null
+  drawdown_curve: DrawdownCurvePoint[] | null
+  trades: TradeRecord[] | null
+  data_meta: BacktestDataMeta | null
+  /** 当前持仓状态 0/1 */
+  current_position: 0 | 1 | null
+  /** snapshot_status=missing 时附原因 */
+  snapshot_missing_reason?: string | null
+  c_result_available?: boolean
+  c_algorithm_version?: string | null
+  c_execution_assumptions?: string | null
+  c_semantics_version?: string | null
+  input_snapshot_available?: boolean
+  input_snapshot_rows?: number
+}

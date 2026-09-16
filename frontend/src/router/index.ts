@@ -16,18 +16,16 @@ const router = createRouter({
       // 路由复用同一组件实例时（如 /stock/A → /stock/B）需要重新拉数据
       component: () => import('../views/StockDetailView.vue'),
     },
-    // ============ V2 历史页路由（占位视图，M2 接入真实接口后替换为独立页面）============
+    // ============ V2 历史页路由 ============
     {
       path: '/stock/:code/backtests',
       name: 'backtest-history',
-      component: () => import('../views/HistoryPlaceholderView.vue'),
-      props: { title: '回测历史', plannedApi: 'GET /api/v1/backtests' },
+      component: () => import('../views/BacktestHistoryView.vue'),
     },
     {
       path: '/backtests/:id',
       name: 'backtest-detail',
-      component: () => import('../views/HistoryPlaceholderView.vue'),
-      props: { title: '回测详情', plannedApi: 'GET /api/v1/backtests/{id}' },
+      component: () => import('../views/BacktestDetailView.vue'),
     },
     {
       path: '/stock/:code/ai-reports',

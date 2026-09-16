@@ -29,17 +29,24 @@ function showErrorMessage(message: string) {
 }
 
 // 业务码 → 中文文案（B 联调小抄 v1，message 是固定英文，前端用 code 映射）
+// 40003 不在此表：需拼接后端给出的具体原因（预热不足 / 区间无有效行情），见 resolveMessage
 const CODE_MESSAGES: Record<number, string> = {
   40001: '参数有误或关键词不能为空',
   40002: '该股票不存在',
-  40003: '该股票历史数据不足，无法计算',
+  40005: '该回测记录不存在',
+  40006: '该报告不存在',
   50001: '数据源暂时不可用，请稍后重试',
   50002: '服务暂不可用，请稍后重试',
   50003: '量化计算异常，请稍后重试',
+  50004: 'V2 回测引擎暂不可用，请稍后重试',
   50005: 'AI 分析失败，可手动重试',
 }
 
 function resolveMessage(code: number | undefined, fallback: string): string {
+  // 40003 需展示后端给出的具体原因（B/C 契约：预热不足或区间无有效行情）
+  if (code === 40003) {
+    return fallback ? `可用行情不足：${fallback}` : '可用行情不足，无法完成计算'
+  }
   if (code != null && code in CODE_MESSAGES) return CODE_MESSAGES[code]
   return fallback || '请求失败'
 }

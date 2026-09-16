@@ -56,7 +56,7 @@ async function load() {
     report.value = res.data
   } catch (error) {
     if (epoch.value !== currentEpoch) return
-    // 契约：未知 ID 返回 HTTP 404 + code=40005
+    // 契约：未知 ID 返回 HTTP 404 + code=40006（report not found；回测不存在是 40005）
     if (error instanceof AxiosError && error.response?.status === 404) {
       notFound.value = true
     } else {

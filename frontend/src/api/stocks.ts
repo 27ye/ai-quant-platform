@@ -1,9 +1,12 @@
 import { http } from './http'
 import { useMockFor } from './mockSwitch'
 import { mockBacktest, mockIndicators, mockKline, mockScore, mockSearch } from '../mocks/stock'
+import { mockDataStatus } from '../mocks/dataStatus'
 import type {
   ApiResponse,
   BacktestData,
+  BacktestRequest,
+  DataStatus,
   IndicatorsItem,
   KlineItem,
   ScoreData,
@@ -46,10 +49,19 @@ export async function fetchScore(stockCode: string): Promise<ApiResponse<ScoreDa
   return response.data
 }
 
-export async function runBacktest(stockCode: string): Promise<ApiResponse<BacktestData>> {
-  if (useMockFor('BACKTEST')) return mockBacktest(stockCode)
-  const response = await http.post<ApiResponse<BacktestData>>('/backtests', {
-    stock_code: stockCode,
-  })
+// V2：payload 省略 parameters → v1_legacy；显式传 parameters（含空对象）→ v2_windowed
+// 注意：v2_windowed 在 C 引擎未就绪时返回 50004，且不产生记录
+export async function runBacktest(payload: BacktestRequest): Promise<ApiResponse<BacktestData>> {
+  if (useMockFor('BACKTEST')) return mockBacktest(payload)
+  const response = await http.post<ApiResponse<BacktestData>>('/backtests', payload)
+  return response.data
+}
+
+// V2 A1：数据状态（GET /stocks/{code}/data-status），驱动工作台数据徽标
+export async function fetchDataStatus(stockCode: string): Promise<ApiResponse<DataStatus>> {
+  if (useMockFor('DATA_STATUS')) return mockDataStatus(stockCode)
+  const response = await http.get<ApiResponse<DataStatus>>(
+    `/stocks/${stockCode}/data-status`,
+  )
   return response.data
 }
