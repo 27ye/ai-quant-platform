@@ -21,9 +21,9 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from backend.app.core.errors import (
     ApplicationError,
@@ -76,6 +76,42 @@ _WARMUP_CALENDAR_FACTOR = 1.7
 _WARMUP_MAX_ATTEMPTS = 3
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100
+
+#: JSON columns the list endpoint never reads. MySQL filesorts the columns it
+#: actually selects, so a ``SELECT *`` drags ~150 KB per row (curves + orders +
+#: input snapshot + the whole C result) into the 256 KB sort buffer and fails with
+#: ``1038 Out of sort memory``. Keeping them out of the projection is the fix - not
+#: raising ``sort_buffer_size`` globally.
+_LIST_DEFERRED_JSON = (
+    "equity_curve",
+    "benchmark_curve",
+    "drawdown_curve",
+    "orders",
+    "input_snapshot",
+    "c_result",
+    "parameters",
+    "effective_parameters",
+    "data_meta",
+)
+
+
+def snapshot_status_expression(dialect_name: str):
+    """SQL predicate: this row carries a non-empty saved equity curve.
+
+    Evaluated in the database so :meth:`BacktestRepository.list` never fetches the
+    curve JSON. MySQL needs the explicit ``ARRAY`` type test because ``JSON_LENGTH``
+    reports **1** for a JSON ``null``; SQLite's ``json_array_length`` already returns
+    0 for every non-array (including JSON ``null``) and never raises. SQL NULL
+    yields NULL on both, which the ``CASE`` maps to ``missing``.
+    """
+    column = BacktestResult.equity_curve
+    if dialect_name == "mysql":
+        complete = and_(
+            func.json_type(column) == "ARRAY", func.json_length(column) > 0
+        )
+    else:  # sqlite and sqlite-compatible dialects (json1)
+        complete = func.json_array_length(column) > 0
+    return case((complete, SNAPSHOT_COMPLETE), else_=SNAPSHOT_MISSING)
 
 
 def resolve_effective_parameters(overrides: Mapping[str, Any]) -> QuantConfig:
@@ -262,19 +298,41 @@ class BacktestRepository:
                 or 0
             )
             statement = (
-                select(BacktestResult)
+                select(
+                    BacktestResult,
+                    snapshot_status_expression(
+                        self._session.get_bind().dialect.name
+                    ).label("snapshot_status"),
+                )
+                .options(
+                    *[defer(getattr(BacktestResult, name)) for name in _LIST_DEFERRED_JSON]
+                )
                 .where(*filters)
                 .order_by(BacktestResult.created_at.desc(), BacktestResult.id.desc())
                 .offset((page - 1) * page_size)
                 .limit(page_size)
             )
-            records = self._session.execute(statement).scalars().all()
+            rows = self._session.execute(statement).all()
         except SQLAlchemyError as exc:
             raise DatabaseOperationError() from exc
-        return [self._to_summary(record) for record in records], total
+        return [
+            self._to_summary(record, snapshot_status=status) for record, status in rows
+        ], total
 
     @staticmethod
-    def _to_summary(record: BacktestResult) -> Dict[str, Any]:
+    def _to_summary(
+        record: BacktestResult, *, snapshot_status: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Summary view of one row.
+
+        :meth:`list` computes ``snapshot_status`` in SQL and defers every JSON
+        column, so it passes the status in: touching ``record.equity_curve`` here
+        would trigger a lazy load and undo that projection.
+        """
+        if snapshot_status is None:
+            snapshot_status = (
+                SNAPSHOT_COMPLETE if record.equity_curve else SNAPSHOT_MISSING
+            )
         return {
             "backtest_id": int(record.id),
             "stock_code": record.stock_code,
@@ -292,9 +350,7 @@ class BacktestRepository:
             "trade_count": record.trade_count,
             "order_count": record.order_count,
             "benchmark_return": _float(record.benchmark_return),
-            "snapshot_status": (
-                SNAPSHOT_COMPLETE if record.equity_curve else SNAPSHOT_MISSING
-            ),
+            "snapshot_status": snapshot_status,
             "created_at": _iso(record.created_at),
         }
 
