@@ -97,8 +97,12 @@ GET /api/v1/stocks/search?keyword=茅台
 > **V2 起**：搜索改为查询本地股票目录（MySQL `stock_basic`），由
 > `scripts/sync_stock_catalog.py` 低频同步；路径与响应结构不变。
 > 已成功同步时**不再调用全市场 Provider**，无匹配返回空数组；
-> 从未成功同步时回退实时 Provider，其失败仍返回 `50001`（不伪装成"无匹配"）；
+> **从未成功同步时返回 `50006`（HTTP 503，`stock catalog not synced`）**，并**不调用 Provider**；
 > 目录查询期数据库异常返回 `50002`。同步状态见 4.4。
+>
+> **为什么不再回退实时 Provider**：一次全市场快照实测约 34 秒（5915 行），而 Provider 的重试预算是 4 秒，
+> 所以旧回退**永远不可能成功**——它只会在约 4.7 秒后抛出 `50001`，把「目录还没初始化」误报成「数据源故障」。
+> 现在改为一目了然的瞬时可重试状态，前端可提示「行情目录初始化中，请稍后重试」并触发同步。
 
 ### 4.2 股票信息
 
@@ -288,7 +292,9 @@ POST /api/v1/backtests
 - **参数与日期校验在取数之前完成**，且校验异常不被吞掉：C 的 `resolve_backtest_request` 失败会转成 `40001`，`validate_backtest_window` 也在取数前调用。
 - **C 的 V2 入口不可用时返回 `50004`，且不产生记录**：此时不得回退到旧 `run_backtest` 并把结果标成 `v2_windowed`。省略 `parameters` 的 `v1_legacy` 路径行为不变。
 - `v2_windowed` 会保存**送进 C 的输入快照**：**最后 `long` 条预热 + 区间内全部行情**（不含 B 为扩窗多取的更早历史）。详情默认只返回 `input_snapshot_available` / `input_snapshot_rows`；加 `?include_input_snapshot=true` 返回完整 `input_snapshot`（日期升序、ISO 字符串），供 C 核对。
-- **C 的完整结果原样保存**（迁移 v7 `c_result` 列），历史详情从该快照读取 `algorithm_version`、`warmup`、`initial_equity`、`execution_assumptions`、`data_hash`，不用舍入后的摘要列重新拼装。详情默认返回这些字段的平铺视图（`c_result_available`、`c_algorithm_version`、`c_data_hash`、`c_initial_equity`、`c_warmup`、`c_execution_assumptions`、`c_semantics_version`）；加 `?include_c_result=true` 返回完整 `c_result`。
+- **C 的完整结果原样保存**，历史详情从该快照读取 `algorithm_version`、`warmup`、`initial_equity`、`execution_assumptions`、`data_hash`，不用舍入后的摘要列重新拼装。详情默认返回这些字段的平铺视图（`c_result_available`、`c_result_exact`、`c_algorithm_version`、`c_data_hash`、`c_initial_equity`、`c_warmup`、`c_execution_assumptions`、`c_semantics_version`）；加 `?include_c_result=true` 返回完整 `c_result`。
+  - **无损存储（迁移 v8）**：C 的完整结果以**原文 JSON 文本**存入 `backtest_result.c_result_text`（LONGTEXT）。MySQL 的 JSON 列会把数值叶子归一化到约 15 位有效数字（实测 `99633.35582084299` 变成 `99633.355820843`），无法原样回读；文本列保存 B 写出的确切字节，读回时解析为对象，**API 结构不变**。
+  - `c_result_exact` 表示该封套是否来自无损文本列：`true` = 本次 v8 之后保存的记录；`false` = v8 之前用 JSON 列保存的旧记录（仍可读，但数值已被 MySQL 归一化）。旧记录在 v8 迁移时由 JSON 列回填到文本列，保留其当时的值。
 - 参数三种形态保持**互不混淆**：**省略** → `v1_legacy`；**显式 `{}`** → `v2_windowed` 默认参数；**显式 `null`** → `40001`（取数前拒绝）。
 - **字段值显式 `null` 也一律 `40001`**：五个白名单字段中任一字段显式传 `null`（如 `{"ma_long_period": null}`）都在**取数前**拒绝，且不产生记录——只有**省略该字段**才使用默认值。此前 Schema 的 `provided_overrides()` 会丢掉 `None`，导致显式 `null` 被当成省略并成功落库，已修正。
 - **C 侧校验异常按真实类别映射，不吞服务器错误**：C 的 `BacktestParameterError`（参数不合法、窗口超五年、日期格式等）→ `40001`；C 的 `InsufficientDataError`（窗口内无行情、预热不足）→ `40003`；**其余异常保持 `500`**，不伪装成用户参数错误。
@@ -405,6 +411,7 @@ GET /api/v1/ai/reports/101
 50003    quant calculation error
 50004    backtest error
 50005    ai service error
+50006    stock catalog not synced
 ```
 
 > **V2 补充口径**：

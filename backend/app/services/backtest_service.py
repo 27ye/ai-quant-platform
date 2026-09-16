@@ -21,9 +21,9 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from backend.app.core.errors import (
     ApplicationError,
@@ -76,6 +76,43 @@ _WARMUP_CALENDAR_FACTOR = 1.7
 _WARMUP_MAX_ATTEMPTS = 3
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100
+
+#: JSON columns the list endpoint never reads. MySQL filesorts the columns it
+#: actually selects, so a ``SELECT *`` drags ~150 KB per row (curves + orders +
+#: input snapshot + the whole C result) into the 256 KB sort buffer and fails with
+#: ``1038 Out of sort memory``. Keeping them out of the projection is the fix - not
+#: raising ``sort_buffer_size`` globally.
+_LIST_DEFERRED_JSON = (
+    "equity_curve",
+    "benchmark_curve",
+    "drawdown_curve",
+    "orders",
+    "input_snapshot",
+    "c_result",
+    "c_result_text",
+    "parameters",
+    "effective_parameters",
+    "data_meta",
+)
+
+
+def snapshot_status_expression(dialect_name: str):
+    """SQL predicate: this row carries a non-empty saved equity curve.
+
+    Evaluated in the database so :meth:`BacktestRepository.list` never fetches the
+    curve JSON. MySQL needs the explicit ``ARRAY`` type test because ``JSON_LENGTH``
+    reports **1** for a JSON ``null``; SQLite's ``json_array_length`` already returns
+    0 for every non-array (including JSON ``null``) and never raises. SQL NULL
+    yields NULL on both, which the ``CASE`` maps to ``missing``.
+    """
+    column = BacktestResult.equity_curve
+    if dialect_name == "mysql":
+        complete = and_(
+            func.json_type(column) == "ARRAY", func.json_length(column) > 0
+        )
+    else:  # sqlite and sqlite-compatible dialects (json1)
+        complete = func.json_array_length(column) > 0
+    return case((complete, SNAPSHOT_COMPLETE), else_=SNAPSHOT_MISSING)
 
 
 def resolve_effective_parameters(overrides: Mapping[str, Any]) -> QuantConfig:
@@ -214,7 +251,22 @@ class BacktestRepository:
                 effective_parameters=dict(effective_parameters),
                 data_meta=dict(data_meta),
                 input_snapshot=list(input_snapshot) if input_snapshot is not None else None,
-                c_result=dict(c_result) if c_result is not None else None,
+                # C's envelope is stored as exact text, not in the JSON column:
+                # MySQL normalises JSON numbers to ~15 significant digits, so an
+                # exact read-back was impossible (C measured 1-ULP changes on every
+                # numeric leaf). ``json.dumps`` emits the shortest string that
+                # round-trips a float, so parsing this text returns identical numbers.
+                c_result_text=(
+                    json.dumps(
+                        c_result,
+                        ensure_ascii=False,
+                        allow_nan=False,
+                        separators=(",", ":"),
+                        default=str,
+                    )
+                    if c_result is not None
+                    else None
+                ),
             )
             self._session.add(record)
             self._session.commit()
@@ -262,19 +314,41 @@ class BacktestRepository:
                 or 0
             )
             statement = (
-                select(BacktestResult)
+                select(
+                    BacktestResult,
+                    snapshot_status_expression(
+                        self._session.get_bind().dialect.name
+                    ).label("snapshot_status"),
+                )
+                .options(
+                    *[defer(getattr(BacktestResult, name)) for name in _LIST_DEFERRED_JSON]
+                )
                 .where(*filters)
                 .order_by(BacktestResult.created_at.desc(), BacktestResult.id.desc())
                 .offset((page - 1) * page_size)
                 .limit(page_size)
             )
-            records = self._session.execute(statement).scalars().all()
+            rows = self._session.execute(statement).all()
         except SQLAlchemyError as exc:
             raise DatabaseOperationError() from exc
-        return [self._to_summary(record) for record in records], total
+        return [
+            self._to_summary(record, snapshot_status=status) for record, status in rows
+        ], total
 
     @staticmethod
-    def _to_summary(record: BacktestResult) -> Dict[str, Any]:
+    def _to_summary(
+        record: BacktestResult, *, snapshot_status: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Summary view of one row.
+
+        :meth:`list` computes ``snapshot_status`` in SQL and defers every JSON
+        column, so it passes the status in: touching ``record.equity_curve`` here
+        would trigger a lazy load and undo that projection.
+        """
+        if snapshot_status is None:
+            snapshot_status = (
+                SNAPSHOT_COMPLETE if record.equity_curve else SNAPSHOT_MISSING
+            )
         return {
             "backtest_id": int(record.id),
             "stock_code": record.stock_code,
@@ -292,11 +366,32 @@ class BacktestRepository:
             "trade_count": record.trade_count,
             "order_count": record.order_count,
             "benchmark_return": _float(record.benchmark_return),
-            "snapshot_status": (
-                SNAPSHOT_COMPLETE if record.equity_curve else SNAPSHOT_MISSING
-            ),
+            "snapshot_status": snapshot_status,
             "created_at": _iso(record.created_at),
         }
+
+    @staticmethod
+    def _read_c_result(record) -> Tuple[Optional[Mapping[str, Any]], bool]:
+        """Return C's envelope plus whether it came from the exact text column.
+
+        ``c_result_text`` (migration v8) holds the bytes B wrote, so parsing it is
+        lossless - but only for rows B wrote itself. Rows upgraded from v7 had their
+        text backfilled from the JSON column, whose numbers MySQL had already
+        normalised; only those rows still carry the legacy column (new rows leave it
+        NULL), which is what marks the envelope as inexact.
+        """
+        text = record.c_result_text
+        if text:
+            try:
+                payload = json.loads(text)
+            except (TypeError, ValueError):
+                payload = None
+            if isinstance(payload, Mapping):
+                return payload, record.c_result is None
+        legacy = record.c_result
+        if isinstance(legacy, Mapping):
+            return legacy, False
+        return None, False
 
     @classmethod
     def _to_detail(
@@ -309,7 +404,7 @@ class BacktestRepository:
         detail = cls._to_summary(record)
         data_meta = record.data_meta or {}
         snapshot = record.input_snapshot or []
-        c_result = record.c_result if isinstance(record.c_result, Mapping) else None
+        c_result, c_result_exact = cls._read_c_result(record)
         detail.update(
             {
                 "warmup_start_date": _iso(record.warmup_start_date),
@@ -336,6 +431,7 @@ class BacktestRepository:
         # and hashes from here instead of B's rounded summary columns; the full
         # payload stays opt-in because it repeats the curves and the snapshot.
         detail["c_result_available"] = c_result is not None
+        detail["c_result_exact"] = c_result_exact
         if c_result is not None:
             detail["c_semantics_version"] = c_result.get("semantics_version")
             detail["c_algorithm_version"] = c_result.get("algorithm_version")

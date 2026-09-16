@@ -21,7 +21,7 @@ import backend.app.models  # noqa: F401  (register all ORM models on Base)
 from backend.app.db.base import Base
 
 #: Current schema revision. Bump only when a new migration step is added below.
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 _SCHEMA_VERSION_DDL = (
     "CREATE TABLE IF NOT EXISTS schema_version ("
@@ -158,6 +158,34 @@ def _migration_v7(connection: Connection) -> None:
     _add_missing_columns(connection, "backtest_result", (("c_result", "JSON NULL"),))
 
 
+def _migration_v8(connection: Connection) -> None:
+    """V2 C 对接: keep C's result as exact JSON *text* (``c_result_text``).
+
+    MySQL's JSON column normalises number leaves to ~15 significant digits, so the
+    stored envelope could not be read back exactly - C measured 1-ULP changes on
+    every one of 1439 numeric leaves. ``LONGTEXT`` keeps the exact bytes and the API
+    parses it back into the same object shape.
+
+    Rows written before this step are backfilled from the JSON column; those values
+    were already normalised by MySQL, so they are carried over as they are rather
+    than being "corrected" from an approximation.
+    """
+    columns = {column["name"] for column in inspect(connection).get_columns("backtest_result")}
+    if "c_result_text" in columns:
+        # Fresh databases get the column from the ORM metadata, and a re-run of this
+        # step must not rescan the table.
+        return
+    connection.execute(
+        text("ALTER TABLE backtest_result ADD COLUMN c_result_text LONGTEXT NULL")
+    )
+    connection.execute(
+        text(
+            "UPDATE backtest_result SET c_result_text = CAST(c_result AS CHAR) "
+            "WHERE c_result IS NOT NULL"
+        )
+    )
+
+
 #: Ordered ``(version, step)`` pairs. Append new steps; never reorder.
 #: Every step must be idempotent and artifact-based (create-if-missing /
 #: add-column-if-missing): the convergence pass in :func:`apply_migrations`
@@ -172,6 +200,7 @@ MIGRATIONS: List[Tuple[int, Callable[[Connection], None]]] = [
     (5, _migration_v5),
     (6, _migration_v6),
     (7, _migration_v7),
+    (8, _migration_v8),
 ]
 
 

@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from backend.app.core.errors import InvalidParameterError
+from backend.app.core.errors import CatalogNotSyncedError, InvalidParameterError
 from backend.app.data.providers.base import StockDataProvider, StockDataProviderError
 from backend.app.db.migrations import apply_migrations
 from backend.app.schemas.stock import StockBasicSchema
@@ -172,24 +172,40 @@ def test_search_matches_code_and_name_and_respects_limit(monkeypatch):
         assert [item.stock_code for item in by_code] == ["600005"]
 
 
-def test_search_falls_back_to_provider_when_never_synced():
-    provider = _FakeProvider(search_items=[{"stock_code": "600519", "stock_name": "贵州茅台"}])
+def test_search_without_a_synced_catalog_reports_50006_and_skips_the_provider():
+    """V2 B1: a cold-start search no longer attempts a full-market snapshot.
+
+    That fallback could never fit the provider's bounded retry budget (a spot
+    snapshot measured ~34 s against a 4 s budget), so it only ever produced a
+    misleading 50001 after a multi-second wait. The state is reported explicitly.
+    """
+    provider = _FakeProvider(
+        search_items=[{"stock_code": "600519", "stock_name": "贵州茅台"}]
+    )
 
     with _session() as session:
         service = _service(session, provider)
-        results = service.search("600519")
-
-        assert provider.search_calls == 1
-        assert [item.stock_code for item in results] == ["600519"]
-
-
-def test_search_provider_failure_is_not_reported_as_no_match():
-    provider = _FakeProvider(search_error=StockDataProviderError("spot unavailable"))
-
-    with _session() as session:
-        service = _service(session, provider)
-        with pytest.raises(StockDataProviderError):
+        with pytest.raises(CatalogNotSyncedError) as excinfo:
             service.search("600519")
+
+    assert excinfo.value.code == 50006
+    assert provider.search_calls == 0
+
+
+def test_synced_catalog_answers_locally_without_touching_the_provider(monkeypatch):
+    monkeypatch.setattr(catalog_module, "MIN_CATALOG_ROWS", 2)
+    provider = _FakeProvider(
+        catalog=_catalog(("600519", "贵州茅台"), ("000001", "平安银行")),
+        search_items=[{"stock_code": "999999", "stock_name": "must not be used"}],
+    )
+
+    with _session() as session:
+        service = _service(session, provider)
+        service.sync()
+        results = service.search("茅台")
+
+    assert [item.stock_code for item in results] == ["600519"]
+    assert provider.search_calls == 0
 
 
 def test_search_rejects_empty_keyword():
