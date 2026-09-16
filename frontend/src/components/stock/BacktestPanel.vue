@@ -84,11 +84,16 @@ function formatPct(value: number): string {
   return `${(value * 100).toFixed(3)}%`
 }
 
-// 初次加载：v1_legacy 快速回测（完全省略 parameters）
+// 初次加载 / 切股重载：v1_legacy 快速回测（完全省略 parameters）
+// 状态交接约定（C 复核）：
+// - 每次新请求（load/submit）接管全部进行态，旧请求的响应由 epoch 丢弃
+// - load 负责清 submitting（切股时旧提交可能还在途，其 finally 因 epoch 守卫不会自清）
+// - submit 负责清 loading/failed（V1 在途或失败时，以 V2 提交为新基准）
 async function load() {
   const currentEpoch = ++epoch.value
   loading.value = true
   failed.value = false
+  submitting.value = false
   result.value = null
   submitError.value = ''
   dirty.value = false
@@ -127,6 +132,9 @@ async function submit() {
   const currentEpoch = ++epoch.value
   submitting.value = true
   submitError.value = ''
+  // V2 提交取代 V1 的在途/失败状态（V1 响应会被 epoch 守卫丢弃）
+  loading.value = false
+  failed.value = false
   try {
     const res = await runBacktest({
       stock_code: props.stockCode,
@@ -272,6 +280,9 @@ function resetForm() {
       </div>
     </div>
 
+    <!-- 提交错误：无论有无旧结果都要可见（V1 在途时提交 V2 失败，result 仍为 null） -->
+    <p v-if="submitError" class="submit-error">{{ submitError }}</p>
+
     <!-- 初次加载 -->
     <el-skeleton v-if="loading" :rows="4" animated />
 
@@ -291,7 +302,6 @@ function resetForm() {
         {{ formatPct(lastRunParams.transaction_cost) }} · 滑点
         {{ formatPct(lastRunParams.slippage) }}
       </p>
-      <p v-if="submitError" class="submit-error">{{ submitError }}</p>
 
       <div class="metrics">
         <div v-for="metric in METRICS" :key="metric.key" class="metric">
@@ -382,7 +392,7 @@ function resetForm() {
 }
 
 .tag-v1 {
-  border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.16));
+  border: 1px solid var(--border-strong);
   color: var(--text-faint);
 }
 
@@ -396,14 +406,14 @@ function resetForm() {
 }
 
 .history-link:hover {
-  color: var(--accent, #d4a958);
+  color: var(--accent);
 }
 
 .toggle {
   padding: 0;
   border: none;
   background: none;
-  color: var(--accent, #d4a958);
+  color: var(--accent);
   font-size: 12px;
   cursor: pointer;
   white-space: nowrap;
@@ -417,9 +427,9 @@ function resetForm() {
 .form {
   margin-bottom: 14px;
   padding: 12px;
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-hover);
 }
 
 .field {
@@ -454,7 +464,7 @@ function resetForm() {
   border: 1px solid rgba(255, 77, 79, 0.35);
   border-radius: 6px;
   background: rgba(255, 77, 79, 0.06);
-  color: var(--up, #ff4d4f);
+  color: var(--up);
   font-size: 12px;
   line-height: 1.7;
 }
@@ -482,7 +492,7 @@ function resetForm() {
 
 .submit-error {
   margin: 0 0 10px;
-  color: var(--up, #ff4d4f);
+  color: var(--up);
   font-size: 12px;
 }
 
@@ -525,12 +535,12 @@ function resetForm() {
 
 .metric-value.up,
 .up {
-  color: var(--up, #ff4d4f);
+  color: var(--up);
 }
 
 .metric-value.down,
 .down {
-  color: var(--down, #00b386);
+  color: var(--down);
 }
 
 .curve {
@@ -555,7 +565,7 @@ function resetForm() {
 }
 
 .trades-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--border-strong);
   border-radius: 3px;
 }
 
@@ -569,17 +579,17 @@ function resetForm() {
 .trades-table th {
   position: sticky;
   top: 0;
-  background: var(--surface, #14171d);
+  background: var(--surface);
   color: var(--text-faint);
   font-weight: 400;
   text-align: left;
   padding: 6px 8px;
-  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  border-bottom: 1px solid var(--border);
 }
 
 .trades-table td {
   padding: 7px 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--border);
   color: var(--text-sub);
 }
 

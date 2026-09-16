@@ -131,7 +131,11 @@ const metaRows = computed(() => {
     rows.push({ label: '预热天数', value: `${meta.warmup_required_days} 天` })
   }
   rows.push({ label: '数据帧摘要', value: short(meta.frame_digest) })
-  rows.push({ label: '结果哈希', value: short(meta.c_data_hash) })
+  // C 复核口径：该哈希语义是「C 输入快照」的 sha256，不是结果哈希
+  rows.push({
+    label: 'C 输入快照哈希',
+    value: short(meta.input_snapshot?.sha256 ?? meta.c_data_hash),
+  })
   return rows
 })
 
@@ -322,7 +326,7 @@ function goBack() {
   justify-content: space-between;
   gap: 12px;
   padding-bottom: 14px;
-  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  border-bottom: 1px solid var(--border);
 }
 
 .header-left {
@@ -342,7 +346,7 @@ function goBack() {
 }
 
 .back-link:hover {
-  color: var(--accent, #d4a958);
+  color: var(--accent);
 }
 
 .page-title {
@@ -360,7 +364,7 @@ function goBack() {
 }
 
 .stock-link:hover {
-  color: var(--accent, #d4a958);
+  color: var(--accent);
 }
 
 .tag {
@@ -371,29 +375,29 @@ function goBack() {
 }
 
 .tag-v2 {
-  border: 1px solid rgba(212, 169, 88, 0.4);
-  background: rgba(212, 169, 88, 0.08);
-  color: rgba(212, 169, 88, 0.9);
+  border: 1px solid var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent);
 }
 
 .tag-v1 {
-  border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.16));
+  border: 1px solid var(--border-strong);
   color: var(--text-faint);
 }
 
 .history-banner {
   padding: 10px 14px;
-  border: 1px solid rgba(212, 169, 88, 0.35);
+  border: 1px solid var(--accent);
   border-radius: 8px;
-  background: rgba(212, 169, 88, 0.06);
-  color: rgba(212, 169, 88, 0.9);
+  background: var(--accent-bg);
+  color: var(--accent);
   font-size: 12px;
   letter-spacing: 0.02em;
 }
 
 .panel {
-  background: var(--surface, #14171d);
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
 }
 
@@ -437,12 +441,12 @@ function goBack() {
 
 .metric-value.up,
 .up {
-  color: var(--up, #ff4d4f);
+  color: var(--up);
 }
 
 .metric-value.down,
 .down {
-  color: var(--down, #00b386);
+  color: var(--down);
 }
 
 .param-grid {
@@ -481,7 +485,7 @@ function goBack() {
 }
 
 .trades-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--border-strong);
   border-radius: 3px;
 }
 
@@ -495,17 +499,17 @@ function goBack() {
 .trades-table th {
   position: sticky;
   top: 0;
-  background: var(--surface, #14171d);
+  background: var(--surface);
   color: var(--text-faint);
   font-weight: 400;
   text-align: left;
   padding: 6px 8px;
-  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  border-bottom: 1px solid var(--border);
 }
 
 .trades-table td {
   padding: 7px 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--border);
   color: var(--text-sub);
 }
 

@@ -191,6 +191,10 @@ export function mockBacktestDetail(backtestId: number): ApiResponse<BacktestDeta
         window_owner: 'c',
         frame_digest: 'b3f7c2a1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1',
         c_data_hash: '9af45d325e7cced7fc420da9f502e3abcf72ede1b7ad95070b264f8b0c4052f4',
+        input_snapshot: {
+          sha256: '9af45d325e7cced7fc420da9f502e3abcf72ede1b7ad95070b264f8b0c4052f4',
+          rows: 403,
+        },
       },
       current_position: 0,
       c_result_available: true,
