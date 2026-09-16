@@ -1,0 +1,107 @@
+{
+  "a_sha": "010841099b20b500ed322b15cec32d9e7add97cd",
+  "scope": "Original SFC setup compiled in memory. Controlled deferred API promises; ref mocked, watcher sequence invoked explicitly. No browser, HTTP, DB, LLM or production edits.",
+  "source_sha256": "7679d471af65fcc8e773bb078aa68fa9ff9980e7cd3a8d992d8d343222a330e5",
+  "cases": [
+    {
+      "case": "normal_legacy_then_v2",
+      "passed": true,
+      "requests": [
+        {
+          "stock_code": "600519"
+        },
+        {
+          "stock_code": "600519",
+          "start_date": "2025-07-04",
+          "end_date": "2026-08-31",
+          "parameters": {
+            "ma_short_period": 5,
+            "ma_long_period": 20,
+            "initial_cash": 100000,
+            "transaction_cost": 0.001,
+            "slippage": 0
+          }
+        }
+      ],
+      "state": {
+        "loading": false,
+        "failed": false,
+        "submitting": false,
+        "result": {
+          "stock_code": "600519",
+          "semantics_version": "v2_windowed"
+        },
+        "visible_branch": "result"
+      }
+    },
+    {
+      "case": "stock_switch_during_v2",
+      "passed": true,
+      "expected_submitting": false,
+      "state": {
+        "loading": false,
+        "failed": false,
+        "submitting": false,
+        "result": {
+          "stock_code": "000001",
+          "semantics_version": "v1_legacy"
+        },
+        "visible_branch": "result"
+      }
+    },
+    {
+      "case": "submit_v2_before_initial_load_finishes",
+      "passed": true,
+      "expected_loading": false,
+      "state": {
+        "loading": false,
+        "failed": false,
+        "submitting": false,
+        "result": {
+          "stock_code": "600519",
+          "semantics_version": "v2_windowed"
+        },
+        "visible_branch": "result"
+      }
+    },
+    {
+      "case": "successful_v2_after_initial_failure",
+      "passed": true,
+      "expected_failed": false,
+      "state": {
+        "loading": false,
+        "failed": false,
+        "submitting": false,
+        "result": {
+          "stock_code": "600519",
+          "semantics_version": "v2_windowed"
+        },
+        "visible_branch": "result"
+      }
+    },
+    {
+      "case": "prefer_input_snapshot_sha256",
+      "passed": true,
+      "row": {
+        "label": "C 输入快照哈希",
+        "value": "11111111…22222222"
+      }
+    },
+    {
+      "case": "fallback_c_data_hash",
+      "passed": true,
+      "row": {
+        "label": "C 输入快照哈希",
+        "value": "33333333…44444444"
+      }
+    },
+    {
+      "case": "missing_hash_placeholder",
+      "passed": true,
+      "row": {
+        "label": "C 输入快照哈希",
+        "value": "—"
+      }
+    }
+  ]
+}
