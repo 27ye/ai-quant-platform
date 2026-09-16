@@ -126,8 +126,20 @@ class _UnusedProvider:
         raise AssertionError("provider must not be called")
 
 
+class _FakeBacktestParameterError(ValueError):
+    """Mirrors C's ``BacktestParameterError``.
+
+    C's class derives from ``ValueError``, **not** from ``ApplicationError``, which
+    is exactly why an unwrapped call surfaced as a plain-text 500.
+    """
+
+
+class _FakeInsufficientDataError(ValueError):
+    """Mirrors C's ``InsufficientDataError`` (unsatisfiable window/warmup)."""
+
+
 class _FakeRequestConfig:
-    """Stands in for C's ``request_config`` returned by ``resolve`` ."""
+    """Stands in for C's ``request_config`` returned by ``resolve``."""
 
     def __init__(self, required_warmup_rows: int) -> None:
         self.required_warmup_rows = required_warmup_rows
@@ -135,23 +147,42 @@ class _FakeRequestConfig:
 
 
 class _FakeCWindowedEntry:
-    """Stands in for C's V2 entry points, which are still local-only on C's side.
+    """Stands in for C's V2 entry points, mirroring the published contract.
 
-    Mirrors the contract C published on PR #10::
+    Shape verified against ``pop17589822299-coder:codex/v2-c-backtest-params``
+    (``92df017``):
 
-        run_backtest_request(data, *, start_date=None, end_date=None,
-                             parameters=PARAMETERS_UNSET)
+    * ``algorithm_version`` / ``warmup`` / ``initial_equity`` /
+      ``execution_assumptions`` / ``input_snapshot`` / ``data_hash`` /
+      ``semantics_version`` all sit on the **first level** of the result;
+    * ``initial_equity`` is an object and ``input_snapshot`` is an envelope;
+    * the benchmark identity is ``effective_parameters.benchmark_method`` -
+      there is **no** ``execution_assumptions.baseline``;
+    * curve value keys are ``equity`` / ``benchmark_equity`` / ``drawdown``;
+    * ``trades`` is the成交 array name (``order_count`` counts records,
+      ``trade_count`` counts completed round trips).
 
-    Every payload B forwards is recorded, so the tests can assert the five-field
+    Every payload B forwards is recorded, so tests can assert the five-field
     whitelist, that validation happens *before* any data fetch, and that C's
     result envelope is stored verbatim.
     """
 
     parameters_unset = _PARAMETERS_UNSET
+    parameter_errors = (_FakeBacktestParameterError,)
+    data_errors = (_FakeInsufficientDataError,)
 
-    def __init__(self, *, required_warmup_rows=None, resolve_error=None) -> None:
+    def __init__(
+        self,
+        *,
+        required_warmup_rows=None,
+        resolve_error=None,
+        validate_error=None,
+        run_error=None,
+    ) -> None:
         self.required_warmup_rows = required_warmup_rows
         self.resolve_error = resolve_error
+        self.validate_error = validate_error
+        self.run_error = run_error
         self.resolve_calls: list = []
         self.validate_calls: list = []
         self.run_calls: list = []
@@ -167,6 +198,8 @@ class _FakeCWindowedEntry:
 
     def validate_window(self, start_date, end_date):
         self.validate_calls.append((start_date, end_date))
+        if self.validate_error is not None:
+            raise self.validate_error
         return start_date, end_date
 
     def run(self, frame, *, start_date, end_date, parameters):
@@ -178,15 +211,17 @@ class _FakeCWindowedEntry:
                 "parameters": dict(parameters),
             }
         )
+        if self.run_error is not None:
+            raise self.run_error
         initial_cash = float(parameters["initial_cash"])
+        day = start_date.isoformat()
         return {
-            "strategy_name": "ma5_ma20_long_only",
+            "strategy_name": "ma_long_only",
             "semantics_version": SEMANTICS_V2_WINDOWED,
-            "algorithm_version": "c-quant-v2.0",
-            "start_date": start_date.isoformat(),
+            "algorithm_version": "ma_long_only_v2.0.0",
+            "start_date": day,
             "end_date": end_date.isoformat(),
             "initial_cash": initial_cash,
-            "initial_equity": initial_cash,
             "final_equity": initial_cash * 1.01,
             "total_return": 0.01,
             "annual_return": 0.02,
@@ -196,23 +231,58 @@ class _FakeCWindowedEntry:
             "trade_count": 2,
             "order_count": 2,
             "benchmark_return": 0.005,
-            "warmup": {"required_rows": 20, "used_rows": 20},
-            "execution_assumptions": {
-                "baseline": "first_open_to_last_close_no_cost",
-                "transaction_cost": parameters["transaction_cost"],
-                "slippage": parameters["slippage"],
+            # -- first-level envelope fields, exactly as C returns them --------
+            "effective_parameters": {
+                **parameters,
+                "strategy_name": "ma_long_only",
+                "benchmark_method": "first_open_to_last_close_no_cost",
             },
-            "input_snapshot": [],
+            "warmup": {
+                "start_date": day,
+                "end_date": day,
+                "required_rows": 20,
+                "used_rows": 20,
+            },
+            "initial_equity": {
+                "trade_date": day,
+                "equity": initial_cash,
+                "valuation": "before_open",
+            },
+            "execution_assumptions": {
+                "model": "research_fractional_v1",
+                "benchmark_includes_costs": False,
+                "price_basis": "qfq",
+            },
+            "input_snapshot": {
+                "schema_version": "quant_input_v1",
+                "stock_code": STOCK_CODE,
+                "frequency": "daily",
+                "adjust": "qfq",
+                "data_mode": "dataframe",
+                "columns": [
+                    "stock_code",
+                    "trade_date",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                ],
+                "rows": [],
+            },
             "data_hash": C_DATA_HASH,
-            "equity_curve": [{"trade_date": start_date.isoformat(), "equity": initial_cash}],
-            "benchmark_curve": [
-                {"trade_date": start_date.isoformat(), "equity": initial_cash}
-            ],
-            "drawdown_curve": [{"trade_date": start_date.isoformat(), "drawdown": 0.0}],
+            "equity_curve": [{"trade_date": day, "equity": initial_cash}],
+            "benchmark_curve": [{"trade_date": day, "benchmark_equity": initial_cash}],
+            "drawdown_curve": [{"trade_date": day, "drawdown": 0.0}],
             "trades": [
                 {
-                    "signal_date": start_date.isoformat(),
-                    "execution_date": start_date.isoformat(),
+                    "order_id": 1,
+                    "signal_date": day,
+                    "execution_date": day,
+                    "side": "buy",
+                    "position_after": 1,
+                    "round_trip_pnl": None,
+                    "round_trip_return": None,
                 }
             ],
         }
@@ -447,7 +517,9 @@ def test_windowed_run_reports_c_validation_errors_instead_of_swallowing_them():
     """A failing ``resolve`` is a 40001, not a silently-ignored fallback."""
     market = _FakeMarketSource(_rows())
     c_entry = _FakeCWindowedEntry(
-        resolve_error=ValueError("ma_short_period must be less than ma_long_period")
+        resolve_error=_FakeBacktestParameterError(
+            "ma_short_period must be less than ma_long_period"
+        )
     )
     with _session() as session:
         repository = BacktestRepository(session)
@@ -459,10 +531,12 @@ def test_windowed_run_reports_c_validation_errors_instead_of_swallowing_them():
                 parameters=BacktestParametersSchema(),
                 parameters_provided=True,
             )
+        items, total = repository.list()
 
     assert "ma_short_period must be less than ma_long_period" in str(excinfo.value)
     assert market.calls == []
     assert c_entry.validate_calls == []
+    assert items == [] and total == 0
 
 
 def test_windowed_run_stores_c_result_verbatim_and_never_rewrites_its_baseline():
@@ -481,28 +555,131 @@ def test_windowed_run_stores_c_result_verbatim_and_never_rewrites_its_baseline()
 
         detail = repository.get(result["backtest_id"])
         assert detail["c_result_available"] is True
-        assert detail["c_algorithm_version"] == "c-quant-v2.0"
+        assert detail["c_algorithm_version"] == "ma_long_only_v2.0.0"
         assert detail["c_data_hash"] == C_DATA_HASH
-        assert detail["c_initial_equity"] == 100000.0
-        assert detail["c_warmup"] == {"required_rows": 20, "used_rows": 20}
-        # B's QuantConfig default (first_close_to_last_close) must NOT replace
-        # C's own benchmark baseline.
-        assert (
-            detail["c_execution_assumptions"]["baseline"]
-            == "first_open_to_last_close_no_cost"
-        )
+        # C returns ``initial_equity`` as an object, not as the cash number.
+        assert detail["c_initial_equity"] == {
+            "trade_date": "2025-06-01",
+            "equity": 100000.0,
+            "valuation": "before_open",
+        }
+        assert detail["c_warmup"]["required_rows"] == 20
         assert detail["c_data_hash"] != detail["data_meta"]["frame_digest"]
         assert "c_result" not in detail  # full envelope stays opt-in
 
         full = repository.get(result["backtest_id"], include_c_result=True)
-        assert full["c_result"]["algorithm_version"] == "c-quant-v2.0"
+        c_result = full["c_result"]
+        assert c_result["algorithm_version"] == "ma_long_only_v2.0.0"
+        assert c_result["data_hash"] == C_DATA_HASH
+        # C's benchmark identity lives in ``effective_parameters.benchmark_method``;
+        # B's QuantConfig default (first_close_to_last_close) must NOT replace it.
         assert (
-            full["c_result"]["execution_assumptions"]["baseline"]
+            c_result["effective_parameters"]["benchmark_method"]
             == "first_open_to_last_close_no_cost"
         )
-        assert full["c_result"]["data_hash"] == C_DATA_HASH
+        # The real envelope has no ``execution_assumptions.baseline`` key at all.
+        assert "baseline" not in c_result["execution_assumptions"]
         # The stored "effective parameters" are C's five-field view, not B's.
         assert set(detail["effective_parameters"]) == set(ALLOWED_PARAMETER_FIELDS)
+
+
+@pytest.mark.parametrize("field", ALLOWED_PARAMETER_FIELDS)
+def test_explicit_null_parameter_value_is_rejected_before_any_fetch(field):
+    """C: an explicit ``null`` value is invalid; only omission uses the default.
+
+    Regression: ``provided_overrides()`` dropped ``None``, so
+    ``{"ma_long_period": null}`` silently became ``{}``, ran on defaults and was
+    saved as a success.
+    """
+    market = _FakeMarketSource(_rows())
+    c_entry = _FakeCWindowedEntry()
+    with _session() as session:
+        repository = BacktestRepository(session)
+        with pytest.raises(InvalidParameterError) as excinfo:
+            _service(market, repository, c_entry=c_entry).run(
+                stock_code=STOCK_CODE,
+                start_date=date(2025, 6, 1),
+                end_date=date(2025, 12, 31),
+                parameters=BacktestParametersSchema(**{field: None}),
+                parameters_provided=True,
+            )
+        items, total = repository.list()
+
+    assert field in str(excinfo.value)
+    assert market.calls == []           # no data was fetched
+    assert c_entry.resolve_calls == []  # and C was never called
+    assert items == [] and total == 0   # nothing was saved
+
+
+def test_window_validation_error_from_c_is_reported_as_40001():
+    """C's ``BacktestParameterError`` is a ``ValueError``, not an ApplicationError.
+
+    Regression: ``validate_backtest_window`` was called outside the translation
+    block, so the error escaped as a plain-text ``500 Internal Server Error``.
+    """
+    market = _FakeMarketSource(_rows())
+    c_entry = _FakeCWindowedEntry(
+        validate_error=_FakeBacktestParameterError(
+            "v2_windowed supports at most five calendar years"
+        )
+    )
+    with _session() as session:
+        repository = BacktestRepository(session)
+        with pytest.raises(InvalidParameterError) as excinfo:
+            _service(market, repository, c_entry=c_entry).run(
+                stock_code=STOCK_CODE,
+                start_date=date(2019, 1, 1),
+                end_date=date(2026, 1, 1),
+                parameters=BacktestParametersSchema(),
+                parameters_provided=True,
+            )
+        items, total = repository.list()
+
+    assert "at most five calendar years" in str(excinfo.value)
+    assert market.calls == []          # window validation still precedes the fetch
+    assert items == [] and total == 0
+
+
+def test_c_insufficient_data_error_is_reported_as_40003():
+    """C's ``InsufficientDataError`` maps to ``40003``, not to ``40001``."""
+    market = _FakeMarketSource(_rows())
+    c_entry = _FakeCWindowedEntry(
+        run_error=_FakeInsufficientDataError(
+            "no valid daily rows inside the requested window"
+        )
+    )
+    with _session() as session:
+        repository = BacktestRepository(session)
+        with pytest.raises(InsufficientStockDataError):
+            _service(market, repository, c_entry=c_entry).run(
+                stock_code=STOCK_CODE,
+                start_date=date(2025, 6, 1),
+                end_date=date(2025, 12, 31),
+                parameters=BacktestParametersSchema(),
+                parameters_provided=True,
+            )
+        items, total = repository.list()
+
+    assert items == [] and total == 0
+
+
+def test_unexpected_c_failure_is_not_disguised_as_a_parameter_error():
+    """C: server/wiring failures must stay 500 - never masquerade as ``40001``."""
+    market = _FakeMarketSource(_rows())
+    c_entry = _FakeCWindowedEntry(run_error=RuntimeError("boom: wiring bug"))
+    with _session() as session:
+        repository = BacktestRepository(session)
+        with pytest.raises(RuntimeError):
+            _service(market, repository, c_entry=c_entry).run(
+                stock_code=STOCK_CODE,
+                start_date=date(2025, 6, 1),
+                end_date=date(2025, 12, 31),
+                parameters=BacktestParametersSchema(),
+                parameters_provided=True,
+            )
+        items, total = repository.list()
+
+    assert items == [] and total == 0
 
 
 def test_windowed_run_persists_the_c_input_snapshot():
@@ -781,3 +958,57 @@ def test_api_detail_returns_c_result_envelope_only_on_request():
     assert plain["c_data_hash"] == C_DATA_HASH
     assert "c_result" not in plain
     assert full["c_result"]["data_hash"] == C_DATA_HASH
+
+
+def test_api_explicit_null_parameter_returns_json_40001_and_saves_nothing():
+    """Regression: ``{"ma_long_period": null}`` used to return 200 and persist."""
+    market = _FakeMarketSource(_rows())
+    with _session() as session:
+        repository = BacktestRepository(session)
+        service = _service(market, repository)
+        client = _api_client(repository, service)
+        try:
+            response = client.post(
+                "/api/v1/backtests",
+                json={
+                    "stock_code": STOCK_CODE,
+                    "start_date": "2025-06-01",
+                    "end_date": "2025-12-31",
+                    "parameters": {"ma_long_period": None},
+                },
+            )
+            items, total = repository.list()
+        finally:
+            app.dependency_overrides.clear()
+
+    assert response.status_code == 400, response.text
+    assert response.json()["code"] == 40001
+    assert items == [] and total == 0
+
+
+def test_api_reports_c_window_validation_as_json_40001():
+    """Regression: this used to surface as plain-text ``500 Internal Server Error``."""
+    market = _FakeMarketSource(_rows())
+    with _session() as session:
+        repository = BacktestRepository(session)
+        c_entry = _FakeCWindowedEntry(
+            validate_error=_FakeBacktestParameterError("window too long")
+        )
+        service = _service(market, repository, c_entry=c_entry)
+        client = _api_client(repository, service)
+        try:
+            response = client.post(
+                "/api/v1/backtests",
+                json={
+                    "stock_code": STOCK_CODE,
+                    "start_date": "2019-01-01",
+                    "end_date": "2026-01-01",
+                    "parameters": {},
+                },
+            )
+        finally:
+            app.dependency_overrides.clear()
+
+    assert response.status_code == 400, response.text
+    assert response.headers["content-type"].startswith("application/json")
+    assert response.json()["code"] == 40001

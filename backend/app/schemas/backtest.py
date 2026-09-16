@@ -11,7 +11,7 @@ NaN/Infinity are rejected by the schema (``40001``) **before** any data fetch.
 from __future__ import annotations
 
 from datetime import date
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -57,6 +57,19 @@ class BacktestParametersSchema(BaseModel):
             for key, value in self.model_dump().items()
             if value is not None
         }
+
+    def explicit_null_fields(self) -> List[str]:
+        """Whitelisted fields the caller sent as an explicit JSON ``null``.
+
+        C's contract rejects an explicit ``null`` **value**; only *omitting* a
+        field falls back to the default. Pydantic records presence separately in
+        ``model_fields_set``, so "absent" and "present but null" stay
+        distinguishable - without this, ``{"ma_long_period": null}`` silently
+        became ``{}`` and ran with defaults instead of failing ``40001``.
+        """
+        return sorted(
+            name for name in self.model_fields_set if getattr(self, name) is None
+        )
 
 
 class BacktestRequestSchema(BaseModel):

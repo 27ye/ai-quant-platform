@@ -395,6 +395,17 @@ class BacktestService:
             raise InvalidParameterError(
                 "parameters must not be null; omit it for V1 behaviour or send an object"
             )
+        if parameters is not None:
+            # C: an explicit ``null`` *value* is not a request to use the default -
+            # only omitting the field is. ``provided_overrides()`` drops ``None``,
+            # so without this check ``{"ma_long_period": null}`` silently ran on
+            # the default and was saved as a success.
+            explicit_nulls = parameters.explicit_null_fields()
+            if explicit_nulls:
+                raise InvalidParameterError(
+                    "backtest parameters must not be null: "
+                    f"{explicit_nulls}; omit a field to use its default value"
+                )
         effective = resolve_effective_parameters(
             parameters.provided_overrides() if parameters is not None else {}
         )
@@ -472,18 +483,13 @@ class BacktestService:
         # C owns parameter and window validation. Both run BEFORE any data is
         # fetched, and their errors are reported (40001), never swallowed.
         raw_parameters = whitelisted_parameters(effective)
-        try:
-            request_config = c_entry.resolve(raw_parameters)
-        except ApplicationError:
-            raise
-        except Exception as exc:  # noqa: BLE001 - C owns the validation rules
-            raise InvalidParameterError(str(exc)) from exc
+        request_config = self._call_c(c_entry, c_entry.resolve, raw_parameters)
 
         required = warmup_required_days(effective)
         required = int(
             getattr(request_config, "required_warmup_rows", required) or required
         )
-        start, end = c_entry.validate_window(start, end)
+        start, end = self._call_c(c_entry, c_entry.validate_window, start, end)
 
         rows, warmup_rows, fetch_start = self._fetch_with_warmup(
             stock_code, start, end, required
@@ -500,7 +506,9 @@ class BacktestService:
         # warmup/backtest windows itself and returns window-only results. B never
         # pre-trims it, and only the five whitelisted parameters are forwarded.
         c_result = to_json_safe(
-            c_entry.run(
+            self._call_c(
+                c_entry,
+                c_entry.run,
                 frame,
                 start_date=start,
                 end_date=end,
@@ -561,6 +569,35 @@ class BacktestService:
             input_snapshot=input_snapshot,
             c_result=c_result,
         )
+
+    @staticmethod
+    def _call_c(
+        c_entry: CWindowedEntry,
+        func: Callable[..., Any],
+        *args: Any,
+        **kwargs: Any,
+    ) -> Any:
+        """Run one of C's entry points, translating only C's documented failures.
+
+        ``BacktestParameterError`` means the request violates C's parameter
+        contract (``40001``); ``InsufficientDataError`` means the window or warmup
+        cannot be satisfied (``40003``). Everything else - including a wiring
+        mistake on B's side - keeps propagating so it stays a real ``500``. C asked
+        explicitly that server/wiring problems not be disguised as user parameter
+        errors, so this catches C's declared classes only, never ``Exception``.
+
+        ``parameter_errors``/``data_errors`` may be empty tuples when C ships a
+        different layout; ``except ()`` never matches, so an unknown shape
+        degrades to ``500`` instead of being mislabelled.
+        """
+        try:
+            return func(*args, **kwargs)
+        except ApplicationError:
+            raise
+        except c_entry.parameter_errors as exc:
+            raise InvalidParameterError(str(exc)) from exc
+        except c_entry.data_errors as exc:
+            raise InsufficientStockDataError(str(exc)) from exc
 
     def _fetch_with_warmup(
         self, stock_code: str, start: date, end: date, required: int

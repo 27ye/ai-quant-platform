@@ -127,10 +127,17 @@ GET /api/v1/stocks/{stock_code}/data-status
 | 显式 `parameters: {}` | `v2_windowed` | 默认金融参数，**零初始持仓**，区间前数据仅预热 |
 | 显式非空 `parameters`（含只改 `initial_cash`） | `v2_windowed` | 白名单覆盖，其余取默认 |
 | `parameters: null` 或含未知字段 | — | **取数前**拒绝，`40001`，不产生成功记录 |
+| 白名单字段**值**显式 `null`（如 `{"ma_long_period": null}`） | — | **取数前**拒绝，`40001`，不产生成功记录（2026-09-16 按 C 实测补充） |
 
 - Schema 必须保留**字段存在性**，不能用默认空对象抹掉「缺省」与「显式空对象」的区别。
+- **字段值显式 `null` ≠ 省略**：只有省略字段才使用默认值。Pydantic 用 `model_fields_set`
+  记录存在性，`explicit_null_fields()` 据此拒绝显式 `null`——此前 `provided_overrides()`
+  丢掉 `None`，把显式 `null` 当成省略并成功落库。
 - 新窗口请求未传日期时，B 先解析为明确的默认日历区间，再补取预热数据；**解析后的实际区间必须展示并保存**。
 - B 只透传 C1 白名单字段，不整包透传 `QuantConfig`。
+- **C 侧异常按真实类别映射**：C 的 `BacktestParameterError`（`ValueError` 子类，不是
+  `ApplicationError`）→ `40001`；C 的 `InsufficientDataError` → `40003`；**其余异常保持 `500`**，
+  不伪装成用户参数错误。此前 `validate_backtest_window` 的异常逃逸成纯文本 `500`。
 
 ### 5.2 响应与历史接口
 

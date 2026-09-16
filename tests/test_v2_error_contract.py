@@ -181,6 +181,9 @@ class _StubCWindowedEntry:
     """
 
     parameters_unset = object()
+    #: C's exception classes; empty here because this stub never violates them.
+    parameter_errors: tuple = ()
+    data_errors: tuple = ()
 
     def resolve(self, raw_parameters):
         required = int(raw_parameters.get("ma_long_period", 20))

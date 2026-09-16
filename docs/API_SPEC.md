@@ -288,6 +288,8 @@ POST /api/v1/backtests
 - `v2_windowed` 会保存**送进 C 的输入快照**：**最后 `long` 条预热 + 区间内全部行情**（不含 B 为扩窗多取的更早历史）。详情默认只返回 `input_snapshot_available` / `input_snapshot_rows`；加 `?include_input_snapshot=true` 返回完整 `input_snapshot`（日期升序、ISO 字符串），供 C 核对。
 - **C 的完整结果原样保存**（迁移 v7 `c_result` 列），历史详情从该快照读取 `algorithm_version`、`warmup`、`initial_equity`、`execution_assumptions`、`data_hash`，不用舍入后的摘要列重新拼装。详情默认返回这些字段的平铺视图（`c_result_available`、`c_algorithm_version`、`c_data_hash`、`c_initial_equity`、`c_warmup`、`c_execution_assumptions`、`c_semantics_version`）；加 `?include_c_result=true` 返回完整 `c_result`。
 - 参数三种形态保持**互不混淆**：**省略** → `v1_legacy`；**显式 `{}`** → `v2_windowed` 默认参数；**显式 `null`** → `40001`（取数前拒绝）。
+- **字段值显式 `null` 也一律 `40001`**：五个白名单字段中任一字段显式传 `null`（如 `{"ma_long_period": null}`）都在**取数前**拒绝，且不产生记录——只有**省略该字段**才使用默认值。此前 Schema 的 `provided_overrides()` 会丢掉 `None`，导致显式 `null` 被当成省略并成功落库，已修正。
+- **C 侧校验异常按真实类别映射，不吞服务器错误**：C 的 `BacktestParameterError`（参数不合法、窗口超五年、日期格式等）→ `40001`；C 的 `InsufficientDataError`（窗口内无行情、预热不足）→ `40003`；**其余异常保持 `500`**，不伪装成用户参数错误。
 - 响应在 V1 字段之外新增：`backtest_id`、`semantics_version`、`effective_parameters`、`warmup_start_date`、`warmup_rows`、`data_meta`（含请求/实际区间、参与计算行数 `rows`/`rows_in_window`、**B 的 `frame_digest`**、**C 的 `c_data_hash`**、`warmup_required_days`、`delivery_warmup_min_bars`、`window_owner`）、`snapshot_status`。
   - `frame_digest`（B：交给 C 的那份数据帧的摘要）与 `c_data_hash`（C：其自身结果的哈希）**分别记录、互不替代**；此前 data_meta 把 B 的帧摘要命名为 `data_hash`，与该口径冲突，已改名。
 - `equity_curve` 固定为 `[{ "trade_date": "YYYY-MM-DD", "equity": 100000.0 }]`，不使用 `value/date/nav` 字段。
