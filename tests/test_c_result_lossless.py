@@ -257,5 +257,94 @@ def test_legacy_row_upgraded_by_v8_still_reports_exact_false():
     assert again["c_result_exact"] is False
 
 
+def test_migration_v8_recovers_when_the_column_exists_but_the_backfill_never_ran():
+    """D's blocker: MySQL commits DDL implicitly, so the step can be half-applied.
+
+    ``ALTER TABLE ... ADD COLUMN`` commits on its own. A crash - or a failing
+    backfill - between the ALTER and the UPDATE therefore leaves the column present
+    while ``schema_version`` is still 7. The step used to return early just because
+    the column existed, which stranded every legacy row with an empty text column
+    forever and still recorded version 8 on the way out.
+    """
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    apply_migrations(engine)
+
+    # Recreate exactly that half-applied shape: column added, version row missing,
+    # and a legacy row still waiting for its backfill.
+    payload = {"algorithm_version": "pre-v8", "equity": 99633.35582084299}
+    with engine.begin() as connection:
+        connection.execute(text("DELETE FROM schema_version WHERE version = 8"))
+        connection.execute(
+            text(
+                "INSERT INTO backtest_result "
+                "(stock_code, strategy_name, start_date, end_date, c_result) "
+                "VALUES ('600519', 'pre-v8', '2026-01-01', '2026-01-02', :payload)"
+            ),
+            {"payload": json.dumps(payload)},
+        )
+
+    assert migrations.get_schema_version(engine) == 7
+    with engine.connect() as connection:
+        before = connection.execute(text("SELECT c_result_text FROM backtest_result")).scalar()
+    assert before is None  # the interrupted run never got to write it
+
+    assert apply_migrations(engine) == 8  # the re-run must resume, not skip
+
+    with engine.connect() as connection:
+        after = connection.execute(text("SELECT c_result_text FROM backtest_result")).scalar()
+    assert json.loads(after) == payload
+    assert migrations.get_schema_version(engine) == 8
+
+    # And the row still reads back the way a pre-v8 row must: readable, inexact.
+    with Session(bind=engine) as session:
+        detail = BacktestRepository(session).get(1)
+    assert detail["c_result_available"] is True
+    assert detail["c_result_exact"] is False
+
+
+def test_repeated_migration_v8_never_rewrites_exact_post_upgrade_records():
+    """Only legacy rows are backfilled; a v8 row's exact text is left untouched.
+
+    Post-v8 rows keep ``c_result`` NULL and their exact bytes in
+    ``c_result_text``, so the re-runnable backfill (which now runs on every pass)
+    must not reach them.
+    """
+    engine, session = _engine_and_session()
+    envelope = _envelope()
+    with session:
+        backtest_id = BacktestRepository(session).save(
+            stock_code=STOCK,
+            result=_result(),
+            semantics_version="v2_windowed",
+            effective_parameters={},
+            warmup_start_date=None,
+            data_meta={},
+            c_result=envelope,
+        )
+        before = session.execute(
+            text("SELECT c_result_text FROM backtest_result WHERE id = :id"), {"id": backtest_id}
+        ).scalar()
+
+    apply_migrations(engine)  # the convergence pass re-runs every step
+    apply_migrations(engine)
+
+    with engine.connect() as connection:
+        after = connection.execute(
+            text("SELECT c_result_text FROM backtest_result WHERE id = :id"), {"id": backtest_id}
+        ).scalar()
+
+    assert after == before  # byte-for-byte, no re-encode
+    assert "99633.35582084299" in after
+    with Session(bind=engine) as session:
+        detail = BacktestRepository(session).get(backtest_id)
+        full = BacktestRepository(session).get(backtest_id, include_c_result=True)
+    assert detail["c_result_exact"] is True
+    assert full["c_result"] == envelope
+
+
 def test_schema_version_is_eight():
     assert migrations.SCHEMA_VERSION == 8
