@@ -1,0 +1,66 @@
+==============================================================================
+1. Rebuild a faithful V1 database from tag v1-frozen-package-r2
+==============================================================================
+  [PASS] V1 created exactly the six V1 tables :: ['ai_analysis', 'backtest_result', 'stock_basic', 'stock_daily', 'stock_indicator', 'stock_news']
+  [PASS] baseline has NO V2 columns on backtest_result :: 15 V1 columns
+  [PASS] baseline has NO V2 columns on ai_analysis :: 13 V1 columns
+  [PASS] baseline version is 1
+  [PASS] baseline is NOT current metadata :: so the v4/v6/v7 ALTER steps must really run
+
+==============================================================================
+2. Seed genuine V1 rows (V1 column set only)
+==============================================================================
+  [PASS] V1 backtest row seeded :: ('600519', 'v1_ma', Decimal('100000.00'), Decimal('0.12345678'), Decimal('-0.04567890'), 17)
+  [PASS] V1 AI row seeded :: ('600519', 72, 'bullish', 'V1 report body')
+
+==============================================================================
+3. Run the real steps 1..7 (stop where v8 begins)
+==============================================================================
+  [PASS] advanced to 7
+  [PASS] v4/v6/v7 columns now exist :: 28 columns
+  [PASS] v5 columns now exist on ai_analysis
+  [PASS] c_result_text does NOT exist yet
+  [PASS] V2 tables present
+  [PASS] pre-v8 legacy row seeded :: id=2
+
+==============================================================================
+4. Simulate the interrupted v8 (column committed, backfill did not run)
+==============================================================================
+  [PASS] column exists after the interrupted run
+  [PASS] version is STILL 7 (never recorded)
+  [PASS] legacy text still NULL
+
+==============================================================================
+5. Re-run the documented entry point - it must resume, not skip
+==============================================================================
+  [PASS] apply_migrations returns 8
+  [PASS] version recorded as 8
+  [PASS] c_result_text is LONGTEXT :: longtext
+  [PASS] legacy row backfilled
+  [PASS] backfilled text parses as JSON :: {"equity": 99633.355820843, "algorithm_version": "pre-v8"}
+
+==============================================================================
+6. V1 data survived the whole chain, unchanged
+==============================================================================
+  [PASS] V1 backtest row byte-identical :: ('600519', 'v1_ma', Decimal('100000.00'), Decimal('0.12345678'), Decimal('-0.04567890'), 17)
+  [PASS] V1 AI row byte-identical :: ('600519', 72, 'bullish', 'V1 report body')
+  [PASS] V1 row was never touched by the backfill
+
+==============================================================================
+7. Repository reads the upgraded rows the way the contract says
+==============================================================================
+  [PASS] V1 row: no envelope available
+  [PASS] V1 row: exact=False
+  [PASS] pre-v8 row: available + exact=False
+  [PASS] pre-v8 row reads back through the envelope
+
+==============================================================================
+8. Re-running the whole migration is a no-op
+==============================================================================
+  [PASS] rows unchanged by 2 more passes
+  [PASS] version still 8
+
+==============================================================================
+RESULT: ALL CHECKS PASSED (real MySQL, V1 -> v8)
+  probe database : ai_quant_b_probe_v1chain_20260917
+  V1 source tag  : v1-frozen-package-r2
