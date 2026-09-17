@@ -1,8 +1,14 @@
 # C 项目进度看板
 
-更新：2026-09-16。维护人：C。正式分支：`feature/v2-c-backtest-params`。**[PR #10](https://github.com/27ye/ai-quant-platform/pull/10) 为唯一最终集成；[PR #12](https://github.com/27ye/ai-quant-platform/pull/12) 保留 C 来源/审阅记录，不另行合并 main。**
+更新：2026-09-17。维护人：C。正式分支：`feature/v2-c-backtest-params`。**[PR #10](https://github.com/27ye/ai-quant-platform/pull/10) 为唯一最终集成；[PR #12](https://github.com/27ye/ai-quant-platform/pull/12) 保留 C 来源/审阅记录，不另行合并 main。**
 
 **当前：D 候选组合 cc57482 的 C 阶段检查通过；等待新真实数据包、D 完成剩余关口并指定最终 SHA，随后做 C 最终签字。**
+
+## 2026-09-17 收尾对齐
+
+已备好[最终验收输入与执行清单](C_V2_FINAL_ACCEPTANCE_READY_20260917.md)。本轮远端 PR #10 仍为 cc57482；D 计划合入 B a844cdd 和 C a9a6563，尚未按“已合入”记账。B a844cdd 可读，改动为 whitespace 属性和测试 EOF，不是新真实数据包。
+
+当前等待：**B 新独立数据包 → D 验包并给最终候选 SHA → C 九组完整链路复验与最终结论**。下表 2026-09-16 的通过项保留原版本范围；本轮未重复执行测试或改变算法。
 
 ## 阶段视图
 
