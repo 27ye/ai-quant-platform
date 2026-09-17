@@ -153,7 +153,7 @@ GET /api/v1/stocks/{stock_code}/data-status
 - `effective_parameters` 在 `v2_windowed` 下**只含白名单五字段**（`ma_short_period` / `ma_long_period` / `initial_cash` / `transaction_cost` / `slippage`）：其余算法配置归 C，B 不回填、不覆盖（例如基准口径 `first_open_to_last_close_no_cost`）。`v1_legacy` 仍保存完整 V1 配置。
 - `data_meta` 分别记录 **B 的 `frame_digest`**（交给 C 的那份数据帧摘要）与 **C 的 `c_data_hash`**，两者互不替代；此前把 B 的帧摘要命名为 `data_hash` 与该口径冲突，已改名。
 - 参数与日期的校验**在取数之前**完成；C 的 `resolve_backtest_request` 失败转成 `40001`，**不吞掉校验异常**。
-- C 的完整结果（`algorithm_version`、`warmup`、`initial_equity`、`execution_assumptions`、`input_snapshot` 封套、`data_hash` 等）**原样保存**，历史详情从该快照读取而不是用舍入后的摘要列重拼；`GET /backtests/{id}?include_c_result=true` 返回完整封套。
+- C 的完整结果（`algorithm_version`、`warmup`、`initial_equity`、`execution_assumptions`、`input_snapshot` 封套、`data_hash`（**C 的输入快照哈希**）等）**原样保存**，历史详情从该快照读取而不是用舍入后的摘要列重拼；`GET /backtests/{id}?include_c_result=true` 返回完整封套。
   - **迁移 v8 起改为存原文文本**（`c_result_text` LONGTEXT）：MySQL 的 JSON 列把数值叶子归一化到约 15 位有效数字（实测 `99633.35582084299` → `99633.355820843`，C 在九组记录上量到 1439 处 1 ULP），无法满足"原样保存"契约。文本列保存 B 写出的确切字节，读回解析为对象，**API 结构不变**。
   - 详情新增 `c_result_exact`：`true` = 来自无损文本列；`false` = v8 之前由 JSON 列保存的旧记录（仍可读，数值已被 MySQL 归一化）。旧记录在 v8 迁移中由 JSON 列回填到文本列，保留当时的值。
 - C 的 V2 入口不可用时返回 **`50004 backtest error`** 且**不产生记录**，绝不回退到旧 `run_backtest` 再把结果标成 `v2_windowed`；省略 `parameters` 的 `v1_legacy` 路径行为不变。
