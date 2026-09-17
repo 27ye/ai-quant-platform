@@ -18,14 +18,25 @@ can be injected instead of hitting AKShare.
 
 from __future__ import annotations
 
+import threading
 from datetime import date
-from typing import Callable, List, Optional
+from typing import Callable, ClassVar, List, Optional
 
 import pandas as pd
 
 
 class TradingCalendarProvider:
     """Provide the A-share trading-day list and count days in a window."""
+
+    #: Process-shared cache for the default AKShare source.
+    #: ``get_trading_calendar_provider`` builds a new provider per request, so an
+    #: instance cache would refetch the calendar on every request. Worse, the
+    #: AKShare calendar fetch constructs a V8 (py_mini_racer) context whose
+    #: one-time native initialization is not thread-safe: concurrent first loads
+    #: abort the whole process (observed as a live cold-start crash). The
+    #: class-level lock serializes that load so it happens exactly once.
+    _shared_trade_dates: ClassVar[Optional[List[date]]] = None
+    _shared_load_lock: ClassVar[threading.Lock] = threading.Lock()
 
     def __init__(
         self,
@@ -36,10 +47,16 @@ class TradingCalendarProvider:
         self._fetch = fetch
 
     def get_trade_dates(self, refresh: bool = False) -> List[date]:
+        if self._trade_dates is None and self._fetch is None:
+            if refresh or TradingCalendarProvider._shared_trade_dates is None:
+                with TradingCalendarProvider._shared_load_lock:
+                    if refresh or TradingCalendarProvider._shared_trade_dates is None:
+                        TradingCalendarProvider._shared_trade_dates = (
+                            self._load_from_akshare()
+                        )
+            return list(TradingCalendarProvider._shared_trade_dates)
         if refresh or self._trade_dates is None:
-            self._trade_dates = (
-                self._fetch() if self._fetch is not None else self._load_from_akshare()
-            )
+            self._trade_dates = self._fetch()
         return self._trade_dates
 
     def refresh(self) -> List[date]:
