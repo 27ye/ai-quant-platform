@@ -44,7 +44,7 @@ import json
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
@@ -75,6 +75,134 @@ REPRESENTATION_NORMALIZED = "canonical 4/2/6 rounding; this is what B passes to 
 
 class BatchError(RuntimeError):
     """The batch cannot be assembled or verified."""
+
+
+#: Delivery-only fallback source. The app's runtime provider is **not** changed.
+#:
+#: Do not claim eastmoney parity for this source. Measured over the 436 days the two
+#: batches share, OHLC differs from the eastmoney rows on 378 / 209 / 327 rows
+#: (600519 / 000001 / 300750), max |difference| ~0.004 CNY: every row agrees once
+#: rounded to 2 decimals and volume is identical, but B keeps 4 decimals, so the two
+#: sources are **not** value-identical at delivery precision (input hashes differ).
+TENCENT_SOURCE_NOTE = (
+    "tencent web.ifzq.gtimg.cn /appstock/app/fqkline/get (qfq) - DELIVERY FALLBACK ONLY, "
+    "the app's runtime provider is unchanged. Independent of eastmoney, not a substitute "
+    "for it: over the 436 shared days OHLC differs on 378/209/327 rows "
+    "(600519/000001/300750) with max |diff| ~0.004 CNY - identical volume, and identical "
+    "only after rounding to 2 decimals, so delivery-precision (4dp) values and input "
+    "hashes differ. This endpoint publishes no amount/turnover_rate (left null - C marks "
+    "both optional); change_pct is DERIVED from consecutive qfq closes, not vendor-reported."
+)
+
+
+def source_note(provider: Any) -> str:
+    """The provenance string for whichever source produced this batch."""
+    return getattr(provider, "note", SOURCE_NOTE)
+
+
+def _tencent_symbol(stock_code: str) -> str:
+    """Map a 6-digit code onto Tencent's ``sh``/``sz``/``bj`` prefixed symbol."""
+    if stock_code.startswith("6"):
+        return f"sh{stock_code}"
+    if stock_code.startswith(("0", "3")):
+        return f"sz{stock_code}"
+    if stock_code.startswith(("4", "8")):
+        return f"bj{stock_code}"
+    raise BatchError(f"cannot map {stock_code!r} to a Tencent market prefix")
+
+
+class TencentQfqSource:
+    """Delivery-only alternate market-data source.
+
+    Exists for exactly one reason: eastmoney's **kline** endpoint can be unavailable for
+    this host (``RemoteDisconnected`` on ``push2his``, and ``dktotal=0``/empty on
+    ``push2delay``) while eastmoney's other endpoints stay healthy. A delivery batch can
+    then still be produced - and labelled honestly - instead of publishing nothing or an
+    empty package.
+
+    It is deliberately **not** wired into the application: ``StockService`` keeps its
+    contracted single-vendor behaviour, and a provider outage still surfaces as ``50001``.
+
+    The endpoint returns six fields in the order
+    ``[date, open, close, high, low, volume]`` - **not** OHLC order - with volume already
+    in lots (手), which is the unit eastmoney uses as well.
+    """
+
+    name = "tencent"
+    note = TENCENT_SOURCE_NOTE
+    #: Fetch a little early so the first delivered row still has a previous close.
+    LOOKBACK_DAYS = 15
+    MAX_ROWS = 1000
+
+    def __init__(self, timeout: int = 30) -> None:
+        self._timeout = timeout
+
+    def get_daily_kline(
+        self, stock_code: str, start_date: date, end_date: date
+    ) -> List[DailyKlineSchema]:
+        import requests  # noqa: PLC0415 - only this fallback needs the network
+
+        symbol = _tencent_symbol(stock_code)
+        fetch_from = start_date - timedelta(days=self.LOOKBACK_DAYS)
+        url = (
+            "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+            f"?param={symbol},day,{fetch_from.isoformat()},{end_date.isoformat()},"
+            f"{self.MAX_ROWS},qfq"
+        )
+        try:
+            response = requests.get(url, timeout=self._timeout)
+            response.raise_for_status()
+            payload = response.json()
+        except Exception as exc:  # noqa: BLE001 - a failed fetch is manifest data
+            raise BatchError(f"tencent fallback fetch failed for {stock_code}: {exc}") from exc
+
+        node = (payload.get("data") or {}).get(symbol) or {}
+        raw_rows = node.get("qfqday") or node.get("day") or []
+        if not raw_rows:
+            raise BatchError(f"tencent fallback returned no rows for {stock_code}")
+
+        parsed = [self._parse_row(stock_code, row) for row in raw_rows]
+        parsed.sort(key=lambda item: item["trade_date"])
+
+        # change_pct is derived, never invented: this endpoint does not publish it.
+        # (Measured against the provider-reported values on the previous eastmoney
+        # delivery: worst |difference| 4.99e-05 over 435 rows, with sign flips only on
+        # near-zero moves - the qfq series is continuous across ex-dividend dates.)
+        previous_close: Optional[float] = None
+        for row in parsed:
+            close = row["close"]
+            row["change_pct"] = (
+                None
+                if previous_close in (None, 0)
+                else (close - previous_close) / previous_close
+            )
+            previous_close = close
+
+        window = [
+            row
+            for row in parsed
+            if start_date.isoformat() <= str(row["trade_date"]) <= end_date.isoformat()
+        ]
+        if not window:
+            raise BatchError(
+                f"tencent fallback returned no rows for {stock_code} inside "
+                f"{start_date}..{end_date}"
+            )
+        return [DailyKlineSchema(**row) for row in window]
+
+    @staticmethod
+    def _parse_row(stock_code: str, row: Sequence[Any]) -> Dict[str, Any]:
+        if len(row) < 6:
+            raise BatchError(f"tencent row has {len(row)} fields, expected at least 6: {row!r}")
+        return {
+            "stock_code": stock_code,
+            "trade_date": row[0],
+            "open": float(row[1]),
+            "close": float(row[2]),  # NB: close comes BEFORE high/low in this feed
+            "high": float(row[3]),
+            "low": float(row[4]),
+            "volume": int(float(row[5])),
+        }
 
 
 # --------------------------------------------------------------------------- #
@@ -195,6 +323,7 @@ def fetch_stock_batch(
         requested_window=(start_date.isoformat(), end_date.isoformat()),
         rows=rows,
         fetched_at_utc=fetched_at.isoformat(),
+        source=source_note(provider),
     )
 
 
@@ -387,7 +516,7 @@ def export_stock(
         "stock_code": code,
         "requested_window": [start_date.isoformat(), end_date.isoformat()],
         "last_complete_trading_day": settled_day,
-        "source": SOURCE_NOTE,
+        "source": source_note(provider),
         "required_fields": list(REQUIRED_FIELDS),
         "extra_fields": list(EXTRA_FIELDS),
         "database": database,
@@ -494,6 +623,19 @@ def main() -> int:
         ),
     )
     parser.add_argument("--output-dir", default=None)
+    parser.add_argument(
+        "--source",
+        choices=("eastmoney", "tencent"),
+        default="eastmoney",
+        help=(
+            "Market-data source for this batch. 'eastmoney' (default) uses the app's own "
+            "provider. 'tencent' is a DELIVERY-ONLY fallback for when eastmoney's kline "
+            "endpoint is unavailable; it is recorded in the manifest as an INDEPENDENT "
+            "source - volume matches eastmoney and rows agree after 2dp rounding, but OHLC "
+            "differs on most rows at the 4 decimals B delivers, and amount/turnover_rate "
+            "stay null. It is not a substitute for an eastmoney batch."
+        ),
+    )
     args = parser.parse_args()
 
     codes = args.codes or list(DEFAULT_STOCKS)
@@ -523,7 +665,10 @@ def main() -> int:
     from backend.app.services.stock_service import StockService  # noqa: PLC0415
 
     apply_migrations(engine)
-    provider = StockService()
+    if args.source == "tencent":
+        provider = TencentQfqSource()
+    else:
+        provider = StockService()
     now = lambda: datetime.now(timezone.utc)  # noqa: E731
     settings = get_settings()
 
@@ -585,6 +730,8 @@ def main() -> int:
                     "amount_ndigits": AMOUNT_NDIGITS,
                     "percent_ndigits": PERCENT_NDIGITS,
                 },
+                "market_data_source": getattr(provider, "name", "eastmoney"),
+                "source_note": source_note(provider),
                 "note": (
                     "raw and normalized are derived from ONE frozen provider response per "
                     "stock; readback is an independent repository read in a new session"
