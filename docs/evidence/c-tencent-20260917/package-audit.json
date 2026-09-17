@@ -1,0 +1,390 @@
+{
+  "stocks": {
+    "600519": {
+      "rows": 437,
+      "common_rows": 436,
+      "ohlcv_changed_rows": 378,
+      "changed_cells": {
+        "open": 378,
+        "high": 378,
+        "low": 378,
+        "close": 378,
+        "volume": 0
+      },
+      "max_abs_difference": {
+        "open": 0.004000000000132786,
+        "high": 0.004000000000132786,
+        "low": 0.004000000000132786,
+        "close": 0.004000000000132786,
+        "volume": 0
+      },
+      "first_difference": {
+        "date": "2024-12-02",
+        "old": {
+          "stock_code": "600519",
+          "trade_date": "2024-12-02",
+          "open": 1422.54,
+          "high": 1426.53,
+          "low": 1411.64,
+          "close": 1421.54,
+          "volume": 26820,
+          "amount": 4086609952.0,
+          "turnover_rate": 0.0021,
+          "change_pct": -0.0005
+        },
+        "new": {
+          "stock_code": "600519",
+          "trade_date": "2024-12-02",
+          "open": 1422.537,
+          "high": 1426.527,
+          "low": 1411.637,
+          "close": 1421.537,
+          "volume": 26820,
+          "amount": null,
+          "turnover_rate": null,
+          "change_pct": -0.0005202924606107032
+        }
+      },
+      "null_counts": {
+        "amount": 437,
+        "turnover_rate": 437,
+        "change_pct": 0
+      },
+      "sep15": {
+        "old": {
+          "stock_code": "600519",
+          "trade_date": "2026-09-15",
+          "open": 1281.0,
+          "high": 1284.5,
+          "low": 1271.28,
+          "close": 1272.75,
+          "volume": 13762,
+          "amount": 1756915149.0,
+          "turnover_rate": 0.0011,
+          "change_pct": -0.0040999999999999995
+        },
+        "new": {
+          "stock_code": "600519",
+          "trade_date": "2026-09-15",
+          "open": 1281.0,
+          "high": 1284.5,
+          "low": 1271.28,
+          "close": 1272.75,
+          "volume": 13762,
+          "amount": null,
+          "turnover_rate": null,
+          "change_pct": -0.00407680991580334
+        },
+        "new_normalized": {
+          "stock_code": "600519",
+          "trade_date": "2026-09-15",
+          "open": 1281.0,
+          "high": 1284.5,
+          "low": 1271.28,
+          "close": 1272.75,
+          "volume": 13762,
+          "amount": null,
+          "turnover_rate": null,
+          "change_pct": -0.004077
+        }
+      },
+      "round_to_two_decimals_ohlc_equal": true
+    },
+    "000001": {
+      "rows": 437,
+      "common_rows": 436,
+      "ohlcv_changed_rows": 209,
+      "changed_cells": {
+        "open": 209,
+        "high": 209,
+        "low": 209,
+        "close": 209,
+        "volume": 0
+      },
+      "max_abs_difference": {
+        "open": 0.004000000000001336,
+        "high": 0.004000000000001336,
+        "low": 0.004000000000001336,
+        "close": 0.004000000000001336,
+        "volume": 0
+      },
+      "first_difference": {
+        "date": "2024-12-02",
+        "old": {
+          "stock_code": "000001",
+          "trade_date": "2024-12-02",
+          "open": 10.43,
+          "high": 10.44,
+          "low": 10.35,
+          "close": 10.43,
+          "volume": 975434,
+          "amount": 1108785597.4,
+          "turnover_rate": 0.005,
+          "change_pct": 0.001
+        },
+        "new": {
+          "stock_code": "000001",
+          "trade_date": "2024-12-02",
+          "open": 10.432,
+          "high": 10.442,
+          "low": 10.352,
+          "close": 10.432,
+          "volume": 975434,
+          "amount": null,
+          "turnover_rate": null,
+          "change_pct": 0.0009595087315294364
+        }
+      },
+      "null_counts": {
+        "amount": 437,
+        "turnover_rate": 437,
+        "change_pct": 0
+      },
+      "sep15": {
+        "old": {
+          "stock_code": "000001",
+          "trade_date": "2026-09-15",
+          "open": 11.82,
+          "high": 11.88,
+          "low": 11.77,
+          "close": 11.82,
+          "volume": 755251,
+          "amount": 893382876.34,
+          "turnover_rate": 0.0039000000000000003,
+          "change_pct": -0.0025
+        },
+        "new": {
+          "stock_code": "000001",
+          "trade_date": "2026-09-15",
+          "open": 11.82,
+          "high": 11.88,
+          "low": 11.77,
+          "close": 11.82,
+          "volume": 755251,
+          "amount": null,
+          "turnover_rate": null,
+          "change_pct": -0.0025316455696201994
+        },
+        "new_normalized": {
+          "stock_code": "000001",
+          "trade_date": "2026-09-15",
+          "open": 11.82,
+          "high": 11.88,
+          "low": 11.77,
+          "close": 11.82,
+          "volume": 755251,
+          "amount": null,
+          "turnover_rate": null,
+          "change_pct": -0.002532
+        }
+      },
+      "round_to_two_decimals_ohlc_equal": true
+    },
+    "300750": {
+      "rows": 437,
+      "common_rows": 436,
+      "ohlcv_changed_rows": 327,
+      "changed_cells": {
+        "open": 327,
+        "high": 327,
+        "low": 327,
+        "close": 327,
+        "volume": 0
+      },
+      "max_abs_difference": {
+        "open": 0.0030000000000427463,
+        "high": 0.0030000000000427463,
+        "low": 0.0030000000000143245,
+        "close": 0.0030000000000427463,
+        "volume": 0
+      },
+      "first_difference": {
+        "date": "2024-12-02",
+        "old": {
+          "stock_code": "300750",
+          "trade_date": "2024-12-02",
+          "open": 243.57,
+          "high": 248.48,
+          "low": 242.14,
+          "close": 247.12,
+          "volume": 206475,
+          "amount": 5387882833.0,
+          "turnover_rate": 0.0053,
+          "change_pct": 0.0039000000000000003
+        },
+        "new": {
+          "stock_code": "300750",
+          "trade_date": "2024-12-02",
+          "open": 243.568,
+          "high": 248.478,
+          "low": 242.138,
+          "close": 247.118,
+          "volume": 206475,
+          "amount": null,
+          "turnover_rate": null,
+          "change_pct": 0.0038591530986967788
+        }
+      },
+      "null_counts": {
+        "amount": 437,
+        "turnover_rate": 437,
+        "change_pct": 0
+      },
+      "sep15": {
+        "old": {
+          "stock_code": "300750",
+          "trade_date": "2026-09-15",
+          "open": 335.0,
+          "high": 335.73,
+          "low": 316.0,
+          "close": 316.36,
+          "volume": 480483,
+          "amount": 15558754474.15,
+          "turnover_rate": 0.0113,
+          "change_pct": -0.0616
+        },
+        "new": {
+          "stock_code": "300750",
+          "trade_date": "2026-09-15",
+          "open": 335.0,
+          "high": 335.73,
+          "low": 316.0,
+          "close": 316.36,
+          "volume": 480483,
+          "amount": null,
+          "turnover_rate": null,
+          "change_pct": -0.061552608940701845
+        },
+        "new_normalized": {
+          "stock_code": "300750",
+          "trade_date": "2026-09-15",
+          "open": 335.0,
+          "high": 335.73,
+          "low": 316.0,
+          "close": 316.36,
+          "volume": 480483,
+          "amount": null,
+          "turnover_rate": null,
+          "change_pct": -0.061553
+        }
+      },
+      "round_to_two_decimals_ohlc_equal": true
+    }
+  },
+  "manifest_code_sha": "b7cb06a39f56142e51cbf6c8054b03785a9881a4",
+  "delivery_commit": "dedad60977511aae8237fc4bb84e7a5321490df1",
+  "manifest_sha256": "f443d02850399d2dbae984294ef3e21c57010f0e620cee737187e1f5edcc4b67",
+  "fixed_window_cross_source_impact": [
+    {
+      "case": "600519-default",
+      "old_return": -0.10459070248392022,
+      "new_return": -0.10459106827047016,
+      "old_orders": 18,
+      "new_orders": 18,
+      "old_round_trips": 9,
+      "new_round_trips": 9,
+      "old_final_equity": 89540.92975160798,
+      "new_final_equity": 89540.89317295299,
+      "input_hash_equal": false
+    },
+    {
+      "case": "600519-ma10-30",
+      "old_return": -0.2040524944366111,
+      "new_return": -0.20405293792274415,
+      "old_orders": 14,
+      "new_orders": 14,
+      "old_round_trips": 7,
+      "new_round_trips": 7,
+      "old_final_equity": 79594.75055633888,
+      "new_final_equity": 79594.70620772558,
+      "input_hash_equal": false
+    },
+    {
+      "case": "600519-ma20-60-cost",
+      "old_return": -0.12636742690032643,
+      "new_return": -0.12636769778176782,
+      "old_orders": 7,
+      "new_orders": 7,
+      "old_round_trips": 3,
+      "new_round_trips": 3,
+      "old_final_equity": 174726.51461993472,
+      "new_final_equity": 174726.46044364644,
+      "input_hash_equal": false
+    },
+    {
+      "case": "000001-default",
+      "old_return": -0.04579995299065953,
+      "new_return": -0.04580485242339982,
+      "old_orders": 21,
+      "new_orders": 21,
+      "old_round_trips": 10,
+      "new_round_trips": 10,
+      "old_final_equity": 95420.00470093405,
+      "new_final_equity": 95419.51475766001,
+      "input_hash_equal": false
+    },
+    {
+      "case": "000001-ma10-30",
+      "old_return": -0.062146680348154626,
+      "new_return": -0.06214366422597861,
+      "old_orders": 11,
+      "new_orders": 11,
+      "old_round_trips": 5,
+      "new_round_trips": 5,
+      "old_final_equity": 93785.33196518454,
+      "new_final_equity": 93785.63357740214,
+      "input_hash_equal": false
+    },
+    {
+      "case": "000001-ma20-60-cost",
+      "old_return": -0.03622368767606032,
+      "new_return": -0.03621509425046565,
+      "old_orders": 7,
+      "new_orders": 7,
+      "old_round_trips": 3,
+      "new_round_trips": 3,
+      "old_final_equity": 192755.26246478793,
+      "new_final_equity": 192756.98114990687,
+      "input_hash_equal": false
+    },
+    {
+      "case": "300750-default",
+      "old_return": 0.0754468276807907,
+      "new_return": 0.07544871522253693,
+      "old_orders": 18,
+      "new_orders": 18,
+      "old_round_trips": 9,
+      "new_round_trips": 9,
+      "old_final_equity": 107544.68276807907,
+      "new_final_equity": 107544.87152225368,
+      "input_hash_equal": false
+    },
+    {
+      "case": "300750-ma10-30",
+      "old_return": 0.17257758779708587,
+      "new_return": 0.17257031810022228,
+      "old_orders": 12,
+      "new_orders": 12,
+      "old_round_trips": 6,
+      "new_round_trips": 6,
+      "old_final_equity": 117257.75877970859,
+      "new_final_equity": 117257.03181002222,
+      "input_hash_equal": false
+    },
+    {
+      "case": "300750-ma20-60-cost",
+      "old_return": 0.25458916706991674,
+      "new_return": 0.25458314506235635,
+      "old_orders": 5,
+      "new_orders": 5,
+      "old_round_trips": 2,
+      "new_round_trips": 2,
+      "old_final_equity": 250917.83341398335,
+      "new_final_equity": 250916.62901247127,
+      "input_hash_equal": false
+    }
+  ],
+  "manifest_code_has_tencent_source": false,
+  "manifest_export_script_sha256": "ed43f29cbdeebd0ef1ede57aba458eccefb0d829e7aa2f3e02c83732db86e5e9",
+  "delivered_export_script_sha256": "5a05e51bbfe4c1f083aa1677f378f0c583346f229bf77606b76733bd65720d25"
+}

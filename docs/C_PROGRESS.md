@@ -1,63 +1,38 @@
 # C 项目进度看板
 
-更新：2026-09-17。维护人：C。正式分支：`feature/v2-c-backtest-params`。**[PR #10](https://github.com/27ye/ai-quant-platform/pull/10) 为唯一最终集成；[PR #12](https://github.com/27ye/ai-quant-platform/pull/12) 保留 C 来源/审阅记录，不另行合并 main。**
+更新：2026-09-17，新腾讯包复核后。正式分支：`feature/v2-c-backtest-params`；[PR #10](https://github.com/27ye/ai-quant-platform/pull/10)为唯一最终集成，[PR #12](https://github.com/27ye/ai-quant-platform/pull/12)保留C来源/审阅。
 
-**当前：D 候选组合 cc57482 的 C 阶段检查通过；等待新真实数据包、D 完成剩余关口并指定最终 SHA，随后做 C 最终签字。**
-
-## 2026-09-17 收尾对齐
-
-已备好[最终验收输入与执行清单](C_V2_FINAL_ACCEPTANCE_READY_20260917.md)。本轮远端 PR #10 仍为 cc57482；D 计划合入 B a844cdd 和 C a9a6563，尚未按“已合入”记账。B a844cdd 可读，改动为 whitespace 属性和测试 EOF，不是新真实数据包。
-
-当前等待：**B 新独立数据包 → D 验包并给最终候选 SHA → C 九组完整链路复验与最终结论**。下表 2026-09-16 的通过项保留原版本范围；本轮未重复执行测试或改变算法。
-
-## 阶段视图
+**当前：B腾讯新包已交付，C三股九组离线及D cc57482候选的HTTP/MySQL技术预验通过。待B修正溯源/跨来源表述，D确认采用腾讯来源并给最终SHA，C再最终签字。**
 
 ```mermaid
 flowchart LR
-    C["C 算法已发布<br/>92df017"] --> D["D 候选组合<br/>cc57482"]
-    AB["A/B 修复已集成<br/>D 补迁移与前端契约"] --> D
-    D --> T["C 阶段检查通过<br/>523 tests · MySQL 恢复"]
-    B["B 新真实数据包<br/>待交付"] --> V["D 验包与剩余验收<br/>指定最终 SHA"]
-    T --> V
-    V --> F["C 最终组合复验<br/>待签字"]
+    B["B 腾讯新包 dedad609<br/>6文件hash通过"] --> C["C候选技术预验通过<br/>离线9组 · HTTP/MySQL9组"]
+    D["D当前候选 cc57482"] --> C
+    C --> M["B修正代码溯源<br/>及跨来源表述"]
+    M --> F["D确认数据来源<br/>冻结最终SHA"]
+    F --> S["C最终复验/签字<br/>待完成"]
     classDef done fill:#dafbe1,stroke:#1a7f37,color:#1f2328
     classDef pending fill:#fff8c5,stroke:#9a6700,color:#1f2328
-    class C,AB,D,T done
-    class B,V,F pending
+    class B,C,D done
+    class M,F,S pending
 ```
 
-## 当前状态与责任人
+| 事项 | 负责人 | 最新状态 / 证据 |
+|---|---|---|
+| C量化核心 | C | ✅ 保持92df017，算法未改；验收脚本b2c372e支持显式新批次文件名，21项测试通过 |
+| B新包与测试 | B，C复核 | ✅ dedad609原源码368 tests；6哈希与3对437行一致性通过 |
+| 600519的9/15差异 | B/C | ✅ 新包raw/normalized为1272.75/13762；旧包仍保留原差异证据 |
+| V1真实表结构→v8 | C复核D候选 | ✅ MySQL8.0.31，原始15/13列保全、v2/v3步骤、中断恢复和重复迁移通过 |
+| 新包三股九组 | C | ✅ 离线回放与候选HTTP/真实MySQL完整对象/类型精确一致，每组283点；不是最终签字 |
+| 腾讯/东财一致性文字 | B | 🟠 共同日378/209/327行OHLC原值不同；2位舍入相同，需更正“逐值相同” |
+| manifest导出代码溯源 | B | 🟠 声明b7cb06a尚无腾讯导出器；需补实际脚本指纹/工作区状态/发布SHA |
+| 来源采用与最终SHA | D | ⏳ 当前仍cc57482；确认腾讯作为最终数据并验包/集成 |
+| 真实页面、AI、CI | A/D | ⏳ 按PR #10关口收尾；C本轮不代签 |
+| 最终C结论 | C | ⏳ 等元信息修正与D最终版本，按[验收清单](C_V2_FINAL_ACCEPTANCE_READY_20260917.md)复验 |
 
-| 事项 | 负责人 | 当前状态 | 证据 / 下一步 |
-|---|---|---|---|
-| 参数化、窗口、V1 默认兼容 | C | ✅ 核心保持 | D 的 12 文件与 C 92df017 Git blob 一致 |
-| 候选组合全量测试 | C 复核 D | ✅ cc57482 通过 | 523 passed、compileall、7 项离线 C/AI 兼容检查 |
-| v8 中断恢复与精确文本保护 | D/B，C 复验 | ✅ cc57482 通过 | MySQL 8.0.31：故障版本仍7，重试补齐旧9条，exact=false，新文本与重复迁移不变 |
-| 搜索刷新失败后仍可用旧目录 | B，C 复验 | ✅ 已进入候选 | B25c 原7项 API 通过；D 本轮全量测试覆盖；真实浏览器成功搜索仍由 D 收尾 |
-| 50006 / C detail / 哈希路径 / AI404 | D 实现，C 核对 | ✅ 当前源码对齐 | 本轮8项静态核对；不再列成 A 未提交；两处哈希注释可随文档收尾 |
-| 新记录完整 MySQL 九组与列表 | B/C | ✅ 原 B9a1 隔离版本通过；⏳ 最终 SHA 待复验 | [原证据](evidence/c-followup-20260916/mysql-v8.json)，不转签新包/新 SHA |
-| 新独立真实数据包 | B，D/C 验证 | 🟠 待交付 | B ab774a6 回复仍待导出；600519 9/15 旧包差异未以新批次关闭 |
-| V1→v8、真实 LLM、部分页面 | D | 📋 D 已报告通过 | 见 PR #10；C 本轮未重新执行这些真实环境项目 |
-| 剩余浏览器/首轮自动回测失败说明/CI | D | 🟠 待收尾 | 以 PR #10 门槛为准；无状态不等于 CI 通过 |
-| 最终组合验收结论 | C | ⏳ 等新包与最终 SHA | 按[新阶段计划](C_V2_D_PLAN_ALIGNMENT_20260916.md)复验后再签 |
-
-✅ 仅表示写明范围、版本的完成；📋 表示成员报告；🟠/⏳ 表示待办/前置依赖。不用估算百分比代替验收。
-
-## 版本与证据入口
-
-| 对象 | 完整 SHA |
-|---|---|
-| 本轮 D 候选 | `cc574827c6c08d2336336a48d9f7a09e9582c60a` |
-| C 核心 | `92df017404126e9af920e1ad82e4a136d813f8d1` |
-| D 声明的 C 来源 | `1d9cae17070dc7fe06a7c916ef8a0849e6790660`；后续 C 提交只补契约、进度与证据 |
-| D 声明的 A / B | `010841099b20b500ed322b15cec32d9e7add97cd` / `25c11aa7b55d67fa5f77b3c603ca84b5369dc48e` |
-| B 后续迁移修复 | `ab774a6591f2e9b5b25b2feee733c4c6c83b9be1`；与 D v8 执行 AST 相同，合并安排由 D 决定 |
-
-- [最新 D 计划调整与候选复核](C_V2_D_PLAN_ALIGNMENT_20260916.md) / [机器可读证据](evidence/c-dplan-20260916/summary.json)
-- [B25c 搜索复验](C_V2_B25C_REVIEW_20260916.md) / [B9a1 MySQL 与 A 定向复验](C_V2_FOLLOWUP_REVIEW_20260916.md)
-- [旧 D15315 复核](C_V2_COMBINED_15315_REVIEW_20260916.md)：保留当时发现；不当作新候选的待修清单。
-
-本轮不修改算法和其他成员生产代码；未把合成/SQLite 检查、植入的迁移夹具或 D 的真实环境报告写成新真实数据包验收。后续每次结论绑定实际最终 SHA。
+- [最新B回复处理报告](C_V2_B_TENCENT_REVIEW_20260917.md) / [新证据摘要](evidence/c-tencent-20260917/summary.json)
+- [D cc57482前轮523 tests及阶段检查](C_V2_D_PLAN_ALIGNMENT_20260916.md) / [原B9a1与A定向复核](C_V2_FOLLOWUP_REVIEW_20260916.md)
+- 当前D完整SHA：`cc574827c6c08d2336336a48d9f7a09e9582c60a`；新包完整SHA：`dedad60977511aae8237fc4bb84e7a5321490df1`。测试数按各自版本记录，不相加。
 
 ## C 后续同步约定
 
