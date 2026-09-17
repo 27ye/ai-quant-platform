@@ -125,7 +125,7 @@ def _source_provenance() -> Dict[str, Any]:
     }
 
 
-def _load_expected_hashes(path: Path) -> Tuple[Dict[str, str], bytes]:
+def _load_expected_hashes(path: Path, filename_template: str = FILENAME_TEMPLATE) -> Tuple[Dict[str, str], bytes]:
     content = path.read_bytes()
     hashes = _decode_json(content)
     if not isinstance(hashes, dict) or not hashes:
@@ -135,7 +135,7 @@ def _load_expected_hashes(path: Path) -> Tuple[Dict[str, str], bytes]:
             raise ValueError("expected hash keys must be plain filenames")
         if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", digest):
             raise ValueError("expected SHA256 must have 64 hexadecimal characters: " + name)
-    required = [FILENAME_TEMPLATE.format(code=code) for code in STOCK_CODES]
+    required = [filename_template.format(code=code) for code in STOCK_CODES]
     missing = [name for name in required if name not in hashes]
     if missing:
         raise ValueError("expected hashes missing required normalized files: " + ", ".join(missing))
@@ -174,13 +174,14 @@ def _strict_rows(rows: Any, code: str) -> None:
 
 def _load_delivery(
     directory: Path, hashes: Dict[str, str], start: date, end: date, data_mode: str,
+    filename_template: str = FILENAME_TEMPLATE,
 ) -> Tuple[Dict[str, pd.DataFrame], Dict[str, Any], Dict[str, bytes]]:
     frames = {}
     metadata = {}
     originals = {}
     # Validate all three files before doing any backtest. Never fetch or fill gaps.
     for code in STOCK_CODES:
-        filename = FILENAME_TEMPLATE.format(code=code)
+        filename = filename_template.format(code=code)
         source_path = directory / filename
         if not source_path.is_file():
             raise ValueError("missing required normalized file: " + filename)
@@ -266,6 +267,8 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument("--start-date", default="2025-07-04")
     parser.add_argument("--end-date", default="2026-08-31")
     parser.add_argument("--data-mode", default="input_json", help="C input metadata only, not verified provider provenance; use synthetic_fixture for synthetic tests")
+    parser.add_argument("--filename-template", default=FILENAME_TEMPLATE,
+                        help="explicit normalized batch filename, e.g. {code}_qfq_normalized_20241201_20260916.json; no auto-selection")
     return parser.parse_args(argv)
 
 
@@ -283,6 +286,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "started_at_utc": datetime.now(timezone.utc).isoformat(),
         "evidence_scope": "offline_quant_fixed_window_matrix_only",
         "data_mode": args.data_mode,
+        "filename_template": args.filename_template,
         "data_mode_scope": "caller-supplied C input metadata; not proof of provider identity or real/live data",
         "hash_trust_scope": "explicit caller-supplied expected hashes; trust in their independent origin must be established outside this tool",
         "replay_scope": "saved JSON readback and exact full-result recalculation from its C snapshot",
@@ -299,16 +303,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         start, end = validate_backtest_window(args.start_date, args.end_date)
         if not args.data_mode.strip():
             raise ValueError("--data-mode must not be empty")
+        if not re.fullmatch(r"\{code\}_qfq_normalized_[0-9]{8}_[0-9]{8}\.json", args.filename_template):
+            raise ValueError("--filename-template must be a plain normalized filename with exactly one {code} placeholder and two YYYYMMDD dates")
         source = _source_provenance()
         report["source"] = source
-        hashes, hash_bytes = _load_expected_hashes(args.expected_hashes)
+        hashes, hash_bytes = _load_expected_hashes(args.expected_hashes, args.filename_template)
         report["expected_hashes"] = {
             "path": str(args.expected_hashes.resolve()),
             "file_sha256": _sha256(hash_bytes),
             "mapping": hashes,
         }
         frames, inputs, originals = _load_delivery(
-            args.delivery_dir.resolve(), hashes, start, end, args.data_mode,
+            args.delivery_dir.resolve(), hashes, start, end, args.data_mode, args.filename_template,
         )
         report["inputs"] = inputs
         _save_bytes(output, "expected-hashes.json", hash_bytes, report)

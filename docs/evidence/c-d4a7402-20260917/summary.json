@@ -1,0 +1,31 @@
+{
+  "D_SHA": "4a7402a35ec1a42a3a6964d9f351395d19315188",
+  "archive_sha256": "8b1952bac84e6b799cacdfacf1a54262ca3f4b61d2ae635200e98286deda13dc",
+  "original_source_files": 258,
+  "original_source_files_modified": 0,
+  "baseline_suite_passed": 525,
+  "compatibility_checks_passed": 7,
+  "additional_calendar_probe": {
+    "passed": 5,
+    "failed": 1
+  },
+  "decision": "Existing regression suite passes; static-injected calendar refresh regression reported; final integrated acceptance pending.",
+  "no_real_provider_MySQL_browser_or_LLM_test_this_round": true,
+  "evidence": {
+    "calendar-probe.json": {
+      "published_sha256": "32ecb39a8428852edd2c1b1fdcccc412f8ebd93078b2b51295e97c41307125c2"
+    },
+    "calendar_probe.py": {
+      "published_sha256": "80b278559a40c9cc0b9d2a76cb76012719df576646c88ff7b15c7e80d3d050a1"
+    },
+    "checks.json": {
+      "published_sha256": "23eca80414150ff8f77e13be65766e14cd7ff594d3d861bc6b79c0dacccb2fd8"
+    },
+    "compatibility.json": {
+      "published_sha256": "d73c0448ef3e6f0ffc4a3a523a74fff638f2164a40aabbd638a16de9c28955e2"
+    },
+    "integration-audit.json": {
+      "published_sha256": "9444c0ece61ac828444a2960b45caffa05c73825f6392906baba8f2999ae89b0"
+    }
+  }
+}

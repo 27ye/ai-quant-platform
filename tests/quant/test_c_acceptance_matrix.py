@@ -218,3 +218,34 @@ def test_saved_result_tampering_fails_replay(tmp_path, synthetic_delivery, monke
     assert code == 1
     assert report["status"] == "failed"
     assert "equity_curve" in report["failure"]["message"]
+
+
+def test_new_batch_names_and_null_optional_fields_replay_without_renaming_evidence(tmp_path, synthetic_delivery):
+    delivery, hashes, _ = synthetic_delivery
+    template = "{code}_qfq_normalized_20241201_20260916.json"
+    trusted = {}
+    for code in acceptance.STOCK_CODES:
+        old = delivery / acceptance.FILENAME_TEMPLATE.format(code=code)
+        rows = json.loads(old.read_text(encoding="utf-8"))
+        for row in rows:
+            row.update(amount=None, turnover_rate=None, change_pct=None)
+        new = delivery / template.format(code=code)
+        _write_json(new, rows)
+        trusted[new.name] = hashlib.sha256(new.read_bytes()).hexdigest()
+        # Poison the old batch: explicit selection must never read it.
+        old.write_text("old batch is not this input", encoding="utf-8")
+    _write_json(hashes, trusted)
+    code, output, report = _run(tmp_path, synthetic_delivery, ("--filename-template", template))
+    assert code == 0 and report["completed_cases"] == 9
+    for stock in acceptance.STOCK_CODES:
+        name = template.format(code=stock)
+        assert (output / name).read_bytes() == (delivery / name).read_bytes()
+        assert report["inputs"][stock]["source_filename"] == name
+    assert all(case["full_saved_json_replay_equal"] for case in report["matrix"])
+
+
+@pytest.mark.parametrize("template", ["../{code}_qfq_normalized_20241201_20260916.json", "{code}_{unexpected}.json", "600519_qfq_normalized_20241201_20260916.json"])
+def test_unsafe_or_ambiguous_batch_template_rejected_before_computation(tmp_path, synthetic_delivery, template):
+    code, output, report = _run(tmp_path, synthetic_delivery, ("--filename-template", template))
+    assert code == 1 and "--filename-template" in report["failure"]["message"]
+    assert report["matrix"] == [] and not list(output.glob("*.result.json"))

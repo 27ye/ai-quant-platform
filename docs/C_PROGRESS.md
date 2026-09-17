@@ -1,63 +1,36 @@
 # C 项目进度看板
 
-更新：2026-09-17。维护人：C。正式分支：`feature/v2-c-backtest-params`。**[PR #10](https://github.com/27ye/ai-quant-platform/pull/10) 为唯一最终集成；[PR #12](https://github.com/27ye/ai-quant-platform/pull/12) 保留 C 来源/审阅记录，不另行合并 main。**
+更新：2026-09-17，D4a7402a冷启动修复候选复核。正式分支`feature/v2-c-backtest-params`；[PR #10](https://github.com/27ye/ai-quant-platform/pull/10)唯一最终集成，[PR #12](https://github.com/27ye/ai-quant-platform/pull/12)保留C来源/审阅。
 
-**当前：D 候选组合 cc57482 的 C 阶段检查通过；等待新真实数据包、D 完成剩余关口并指定最终 SHA，随后做 C 最终签字。**
-
-## 2026-09-17 收尾对齐
-
-已备好[最终验收输入与执行清单](C_V2_FINAL_ACCEPTANCE_READY_20260917.md)。本轮远端 PR #10 仍为 cc57482；D 计划合入 B a844cdd 和 C a9a6563，尚未按“已合入”记账。B a844cdd 可读，改动为 whitespace 属性和测试 EOF，不是新真实数据包。
-
-当前等待：**B 新独立数据包 → D 验包并给最终候选 SHA → C 九组完整链路复验与最终结论**。下表 2026-09-16 的通过项保留原版本范围；本轮未重复执行测试或改变算法。
-
-## 阶段视图
+**当前：D4a7402a既有525项测试及C/AI7项通过；补充日历检查5通过、1失败（静态注入refresh回归）。B540a00f文字更正关闭，D仍待合入8个B提交和C新批次验收工具；最终签字未完成。**
 
 ```mermaid
 flowchart LR
-    C["C 算法已发布<br/>92df017"] --> D["D 候选组合<br/>cc57482"]
-    AB["A/B 修复已集成<br/>D 补迁移与前端契约"] --> D
-    D --> T["C 阶段检查通过<br/>523 tests · MySQL 恢复"]
-    B["B 新真实数据包<br/>待交付"] --> V["D 验包与剩余验收<br/>指定最终 SHA"]
-    T --> V
-    V --> F["C 最终组合复验<br/>待签字"]
-    classDef done fill:#dafbe1,stroke:#1a7f37,color:#1f2328
-    classDef pending fill:#fff8c5,stroke:#9a6700,color:#1f2328
-    class C,AB,D,T done
-    class B,V,F pending
+    B["B540a00f 数据包及说明就绪"] --> D["D合入B/C交付<br/>处理日历refresh回归"]
+    C["D4a7402a 525测试/兼容7项通过<br/>补充日历5通过1失败"] --> D
+    D --> F["最终SHA + 数据批次<br/>页面与CI证据"]
+    F --> S["C最终九组复验签字"]
 ```
 
-## 当前状态与责任人
+| 事项 | 负责人 | 状态与证据 |
+|---|---|---|
+| C核心 | C | ✅ 12文件逐字节匹配92df017，无算法改动 |
+| D4a7402a既有回归 | C复核 | ✅ 525 tests、compileall、离线C/AI7项通过 |
+| 日历并发与刷新 | D | 🟠 C新增确定性探针5通过1失败：静态trade_dates注入后refresh会TypeError；未证明默认实时路径受影响 |
+| B数据及文档 | B/C | ✅ B540a00f跨字段校验/完整frame说明已修正；不重复导出相同包 |
+| B交付合入 | D | ⏳ 当前4a7402a仍缺8个B提交，完整合入B540a00f |
+| C验收工具 | D | ⏳ 纳入b2c372e文件名模板支持或明确外部工具SHA |
+| 候选三股九组 | C | ✅ 前轮Dcc57482+腾讯包direct/POST/真实MySQL GET保持原范围，不改签至4a7402a |
+| B迁移证据 | B/C | ✅ 前轮B74c 369 tests/35项MySQL PASS保持原范围 |
+| 页面/真实数据与LLM | A/D | ⏳ D新增实时API/浏览器记录由D负责；C本轮仅离线验证 |
+| 哈希标签 | A/D | 🟠 A PR13 d7ba01c合入时保持“C输入快照哈希” |
+| 远程CI | D | ⏳ 本轮查询0 check-run/0 status，尚无通过证据 |
+| 最终量化结论 | C | ⏳ 最终SHA及批次确定后复验 |
 
-| 事项 | 负责人 | 当前状态 | 证据 / 下一步 |
-|---|---|---|---|
-| 参数化、窗口、V1 默认兼容 | C | ✅ 核心保持 | D 的 12 文件与 C 92df017 Git blob 一致 |
-| 候选组合全量测试 | C 复核 D | ✅ cc57482 通过 | 523 passed、compileall、7 项离线 C/AI 兼容检查 |
-| v8 中断恢复与精确文本保护 | D/B，C 复验 | ✅ cc57482 通过 | MySQL 8.0.31：故障版本仍7，重试补齐旧9条，exact=false，新文本与重复迁移不变 |
-| 搜索刷新失败后仍可用旧目录 | B，C 复验 | ✅ 已进入候选 | B25c 原7项 API 通过；D 本轮全量测试覆盖；真实浏览器成功搜索仍由 D 收尾 |
-| 50006 / C detail / 哈希路径 / AI404 | D 实现，C 核对 | ✅ 当前源码对齐 | 本轮8项静态核对；不再列成 A 未提交；两处哈希注释可随文档收尾 |
-| 新记录完整 MySQL 九组与列表 | B/C | ✅ 原 B9a1 隔离版本通过；⏳ 最终 SHA 待复验 | [原证据](evidence/c-followup-20260916/mysql-v8.json)，不转签新包/新 SHA |
-| 新独立真实数据包 | B，D/C 验证 | 🟠 待交付 | B ab774a6 回复仍待导出；600519 9/15 旧包差异未以新批次关闭 |
-| V1→v8、真实 LLM、部分页面 | D | 📋 D 已报告通过 | 见 PR #10；C 本轮未重新执行这些真实环境项目 |
-| 剩余浏览器/首轮自动回测失败说明/CI | D | 🟠 待收尾 | 以 PR #10 门槛为准；无状态不等于 CI 通过 |
-| 最终组合验收结论 | C | ⏳ 等新包与最终 SHA | 按[新阶段计划](C_V2_D_PLAN_ALIGNMENT_20260916.md)复验后再签 |
-
-✅ 仅表示写明范围、版本的完成；📋 表示成员报告；🟠/⏳ 表示待办/前置依赖。不用估算百分比代替验收。
-
-## 版本与证据入口
-
-| 对象 | 完整 SHA |
-|---|---|
-| 本轮 D 候选 | `cc574827c6c08d2336336a48d9f7a09e9582c60a` |
-| C 核心 | `92df017404126e9af920e1ad82e4a136d813f8d1` |
-| D 声明的 C 来源 | `1d9cae17070dc7fe06a7c916ef8a0849e6790660`；后续 C 提交只补契约、进度与证据 |
-| D 声明的 A / B | `010841099b20b500ed322b15cec32d9e7add97cd` / `25c11aa7b55d67fa5f77b3c603ca84b5369dc48e` |
-| B 后续迁移修复 | `ab774a6591f2e9b5b25b2feee733c4c6c83b9be1`；与 D v8 执行 AST 相同，合并安排由 D 决定 |
-
-- [最新 D 计划调整与候选复核](C_V2_D_PLAN_ALIGNMENT_20260916.md) / [机器可读证据](evidence/c-dplan-20260916/summary.json)
-- [B25c 搜索复验](C_V2_B25C_REVIEW_20260916.md) / [B9a1 MySQL 与 A 定向复验](C_V2_FOLLOWUP_REVIEW_20260916.md)
-- [旧 D15315 复核](C_V2_COMBINED_15315_REVIEW_20260916.md)：保留当时发现；不当作新候选的待修清单。
-
-本轮不修改算法和其他成员生产代码；未把合成/SQLite 检查、植入的迁移夹具或 D 的真实环境报告写成新真实数据包验收。后续每次结论绑定实际最终 SHA。
+- [最新D冷启动复核](C_V2_D4A_COLDSTART_REVIEW_20260917.md) / [证据摘要](evidence/c-d4a7402-20260917/summary.json)
+- [前轮B集成缺口与关闭记录](C_V2_B821_INTEGRATION_REVIEW_20260917.md) / [原候选九组证据](C_V2_B_TENCENT_REVIEW_20260917.md)
+- [最终验收清单](C_V2_FINAL_ACCEPTANCE_READY_20260917.md)
+- D：`4a7402a35ec1a42a3a6964d9f351395d19315188`；B：`540a00f604044bd046cd3935f4df9d018063b44b`。测试按被测版本记录，不相加。
 
 ## C 后续同步约定
 
