@@ -5,23 +5,37 @@ import { useRouter } from 'vue-router'
 
 import { searchStocks } from '../../api/stocks'
 import type { StockBrief } from '../../types/api'
+import { useHealthStore } from '../../stores/health'
 
 const router = useRouter()
+const health = useHealthStore()
 
 const keyword = ref('')
 const results = ref<StockBrief[]>([])
 const searching = ref(false)
 const showDropdown = ref(false)
+// 是否已发起过搜索：用于空结果时展开提示而非静默
+const searched = ref(false)
 
 async function onSearch() {
-  if (!keyword.value.trim()) return
+  const kw = keyword.value.trim()
+  if (!kw) {
+    // 清空关键词时同步收起下拉
+    results.value = []
+    searched.value = false
+    showDropdown.value = false
+    return
+  }
   searching.value = true
   try {
-    const res = await searchStocks(keyword.value)
+    const res = await searchStocks(kw)
     results.value = res.data
-    showDropdown.value = results.value.length > 0
+    searched.value = true
+    // 空结果也展开下拉，由提示文案说明冻结演示范围
+    showDropdown.value = true
   } catch {
     results.value = []
+    showDropdown.value = false
   } finally {
     searching.value = false
   }
@@ -47,20 +61,23 @@ function onBlur() {
       class="search-input"
       clearable
       @input="onSearch"
-      @focus="showDropdown = results.length > 0"
+      @focus="showDropdown = searched && keyword.trim().length > 0"
       @blur="onBlur"
     >
       <template #prefix>
         <span class="search-icon">⌕</span>
       </template>
     </el-input>
-    <ul v-if="showDropdown && results.length > 0" class="search-dropdown">
-      <li v-for="stock in results.slice(0, 8)" :key="stock.stock_code">
-        <button type="button" class="dropdown-item" @click="goDetail(stock)">
-          <span class="dd-name">{{ stock.stock_name }}</span>
-          <span class="dd-code">{{ stock.stock_code }}</span>
-        </button>
-      </li>
+    <ul v-if="showDropdown" class="search-dropdown">
+      <template v-if="results.length > 0">
+        <li v-for="stock in results.slice(0, 8)" :key="stock.stock_code">
+          <button type="button" class="dropdown-item" @click="goDetail(stock)">
+            <span class="dd-name">{{ stock.stock_name }}</span>
+            <span class="dd-code">{{ stock.stock_code }}</span>
+          </button>
+        </li>
+      </template>
+      <li v-else class="dropdown-empty">{{ health.acceptanceMode === 'frozen' ? '冻结演示仅包含 600519，未命中其他股票' : '没有找到匹配的股票' }}</li>
     </ul>
   </div>
 </template>
@@ -138,6 +155,14 @@ function onBlur() {
 
 .dropdown-item:hover {
   background: var(--surface-hover);
+}
+
+/* 空结果提示：冻结演示范围说明，替代空白列表 */
+.dropdown-empty {
+  padding: 10px 12px;
+  color: var(--text-faint);
+  font-size: 12px;
+  text-align: center;
 }
 
 .dd-name {

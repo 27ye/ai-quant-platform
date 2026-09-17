@@ -24,8 +24,9 @@ export interface KlineItem {
   low: number
   close: number
   volume: number
-  amount: number
-  turnover_rate: number
+  /** 数据源未提供时为 null，应显示为来源缺失 */
+  amount: number | null
+  turnover_rate: number | null
   change_pct: number
 }
 
@@ -398,8 +399,10 @@ export interface BacktestDetail extends BacktestSummary {
   /** snapshot_status=missing 时附原因 */
   snapshot_missing_reason?: string | null
   c_result_available?: boolean
+  /** v8 无损文本列保存为 true；旧 JSON 列记录为 false */
   c_result_exact?: boolean
   c_algorithm_version?: string | null
+  /** C 输入快照的 SHA-256，与 data_meta.c_data_hash 同源 */
   c_data_hash?: string | null
   c_initial_equity?: BacktestInitialEquity | null
   c_warmup?: BacktestWarmup | null
