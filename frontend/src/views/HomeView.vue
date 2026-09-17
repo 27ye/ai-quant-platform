@@ -6,6 +6,7 @@ import type { KlineItem } from '../types/api'
 import { mockKline } from '../mocks/stock'
 import ThemeToggle from '../components/layout/ThemeToggle.vue'
 import { useAppContext } from '../stores/appContext'
+import { useHealthStore } from '../stores/health'
 import * as echarts from 'echarts/core'
 import { CandlestickChart } from 'echarts/charts'
 import { GridComponent } from 'echarts/components'
@@ -15,12 +16,15 @@ echarts.use([CandlestickChart, GridComponent, CanvasRenderer])
 
 const router = useRouter()
 const appContext = useAppContext()
+const health = useHealthStore()
 const bgRef = ref<HTMLDivElement>()
 let chart: echarts.ECharts | null = null
 
-// 直接进入工作台（跟随最近访问的股票，V1 默认 600519）
-function enter() {
-  router.push(`/stock/${appContext.stockCode}`)
+// 冻结验收包仅包含 600519；实时工作台继续跟随最近访问的股票。
+async function enter() {
+  await health.refresh()
+  const code = health.acceptanceMode === 'frozen' ? '600519' : appContext.stockCode
+  router.push(`/stock/${code}`)
 }
 
 function initBg() {
@@ -59,6 +63,7 @@ function resize() {
 }
 
 onMounted(() => {
+  void health.refresh()
   initBg()
   window.addEventListener('resize', resize)
 })
@@ -86,7 +91,8 @@ onBeforeUnmount(() => {
     <div class="center">
       <h1>DeepInSight</h1>
       <p class="subtitle">真实行情 · 技术指标 · 量化评分 · 策略回测 · AI 报告</p>
-      <p class="v1-badge">V1 冻结数据演示 · 仅 600519 贵州茅台 · 样本区间 2025-01-02 ~ 2026-08-31</p>
+      <p v-if="health.acceptanceMode === 'frozen'" class="v1-badge">冻结数据演示 · 仅 600519 贵州茅台</p>
+      <p v-else class="v1-badge">V2 投研工作台 · 参数回测与报告历史</p>
 
       <button type="button" class="entry-btn" @click="enter">
         进入工作台
