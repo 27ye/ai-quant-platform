@@ -78,12 +78,20 @@ class BatchError(RuntimeError):
 
 
 #: Delivery-only fallback source. The app's runtime provider is **not** changed.
+#:
+#: Do not claim eastmoney parity for this source. Measured over the 436 days the two
+#: batches share, OHLC differs from the eastmoney rows on 378 / 209 / 327 rows
+#: (600519 / 000001 / 300750), max |difference| ~0.004 CNY: every row agrees once
+#: rounded to 2 decimals and volume is identical, but B keeps 4 decimals, so the two
+#: sources are **not** value-identical at delivery precision (input hashes differ).
 TENCENT_SOURCE_NOTE = (
     "tencent web.ifzq.gtimg.cn /appstock/app/fqkline/get (qfq) - DELIVERY FALLBACK ONLY, "
-    "the app's runtime provider is unchanged. OHLCV and volume match the eastmoney rows "
-    "exactly; this endpoint publishes no amount/turnover_rate (left null - C marks both "
-    "optional, and B only folds them into the frame digest); change_pct is DERIVED from "
-    "consecutive qfq closes, not vendor-reported."
+    "the app's runtime provider is unchanged. Independent of eastmoney, not a substitute "
+    "for it: over the 436 shared days OHLC differs on 378/209/327 rows "
+    "(600519/000001/300750) with max |diff| ~0.004 CNY - identical volume, and identical "
+    "only after rounding to 2 decimals, so delivery-precision (4dp) values and input "
+    "hashes differ. This endpoint publishes no amount/turnover_rate (left null - C marks "
+    "both optional); change_pct is DERIVED from consecutive qfq closes, not vendor-reported."
 )
 
 
@@ -622,8 +630,10 @@ def main() -> int:
         help=(
             "Market-data source for this batch. 'eastmoney' (default) uses the app's own "
             "provider. 'tencent' is a DELIVERY-ONLY fallback for when eastmoney's kline "
-            "endpoint is unavailable; it is recorded in the manifest, and OHLCV/volume "
-            "match eastmoney exactly while amount/turnover_rate stay null."
+            "endpoint is unavailable; it is recorded in the manifest as an INDEPENDENT "
+            "source - volume matches eastmoney and rows agree after 2dp rounding, but OHLC "
+            "differs on most rows at the 4 decimals B delivers, and amount/turnover_rate "
+            "stay null. It is not a substitute for an eastmoney batch."
         ),
     )
     args = parser.parse_args()

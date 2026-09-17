@@ -539,6 +539,23 @@ def test_fallback_provenance_is_recorded_and_the_app_provider_is_not_relabelled(
     assert "amount/turnover_rate" in mod.TENCENT_SOURCE_NOTE
 
 
+def test_fallback_note_does_not_claim_eastmoney_parity():
+    """C measured 378/209/327 rows with different OHLC at delivery precision.
+
+    An earlier revision of this note said the two sources were "逐值相同" after B had
+    sample-checked only two dates. The wording must state the real difference, never
+    parity - otherwise a reader would treat this batch as interchangeable with an
+    eastmoney one.
+    """
+    note = mod.TENCENT_SOURCE_NOTE
+
+    assert "not a substitute" in note
+    assert "378/209/327" in note
+    assert "identical only after rounding to 2 decimals" in note
+    for forbidden in ("match the eastmoney rows exactly", "逐值相同", "identical to eastmoney"):
+        assert forbidden not in note
+
+
 def test_fetch_stock_batch_stamps_the_fallback_source_on_the_frozen_batch():
     class _Provider:
         note = mod.TENCENT_SOURCE_NOTE
