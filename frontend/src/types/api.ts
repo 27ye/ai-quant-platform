@@ -351,7 +351,7 @@ export interface PaginatedBacktests {
 
 /**
  * 回测详情的数据元信息（B 契约字段；frame_digest 是 B 交给 C 的数据帧摘要，
- * c_data_hash 是 C 自身结果的哈希——两者分开，不可混用）
+ * c_data_hash 是 C 输入快照的 SHA-256——两者分开，不可混用）
  */
 export interface BacktestDataMeta {
   requested_start_date?: string
