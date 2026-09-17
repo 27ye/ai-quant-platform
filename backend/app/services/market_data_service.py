@@ -17,9 +17,10 @@ stable business error instead of a raw driver exception.
 from __future__ import annotations
 
 import math
+import threading
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from typing import Callable, List, Optional, Protocol, Sequence
+from typing import Callable, ClassVar, List, Optional, Protocol, Sequence
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -265,6 +266,16 @@ class MarketDataRepository:
             self._session.rollback()
             raise DatabaseOperationError() from exc
 
+    def refresh_snapshot(self) -> None:
+        """End the current read-only transaction so the next query starts a
+        fresh snapshot. On MySQL (REPEATABLE READ) a session keeps serving the
+        snapshot established by its first read, so a cache re-check after
+        waiting on the per-stock sync lock would not see another request's
+        just-committed rows without this. Repository methods always commit or
+        roll back their own writes, so no pending changes are ever discarded.
+        """
+        self._session.rollback()
+
     # -- refresh provenance (V2 B2) -----------------------------------------
 
     def upsert_daily_sync(
@@ -410,6 +421,23 @@ class MarketDataService:
         self._trading_days = trading_days
         self._query_source_modes: dict[str, str] = {}
 
+    #: Per-stock sync locks, shared across instances: ``get_market_data_source``
+    #: builds a fresh service per request, so instance-level locks would not
+    #: exclude concurrent first-load syncs of the same stock.
+    _sync_locks: ClassVar[dict[str, threading.Lock]] = {}
+    _sync_locks_guard: ClassVar[threading.Lock] = threading.Lock()
+
+    @classmethod
+    def _sync_lock_for(cls, stock_code: str) -> threading.Lock:
+        """Return the class-shared lock serializing cache-miss syncs of one stock.
+
+        Two concurrent cold-start queries for the same stock otherwise both
+        fetch and race the non-atomic ``upsert_daily``; the loser fails with a
+        duplicate-key IntegrityError (the cold-start blank K-line card).
+        """
+        with cls._sync_locks_guard:
+            return cls._sync_locks.setdefault(stock_code, threading.Lock())
+
     def sync_daily(
         self,
         stock_code: str,
@@ -505,18 +533,54 @@ class MarketDataService:
         the window to guarantee ``min_rows`` valid rows) and upserts the result.
         Raises ``InsufficientStockDataError`` (40003) when even the widest fetch
         cannot produce ``min_rows`` valid rows.
+
+        Concurrent first-load queries for the same stock are serialized on a
+        class-level per-stock lock: the waiter re-checks the cache on a fresh
+        snapshot and serves the rows the winner just synced, instead of
+        re-fetching and racing the non-atomic upsert.
         """
         end_date = end_date or date.today()
         start_date = start_date or (end_date - timedelta(days=366))
         trading_days = trading_days if trading_days is not None else self._trading_days
-        if self._repository is not None:
-            cached = self._repository.list_daily(stock_code, start_date, end_date)
-            if self._is_cache_complete(
-                cached, start_date, end_date, min_rows, max_stale_days, max_gap_days, trading_days
-            ):
-                self._query_source_modes[stock_code] = "cache"
+        cached = self._complete_cache(
+            stock_code, start_date, end_date, min_rows, max_stale_days, max_gap_days, trading_days
+        )
+        if cached is not None:
+            return cached
+        with self._sync_lock_for(stock_code):
+            # A concurrent request may have finished the sync while we waited
+            # on the lock; re-check on a fresh snapshot before fetching again
+            # (MySQL REPEATABLE READ would otherwise keep serving the stale
+            # snapshot established by the fast-path read above).
+            if self._repository is not None:
+                self._repository.refresh_snapshot()
+            cached = self._complete_cache(
+                stock_code, start_date, end_date, min_rows, max_stale_days, max_gap_days, trading_days
+            )
+            if cached is not None:
                 return cached
-        return self.sync_daily(stock_code, start_date, end_date, min_rows=min_rows)
+            return self.sync_daily(stock_code, start_date, end_date, min_rows=min_rows)
+
+    def _complete_cache(
+        self,
+        stock_code: str,
+        start_date: date,
+        end_date: date,
+        min_rows: int,
+        max_stale_days: int,
+        max_gap_days: int,
+        trading_days: Optional[Callable[[date, date], Optional[int]]],
+    ) -> Optional[List[DailyKlineSchema]]:
+        """Return the cached window when it is a verified complete hit, else ``None``."""
+        if self._repository is None:
+            return None
+        cached = self._repository.list_daily(stock_code, start_date, end_date)
+        if self._is_cache_complete(
+            cached, start_date, end_date, min_rows, max_stale_days, max_gap_days, trading_days
+        ):
+            self._query_source_modes[stock_code] = "cache"
+            return cached
+        return None
 
     def get_query_provenance(self, stock_code: str) -> dict[str, str]:
         return {

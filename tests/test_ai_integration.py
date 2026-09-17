@@ -291,7 +291,10 @@ def test_reliable_fixture_calendar_serves_explicit_window_from_cache(graph):
 
     assert graph.market_queries == 2
     assert graph.provider.events.count("market") == 1
-    assert len(graph.calendar.calls) == 2
+    # 3 calendar counts, not 2: the cold-miss path re-checks the cache under the
+    # per-stock sync lock (double-checked locking), so request 1 consults the
+    # calendar twice while request 2 hits the cache with a single check.
+    assert len(graph.calendar.calls) == 3
     with graph.factory() as db:
         assert db.query(AIAnalysis).count() == 0
         assert db.query(StockDaily).count() == 120
@@ -469,7 +472,10 @@ def test_report_commit_failure_rolls_back_and_returns_50002(graph):
     graph.fail_report = True
     response = analyze(graph)
     assert response.json() == {"code": 50002, "message": "database error", "data": None}
-    assert graph.rollbacks == 1
+    # 2 rollbacks, not 1: the cold-miss path refreshes the session snapshot
+    # under the per-stock sync lock (1), then the failed report commit rolls
+    # back (2). The contract that matters is unchanged: 50002 and no report row.
+    assert graph.rollbacks == 2
     with graph.factory() as db:
         assert db.query(AIAnalysis).count() == 0
 
