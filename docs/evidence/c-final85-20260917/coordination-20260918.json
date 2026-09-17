@@ -1,0 +1,32 @@
+{
+  "checked_date": "2026-09-18",
+  "D_SHA": "85b7617149fbff67189e52f6527c9921ff09d388",
+  "D_draft": true,
+  "B_SHA": "540a00f604044bd046cd3935f4df9d018063b44b",
+  "A_SHA": "17b0ea31754e6644e5048a63c8b74db51d73901c",
+  "A_changed_paths": [
+    "frontend/src/assets/fonts/space-grotesk-500.woff2",
+    "frontend/src/assets/fonts/space-grotesk-700.woff2",
+    "frontend/src/components/ai/AIReportCard.vue",
+    "frontend/src/components/layout/AccentPicker.vue",
+    "frontend/src/components/layout/AppShell.vue",
+    "frontend/src/components/stock/KlineChart.vue",
+    "frontend/src/components/stock/ReturnCurveChart.vue",
+    "frontend/src/stores/theme.ts",
+    "frontend/src/styles.css",
+    "frontend/src/views/AIReportDetailView.vue",
+    "frontend/src/views/AIReportHistoryView.vue",
+    "frontend/src/views/BacktestDetailView.vue",
+    "frontend/src/views/BacktestHistoryView.vue",
+    "frontend/src/views/HomeView.vue",
+    "frontend/src/views/StockDetailView.vue"
+  ],
+  "A_backtest_detail_hash_label_correct": true,
+  "A_remaining_comments": {
+    "frontend/src/types/api.ts": [
+      354,
+      391
+    ]
+  },
+  "scope": "Static C contract follow-up; no tests rerun; existing C signoff bound to D85b7617 and fixed delivery batch only."
+}
