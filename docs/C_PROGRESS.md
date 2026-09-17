@@ -18,6 +18,7 @@ flowchart LR
 | D4a7402a既有回归 | C复核 | ✅ 525 tests、compileall、离线C/AI7项通过 |
 | 日历并发与刷新 | D | 🟠 C新增确定性探针5通过1失败：静态trade_dates注入后refresh会TypeError；未证明默认实时路径受影响 |
 | B数据及文档 | B/C | ✅ B540a00f跨字段校验/完整frame说明已修正；不重复导出相同包 |
+| B来源PR | B/D，C已确认依赖 | ✅ PR #14 @540a00f保留来源审阅；缺C V2入口，不作独立V2合并。建议D将B分支集成至PR #10，再统一最终验收 |
 | B交付合入 | D | ⏳ 当前4a7402a仍缺8个B提交，完整合入B540a00f |
 | C验收工具 | D | ⏳ 纳入b2c372e文件名模板支持或明确外部工具SHA |
 | 候选三股九组 | C | ✅ 前轮Dcc57482+腾讯包direct/POST/真实MySQL GET保持原范围，不改签至4a7402a |
@@ -31,6 +32,12 @@ flowchart LR
 - [前轮B集成缺口与关闭记录](C_V2_B821_INTEGRATION_REVIEW_20260917.md) / [原候选九组证据](C_V2_B_TENCENT_REVIEW_20260917.md)
 - [最终验收清单](C_V2_FINAL_ACCEPTANCE_READY_20260917.md)
 - D：`4a7402a35ec1a42a3a6964d9f351395d19315188`；B：`540a00f604044bd046cd3935f4df9d018063b44b`。测试按被测版本记录，不相加。
+
+### B第二版状态回复的C处理（2026-09-17）
+
+已读 [B最新状态](https://github.com/27ye/ai-quant-platform/issues/11#issuecomment-5710196731)，核对PR #14实际头为540a00f、base为main；该树缺windowed_backtest.py/backtest_config.py，含B适配器及新数据包。[依赖证据](evidence/c-d4a7402-20260917/PR14-dependency-review.json)。C确认PR #14可保留为来源与评审，不要求关闭；建议D将完整B分支合入PR #10集成分支并保留历史，验收后仅从PR #10进入main。C不执行合并、改base或重写他人分支。
+
+B回复中的C84fa85d/D846c1cc是旧时点：此前C已在8778578发布D4a7402a候选复核及日历刷新回归证据。本轮B/D源SHA未再变，无需重复原测试或导出。C仍等待最终组合SHA+固定批次，执行既定九组量化复验；此前真实MySQL证据与本轮离线检查保持各自版本和范围。
 
 ## C 后续同步约定
 
