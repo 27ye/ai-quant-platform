@@ -1,12 +1,12 @@
 # C 项目进度看板
 
-更新：2026-09-17，B821 / D b480014 复核。正式分支 `feature/v2-c-backtest-params`；[PR #10](https://github.com/27ye/ai-quant-platform/pull/10) 为唯一最终集成，[PR #12](https://github.com/27ye/ai-quant-platform/pull/12) 保留 C 来源/审阅。
+更新：2026-09-17，B a7cfa91 预热说明关闭 / D b480014 复核。正式分支 `feature/v2-c-backtest-params`；[PR #10](https://github.com/27ye/ai-quant-platform/pull/10) 为唯一最终集成，[PR #12](https://github.com/27ye/ai-quant-platform/pull/12) 保留 C 来源/审阅。
 
-**当前：B 三处来源残留已关闭，六份数据文件不变；D 尚缺六个 B 提交及 C 新批次验收工具。按 B 转达的 D 腾讯采用决定推进，等待集成与最终 SHA，C 再复验签字。**
+**当前：B 来源与预热说明待办均已关闭，代码和六份数据文件不变；D 待完整合入 B a7cfa91（此前六项及本次文档更正）和 C 新批次验收工具。按 B 转达的 D 腾讯采用决定推进，等待集成与最终 SHA，C 再复验签字。**
 
 ```mermaid
 flowchart LR
-    B["B821 新包/来源更正完成"] --> D["D 补入六个 B 提交<br/>及 C 新批次验收工具"]
+    B["B a7cfa91 来源/预热说明完成"] --> D["D 合入 B a7cfa91<br/>及 C 新批次验收工具"]
     C["既有候选九组技术预验通过"] --> D
     D --> F["冻结最终 SHA + 数据批次"]
     F --> S["C 最终九组复验与签字"]
@@ -22,18 +22,19 @@ flowchart LR
 | B 元信息/六数据文件 | B/C | ✅ B821三处source已修正；六文件hash与原交付一致 |
 | B 测试及真实迁移 | B/C | ✅ 此前B74c的369 tests / 35项MySQL PASS保持原范围；本轮文档变化未重复测试 |
 | 候选三股九组 | C | ✅ 此前D cc57482 + 新包direct/POST/重建连接GET通过，每组283点；未给新D头改签 |
-| B 交付合入 | D | ⏳ D b480014尚缺b7cb06a至821f322六提交，新包/导出/迁移证据不在当前树 |
+| B 交付合入 | D | ⏳ D b480014未更新；完整合入B a7cfa91，含此前六项及本次文档更正 |
 | C 验收工具集成 | D | ⏳ D脚本尚无--filename-template；需集成b2c372e或明确外部工具SHA |
 | 来源决定与最终SHA | D | ⏳ 按B转达的已采用腾讯推进，请最终说明记录来源决定并公布40位SHA |
-| 交接文档预热规则 | B | 🟠 backend_status.md仍写旧规则；实际代码已按long，文档需同步 |
+| 交接文档预热规则 | B | ✅ a7cfa91已修正：V2按long，数据包≥120独立；本轮仅文档，不重跑测试 |
 | 页面哈希标签 | A/D | 🟠 PR13 d7ba01c仍写“C结果哈希”；保持“C输入快照哈希” |
 | 页面/真实AI/CI | A/D | ⏳ 由对应成员收尾，C本轮不代签 |
 | 最终量化结论 | C | ⏳ 最终SHA + 批次就绪后复验 |
 
-- [最新 B821 集成复核](C_V2_B821_INTEGRATION_REVIEW_20260917.md) / [证据](evidence/c-b821-20260917/summary.json)
+- [B a7cfa91关闭证据](evidence/c-b821-20260917/B-a7cfa91-closure.json)；其余最终验收待办保持原范围。
+- [B821 集成复核及后续更正](C_V2_B821_INTEGRATION_REVIEW_20260917.md) / [证据](evidence/c-b821-20260917/summary.json)
 - [B74c测试/迁移证据](C_V2_B74C_CORRECTION_REVIEW_20260917.md) / [腾讯包候选九组证据](C_V2_B_TENCENT_REVIEW_20260917.md)
 - [最终验收清单](C_V2_FINAL_ACCEPTANCE_READY_20260917.md)
-- D 当前完整 SHA：`b4800149eeaa19037e665e3e40821462a6eabae6`；B：`821f322b988e8c1b1e3b6408185a41403e8b2cf4`。测试数量按各自被测版本记录，不相加。
+- D 当前完整 SHA：`b4800149eeaa19037e665e3e40821462a6eabae6`；B：`a7cfa916ddb57483c02dac9138561afd53192e2e`。测试数量按各自被测版本记录，不相加。
 
 ## C 后续同步约定
 
