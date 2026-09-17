@@ -7,6 +7,10 @@ import { useAppContext } from '../../stores/appContext'
 import { useHealthStore } from '../../stores/health'
 import SearchBox from './SearchBox.vue'
 import ThemeToggle from './ThemeToggle.vue'
+import AccentPicker from './AccentPicker.vue'
+
+// 团队仓库入口（顶栏右侧）
+const REPO_URL = 'https://github.com/27ye/ai-quant-platform'
 
 const route = useRoute()
 const appContext = useAppContext()
@@ -53,7 +57,25 @@ const currentPath = computed(() => route.path)
     <!-- 左侧栏 -->
     <aside class="sidebar">
       <router-link to="/home" class="brand">
-        <span class="brand-mark" aria-hidden="true"></span>
+        <!-- 产品图标：主题色渐变圆角方块 + 上升折线（量化趋势意象），跟随主题色联动 -->
+        <svg class="brand-logo" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <defs>
+            <linearGradient id="brand-grad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" style="stop-color: var(--accent)" />
+              <stop offset="1" style="stop-color: var(--accent-hover)" />
+            </linearGradient>
+          </defs>
+          <rect x="1" y="1" width="22" height="22" rx="6.5" fill="url(#brand-grad)" />
+          <path
+            d="M6.5 15.5 L10.2 11.2 L13.2 13.8 L17.5 8.4"
+            fill="none"
+            stroke="#fff"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <circle cx="17.5" cy="8.4" r="1.7" fill="#fff" />
+        </svg>
         <span class="brand-name">DeepInSight</span>
       </router-link>
 
@@ -101,7 +123,24 @@ const currentPath = computed(() => route.path)
         <div class="header-search">
           <SearchBox />
         </div>
-        <ThemeToggle />
+        <div class="header-actions">
+          <a
+            class="github-link"
+            :href="REPO_URL"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="GitHub 仓库"
+          >
+            <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true">
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"
+              />
+            </svg>
+            <span>GitHub</span>
+          </a>
+          <AccentPicker />
+          <ThemeToggle />
+        </div>
       </header>
 
       <div class="content">
@@ -133,7 +172,7 @@ const currentPath = computed(() => route.path)
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   height: var(--header-height);
   padding: 0 16px;
   border-bottom: 1px solid var(--border);
@@ -141,18 +180,18 @@ const currentPath = computed(() => route.path)
   flex-shrink: 0;
 }
 
-.brand-mark {
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-  background: var(--accent);
+.brand-logo {
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent));
 }
 
 .brand-name {
-  color: var(--text-main);
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  color: var(--accent);
+  font-family: var(--font-brand);
+  font-size: 14.5px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  transition: color 0.2s ease;
 }
 
 .nav {
@@ -164,6 +203,7 @@ const currentPath = computed(() => route.path)
 }
 
 .nav-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -185,6 +225,20 @@ const currentPath = computed(() => route.path)
 .nav-item.active {
   color: var(--accent);
   background: var(--accent-bg);
+}
+
+/* 激活项左侧主题色指示条 */
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 .sidebar-footer {
@@ -253,6 +307,40 @@ const currentPath = computed(() => route.path)
   max-width: 420px;
 }
 
+/* 顶栏右侧操作区：GitHub 入口 + 主题色 + 明暗切换，整体贴最右 */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-sub);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.github-link:hover {
+  color: var(--text-main);
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+}
+
 .content {
   flex: 1;
   min-width: 0;
@@ -266,6 +354,17 @@ const currentPath = computed(() => route.path)
 
   .header {
     padding: 0 12px;
+  }
+
+  /* 小屏 GitHub 只留图标 */
+  .github-link {
+    padding: 0;
+    width: 32px;
+    justify-content: center;
+  }
+
+  .github-link span {
+    display: none;
   }
 }
 </style>

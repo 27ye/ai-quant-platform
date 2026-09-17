@@ -157,7 +157,6 @@ function goBack() {
   <main class="bt-detail">
     <header class="page-header">
       <div class="header-left">
-        <a class="back-link" @click="goBack">← 返回</a>
         <h1 class="page-title">回测 #{{ backtestId }}</h1>
         <template v-if="detail">
           <span

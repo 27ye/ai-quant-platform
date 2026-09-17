@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { fetchDataStatus, fetchIndicators, fetchKline, fetchScore } from '../api/stocks'
+import { fetchDataStatus, fetchIndicators, fetchKline, fetchScore, searchStocks } from '../api/stocks'
 import type {
   DataStatus,
   IndicatorsItem,
@@ -30,6 +30,7 @@ const kline = ref<KlineItem[]>([])
 const indicators = ref<IndicatorsItem[]>([])
 const score = ref<ScoreData | null>(null)
 const dataStatus = ref<DataStatus | null>(null)
+const stockName = ref('')
 const loading = ref(false)
 const loaded = ref(false)
 const scoreLoading = ref(true)
@@ -103,6 +104,16 @@ async function load() {
       dataStatus.value = res.data
     })
     .catch(() => undefined)
+
+  // 股票名称：搜索接口按代码精确匹配，失败静默（仅展示增强，非关键路径）
+  stockName.value = ''
+  searchStocks(stockCode.value)
+    .then((res) => {
+      if (epoch.value !== currentEpoch) return
+      const hit = res.data.find((s) => s.stock_code === stockCode.value) ?? res.data[0]
+      stockName.value = hit?.stock_name ?? ''
+    })
+    .catch(() => undefined)
 }
 
 watch(stockCode, load, { immediate: true })
@@ -115,6 +126,7 @@ onMounted(() => health.refresh())
     <div class="stock-bar">
       <div class="stock-identity">
         <span class="stock-code">{{ stockCode }}</span>
+        <span v-if="stockName" class="stock-name">{{ stockName }}</span>
         <span v-if="dateRange" class="date-range">{{ dateRange }}</span>
         <span v-if="health.acceptanceMode" class="mode-badge">{{ health.acceptanceMode }}</span>
         <DataStatusBadge v-if="dataStatus" :status="dataStatus" />
@@ -186,6 +198,12 @@ onMounted(() => health.refresh())
   color: var(--text-main);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
+}
+
+.stock-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-sub);
 }
 
 .date-range {

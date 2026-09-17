@@ -69,7 +69,13 @@ watch(
         基于真实行情、技术指标、量化评分与新闻数据，由大模型生成综合投研分析。过程约需
         10~30 秒。
       </p>
-      <el-button type="primary" @click="run">开始 AI 分析</el-button>
+      <!-- 圆形渐变 CTA：参照 stock-dashboard 尾盘选股的开始分析按钮（渐变圆盘 + 闪电图标 + 双层光晕） -->
+      <button type="button" class="analyze-orb" @click="run">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor" aria-hidden="true">
+          <path d="M13 2 4.5 13.5h5L8.5 22l8.5-11.5h-5L13 2z" />
+        </svg>
+        <span>开始 AI 分析</span>
+      </button>
     </div>
 
     <!-- 加载态 -->
@@ -150,7 +156,44 @@ watch(
 
 .idle p {
   color: var(--text-sub);
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+}
+
+/* 圆形主 CTA：主题色渐变圆盘，hover 放大 + 光晕加深，全程跟随 --accent */
+.analyze-orb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 172px;
+  height: 172px;
+  margin: 4px auto 12px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow:
+    0 8px 32px color-mix(in srgb, var(--accent) 32%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.analyze-orb:hover {
+  transform: scale(1.035);
+  box-shadow:
+    0 12px 44px color-mix(in srgb, var(--accent) 42%, transparent),
+    0 0 0 6px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.analyze-orb:active {
+  transform: scale(0.99);
 }
 
 .loading-hint {

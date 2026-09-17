@@ -74,14 +74,6 @@ watch(reportId, load, { immediate: true })
   <main class="detail-page">
     <header class="page-header">
       <div class="header-left">
-        <router-link
-          v-if="report"
-          class="back-link"
-          :to="`/stock/${report.stock_code}/ai-reports`"
-        >
-          ← 报告历史
-        </router-link>
-        <a v-else class="back-link" href="javascript:void 0" @click="router.back()">← 返回</a>
         <h1 class="page-title">AI 报告详情</h1>
         <span class="id-chip">#{{ reportId }}</span>
       </div>
@@ -196,18 +188,6 @@ watch(reportId, load, { immediate: true })
   display: flex;
   align-items: baseline;
   gap: 12px;
-}
-
-.back-link {
-  color: var(--text-faint);
-  font-size: 12px;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: color 0.15s ease;
-}
-
-.back-link:hover {
-  color: var(--accent);
 }
 
 .page-title {
