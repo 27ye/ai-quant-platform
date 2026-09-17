@@ -2,13 +2,13 @@
 
 更新：2026-09-17，新腾讯包复核后。正式分支：`feature/v2-c-backtest-params`；[PR #10](https://github.com/27ye/ai-quant-platform/pull/10)为唯一最终集成，[PR #12](https://github.com/27ye/ai-quant-platform/pull/12)保留C来源/审阅。
 
-**当前：B腾讯新包已交付，C三股九组离线及D cc57482候选的HTTP/MySQL技术预验通过。待B修正溯源/跨来源表述，D确认采用腾讯来源并给最终SHA，C再最终签字。**
+**当前：B腾讯新包已交付，C三股九组离线及D cc57482候选的HTTP/MySQL技术预验通过。B溯源与迁移补证已通过，精度说明仅剩逐股source三处残留；待D确认腾讯来源并给最终SHA，C再最终签字。**
 
 ```mermaid
 flowchart LR
     B["B 腾讯新包 dedad609<br/>6文件hash通过"] --> C["C候选技术预验通过<br/>离线9组 · HTTP/MySQL9组"]
     D["D当前候选 cc57482"] --> C
-    C --> M["B修正代码溯源<br/>及跨来源表述"]
+    C --> M["B仅剩3处逐股<br/>source说明待同步"]
     M --> F["D确认数据来源<br/>冻结最终SHA"]
     F --> S["C最终复验/签字<br/>待完成"]
     classDef done fill:#dafbe1,stroke:#1a7f37,color:#1f2328
@@ -20,17 +20,18 @@ flowchart LR
 | 事项 | 负责人 | 最新状态 / 证据 |
 |---|---|---|
 | C量化核心 | C | ✅ 保持92df017，算法未改；验收脚本b2c372e支持显式新批次文件名，21项测试通过 |
-| B新包与测试 | B，C复核 | ✅ dedad609原源码368 tests；6哈希与3对437行一致性通过 |
+| B新包与测试 | B，C复核 | ✅ B74c本轮369 tests；6数据文件不变，原包内一致性与九组结论保持原范围 |
 | 600519的9/15差异 | B/C | ✅ 新包raw/normalized为1272.75/13762；旧包仍保留原差异证据 |
-| V1真实表结构→v8 | C复核D候选 | ✅ MySQL8.0.31，原始15/13列保全、v2/v3步骤、中断恢复和重复迁移通过 |
+| V1真实表结构→v8 | B/C | ✅ D候选前轮通过；本轮B74c强化脚本在独立MySQL8.0.31上35项PASS |
 | 新包三股九组 | C | ✅ 离线回放与候选HTTP/真实MySQL完整对象/类型精确一致，每组283点；不是最终签字 |
-| 腾讯/东财一致性文字 | B | 🟠 共同日378/209/327行OHLC原值不同；2位舍入相同，需更正“逐值相同” |
-| manifest导出代码溯源 | B | 🟠 声明b7cb06a尚无腾讯导出器；需补实际脚本指纹/工作区状态/发布SHA |
+| 腾讯/东财一致性文字 | B | 🟠 顶层/脚本/README已更正，仅manifest的stocks[0..2].source仍有旧句 |
+| manifest导出代码溯源 | B，C复核 | ✅ 已补base HEAD、dirty状态、生成脚本指纹与发布提交；C核对实际blob一致 |
 | 来源采用与最终SHA | D | ⏳ 当前仍cc57482；确认腾讯作为最终数据并验包/集成 |
 | 真实页面、AI、CI | A/D | ⏳ 按PR #10关口收尾；C本轮不代签 |
 | 最终C结论 | C | ⏳ 等元信息修正与D最终版本，按[验收清单](C_V2_FINAL_ACCEPTANCE_READY_20260917.md)复验 |
 
-- [最新B回复处理报告](C_V2_B_TENCENT_REVIEW_20260917.md) / [新证据摘要](evidence/c-tencent-20260917/summary.json)
+- [最新B74c更正复核](C_V2_B74C_CORRECTION_REVIEW_20260917.md) / [本轮证据](evidence/c-b74c-20260917/summary.json)
+- [前轮B新包处理报告](C_V2_B_TENCENT_REVIEW_20260917.md) / [新证据摘要](evidence/c-tencent-20260917/summary.json)
 - [D cc57482前轮523 tests及阶段检查](C_V2_D_PLAN_ALIGNMENT_20260916.md) / [原B9a1与A定向复核](C_V2_FOLLOWUP_REVIEW_20260916.md)
 - 当前D完整SHA：`cc574827c6c08d2336336a48d9f7a09e9582c60a`；新包完整SHA：`dedad60977511aae8237fc4bb84e7a5321490df1`。测试数按各自版本记录，不相加。
 

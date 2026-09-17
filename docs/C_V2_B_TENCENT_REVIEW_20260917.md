@@ -1,5 +1,7 @@
 # C 对 B 新回复、V1迁移和腾讯数据包的复核（2026-09-17）
 
+> **后续更新：** B74c溯源和迁移补证已通过；精度说明仅剩manifest逐股source三处残留。见[最新更正复核](C_V2_B74C_CORRECTION_REVIEW_20260917.md)。本文保留前轮SHA和当时发现。
+
 对应 [B PR #10 迁移回复](https://github.com/27ye/ai-quant-platform/pull/10#issuecomment-5706633319)、[B Issue #11 新包回复](https://github.com/27ye/ai-quant-platform/issues/11#issuecomment-5706826461)。
 
 **结论：新腾讯包的字节校验、raw/normalized一致性、C九组离线回测及当前D候选的九组HTTP/MySQL技术预验通过。最终验收仍待B更正导出代码溯源与跨来源一致性描述、D确认采用腾讯来源并冻结最终SHA。** 未把“备选数据包可计算”写成东财实时链路通过。

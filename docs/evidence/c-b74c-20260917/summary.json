@@ -1,0 +1,30 @@
+{
+  "status": "provenance_and_migration_corrections_verified_three_stock_source_notes_pending",
+  "B_SHA": "74c74fb3370555aaf94d02bdbb0547c70ffe8b00",
+  "D_candidate_SHA": "cc574827c6c08d2336336a48d9f7a09e9582c60a",
+  "evidence": {
+    "audit.json": {
+      "source_report_sha256": "2cd3476eda9b1f03e17b82665cd76aba7f56d5d76ab298b26acdde4eeca6bf1e",
+      "published_sha256": "574213a5d02af42baff3595921fcf9a79930be2d9b84496775a2b8c6af6b3fa1"
+    },
+    "checks.json": {
+      "source_report_sha256": "7501f1b41ab92355c147a2ec7bf029a7dae0ce2fc690b208e79aee31e0220050",
+      "published_sha256": "46f7cba410a9ddb2d5b8e124d88823dc383ad322e3df02ec122499c13d62577e"
+    },
+    "migration.json": {
+      "source_report_sha256": "fd193c965fa4818aa3b65d33a2c80a6fef4e7fa4ac011e8c31294ddea4d34fba",
+      "published_sha256": "ac196ccd859837d821c679ac194412f54633fa9cafb16f20f07e856ede69e425"
+    }
+  },
+  "six_market_files_unchanged": true,
+  "production_code_unchanged": true,
+  "nine_case_results_reused_with_original_version_scope": true,
+  "not_claimed": [
+    "Independent live regeneration of package by C",
+    "Final D source approval or final SHA sign-off"
+  ],
+  "remaining": [
+    "MANIFEST stocks[0..2].source still claims exact Eastmoney parity",
+    "D source decision, final combination and project acceptance gates"
+  ]
+}
