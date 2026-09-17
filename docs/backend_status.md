@@ -79,8 +79,8 @@ items = service.get_news(
 
 1. ~~待评审 / 合并~~ → 契约问题按 `docs/V2_B_DATA_CONTRACT.md` §8 定稿；目录完整性口径维持 **≥1000 行**（C 已确认不再作为修复阻塞）。**集成状态必须分开看**：B 的早期提交（到 `e4ef000` 为止，含 v8 中断恢复 `ab774a6`）已在 PR #10 的 `b480014` 树里；**但之后的 6 个提交（`b7cb06a`、`dedad60`、`5404c25`、`74c74fb`、`d63aaa0`、`821f322`）尚未合入**，其中包括本轮交付的数据包与其生成脚本。见 PR #10 的说明。
 2. ~~等 C1 定稿~~ → C1 已定稿。**2026-09-17 按 C 复核更正本节**（原写预热为 `max(ma_trend_period, ma_long_period+1)`，并称"C 已复验"——两处都不准确）：
-   - **参数约束**：单字段 `2 ≤ period ≤ 120` 由 B 侧 `schemas/backtest.py` 强制；跨字段 **`2 ≤ short < long ≤ 120` 属 C1 口径、由 C 侧校验**，B 不重复实现。
-   - **V2 预热口径**：C 只使用「V2 开始日**前**最后 **`long`** 条有效日线」，即 `warmup_required_days()` 返回 `config.ma_long_period`——`long=120`、单日窗口时**正好 120 条，不是 121**（与 `quant/strategy.py:18` 的 `len(data) >= ma_long_period` 一致）。B 按此补取，并**分开传递预热区间与回测区间**。
+   - **参数约束**：单字段 `2 ≤ period ≤ 120` 由 B 侧 `schemas/backtest.py` 强制；跨字段 `2 ≤ short < long` **B 侧同样强制**——`resolve_effective_parameters()` 对 `ma_short_period >= ma_long_period` 抛 `InvalidParameterError`（`backtest_service.py:125-128`）。C 侧另行校验完整契约。（更正：本节初版曾写"B 树内没有该检查"，那是我用**过窄的搜索式**没命中就下的结论，实际存在。）
+   - **V2 预热口径**：C 只使用「V2 开始日**前**最后 **`long`** 条有效日线」，即 `warmup_required_days()` 返回 `config.ma_long_period`——`long=120`、单日窗口时**正好 120 条，不是 121**（与 `quant/strategy.py:18` 的 `len(data) >= ma_long_period` 一致）。**数据传递形式**：B 传**一份完整 frame（预热 + 回测区间）加 `start_date`/`end_date`**，由 C 自行选择窗口；**不是**两份分开的行情列表（更正：初版"分开传递预热区间与回测区间"的措辞会被误读为两份列表）。
    - `max(ma_trend_period, ma_long_period+1)` 是 **V1 legacy** 路径的口径（`quant/pipeline.py:23`、`quant/backtest.py:20`），**不适用于 `v2_windowed`**。
    - 交付包另要求覆盖 **≥120 条**（`DELIVERY_WARMUP_MIN_BARS = 120`），那是**数据包覆盖要求**，不用来给每个请求做门禁。
 3. ~~等 D1 定稿~~ → AI 快照列已作为 **v5** 并入同一迁移序列（D 分支的独立重写被取代）。
