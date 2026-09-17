@@ -301,7 +301,7 @@ POST /api/v1/backtests
 - **字段值显式 `null` 也一律 `40001`**：五个白名单字段中任一字段显式传 `null`（如 `{"ma_long_period": null}`）都在**取数前**拒绝，且不产生记录——只有**省略该字段**才使用默认值。此前 Schema 的 `provided_overrides()` 会丢掉 `None`，导致显式 `null` 被当成省略并成功落库，已修正。
 - **C 侧校验异常按真实类别映射，不吞服务器错误**：C 的 `BacktestParameterError`（参数不合法、窗口超五年、日期格式等）→ `40001`；C 的 `InsufficientDataError`（窗口内无行情、预热不足）→ `40003`；**其余异常保持 `500`**，不伪装成用户参数错误。
 - 响应在 V1 字段之外新增：`backtest_id`、`semantics_version`、`effective_parameters`、`warmup_start_date`、`warmup_rows`、`data_meta`（含请求/实际区间、参与计算行数 `rows`/`rows_in_window`、**B 的 `frame_digest`**、**C 的 `c_data_hash`**、`warmup_required_days`、`delivery_warmup_min_bars`、`window_owner`）、`snapshot_status`。
-  - `frame_digest`（B：交给 C 的那份数据帧的摘要）与 `c_data_hash`（C：其自身结果的哈希）**分别记录、互不替代**；此前 data_meta 把 B 的帧摘要命名为 `data_hash`，与该口径冲突，已改名。
+  - `frame_digest`（B：交给 C 的那份数据帧的摘要）与 `c_data_hash`（C：**其输入快照的哈希**，不是对 C 结果的哈希）**分别记录、互不替代**；此前 data_meta 把 B 的帧摘要命名为 `data_hash`，与该口径冲突，已改名。
 - `equity_curve` 固定为 `[{ "trade_date": "YYYY-MM-DD", "equity": 100000.0 }]`，不使用 `value/date/nav` 字段。
 - `equity` 表示**账户绝对权益**，默认从 `initial_cash=100000.0` 起；归一化净值 = `equity / initial_cash`，累计收益率 = `equity / initial_cash - 1`。
 - 响应同时返回 `stock_code`、`initial_cash`、`final_equity`、`total_return`。计算由 C 的量化模块提供，B 仅在 FastAPI 层包装并保存快照。

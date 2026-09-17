@@ -166,9 +166,17 @@ def _migration_v8(connection: Connection) -> None:
     every one of 1439 numeric leaves. ``LONGTEXT`` keeps the exact bytes and the API
     parses it back into the same object shape.
 
-    Rows written before this step are backfilled from the JSON column; those values
-    were already normalised by MySQL, so they are carried over as they are rather
-    than being "corrected" from an approximation.
+    Both halves are re-runnable **independently**: MySQL commits ``ALTER TABLE``
+    implicitly, so a crash between the ``ALTER`` and the backfill leaves the column
+    present while the version row is still unwritten. The step is re-run in that
+    state, and skipping the backfill merely because the column exists would strand
+    every legacy row with an empty text column forever. The ``c_result_text IS NULL``
+    guard also means rows B wrote itself (whose legacy ``c_result`` is NULL) are never
+    rewritten, so their exact text is preserved.
+
+    Rows written before v8 are backfilled from the JSON column; those values were
+    already normalised by MySQL, so they are carried over as they are rather than
+    being "corrected" from an approximation.
     """
     columns = {column["name"] for column in inspect(connection).get_columns("backtest_result")}
     if "c_result_text" not in columns:

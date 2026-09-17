@@ -626,8 +626,10 @@ class BacktestService:
             "rows": len(rows),
             "rows_in_window": len(window_rows),
             # B's digest of the exact frame handed to C. Deliberately NOT called
-            # ``data_hash``: C's own ``data_hash`` covers C's result, and the two
-            # are recorded separately and never substituted for each other.
+            # ``data_hash``: C's own ``data_hash`` is the SHA-256 of C's *input
+            # snapshot* (``snapshot["sha256"]`` in C's windowed entry), not a hash
+            # of C's result, and the two are recorded separately and never
+            # substituted for each other.
             "frame_digest": frame_digest(rows),
             "c_data_hash": c_result.get("data_hash"),
             "computed_start_date": _iso(result.get("start_date")),

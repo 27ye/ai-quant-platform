@@ -136,7 +136,7 @@ V1 只写了摘要指标，未保存曲线。**V2 起**同一次计算会把摘�
 
 > **为什么 v8 要把封套改成文本**：MySQL 的 JSON 列会把数值叶子归一化到约 15 位有效数字（实测 `99633.35582084299` 回读为 `99633.355820843`，C 在九组记录上量到 1439 处 1 ULP 差异）。`LONGTEXT` 保存 B 写出的确切字节，API 读回时解析为对象，前端结构不变；详情用 `c_result_exact` 区分「来自文本列」与「v8 之前由 JSON 列保存」。
 
-> **口径分离**：`data_meta.frame_digest` 是 B 交给 C 的那份数据帧的摘要，`c_result.data_hash`（平铺为 `c_data_hash`）是 C 自身结果的哈希，两者分别记录、互不替代。
+> **口径分离**：`data_meta.frame_digest` 是 B 交给 C 的那份数据帧的摘要，`c_result.data_hash`（平铺为 `c_data_hash`）是 **C 的输入快照哈希**（C 侧 `snapshot["sha256"]`，不是对 C 结果的哈希），两者分别记录、互不替代。
 
 ## 7. ai_analysis
 

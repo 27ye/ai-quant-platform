@@ -6,3 +6,12 @@
 # (C caught exactly this on the first delivery: the committed blobs hashed to
 # 4142a248... while the published value for 600519 normalized is 75caedb8...).
 *.json -text
+
+# Because the bytes are frozen with CRLF, `git diff --check` used to report ~63.7k
+# "trailing whitespace" findings on this directory alone - one per evidence line -
+# which buries the one or two *real* whitespace problems in a branch diff. The
+# `whitespace` attribute is scoped to these paths only: it tells git that a CR at
+# end of line is part of the terminator (`cr-at-eol`) instead of trailing
+# whitespace, while every other check stays on. It affects no file's bytes, so the
+# published SHA-256 values above are untouched.
+*.json whitespace=cr-at-eol
