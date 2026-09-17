@@ -55,12 +55,18 @@ V1 真实基线
 
 | 阶段 | 断言 |
 | --- | --- |
-| 步骤 1..7 之后 | `c_result` 存在、**`c_result_text` 尚不存在**（v8 确实还没跑） |
+| 基线 | 六张 V1 表；`backtest_result` **15 列** / `ai_analysis` **13 列**，不含任何 V2 列；**不含** `stock_catalog_sync` / `stock_daily_sync`；版本 1 |
+| 步骤 1..7 之后 | `c_result` 存在、**`c_result_text` 尚不存在**（v8 确实还没跑）；**v2 步骤建出 `stock_catalog_sync`、v3 步骤建出 `stock_daily_sync`**（逐步断言，非事后推断） |
 | 中断态 | 列已存在、`schema_version` **仍为 7**、旧行文本仍为 NULL |
 | 恢复 | `apply_migrations` 返回 8、版本记 8、`c_result_text` 为 **longtext**、旧行已回填 |
-| 数据保全 | V1 的 `backtest_result` / `ai_analysis` 行**逐字段不变**；V1 行从未被回填触碰 |
+| 数据保全 | V1 两行**全部 V1 列**逐一比对不变（15 列 + 13 列，非选列）；V1 行从未被回填触碰 |
 | 契约读回 | V1 行 `c_result_available=false`；pre-v8 行 `available=true` / `exact=false`，封套可读 |
-| 收敛 | 再跑 2 次迁移，行与版本完全不变 |
+| 收敛 | 再跑 2 次迁移：`backtest_result` / `ai_analysis` **全表所有列所有行**不变，`schema_version` **每一行的 `version` 与 `applied_at`** 均不变 |
+
+> 关于上面的范围，按 C 的复核（`5706925540`）做过修正：本脚本最初的版本只比对**选定的几列**行值、
+> 版本只看 `MAX(version)`，文档却写成「逐字段」「版本完全不变」——那是**说过头了**。现已把脚本
+> 加强到全列/全行/含 `applied_at` 的比对，文档与脚本一致。C 另外独立断言了 v2/v3 在其步骤前
+> **不存在**、之后创建，以及全部 V1 原列与版本记录的比较；那些结论属 **C 的实测**，不并入本报告。
 
 回填值即 MySQL 归一化后的 JSON（`99633.35582084299` → `99633.355820843`），旧行保持诚实的
 `exact=false`——与 v8 的设计一致，不做「从近似值反推精确值」的伪造。
@@ -74,8 +80,10 @@ V1 行数据存活。这样即使没有 MySQL 和 git，CI 也会守住「ALTER 
 
 ## 已知限制（如实标注）
 
-- 探针库的步骤 1（`_migration_v1` = `Base.metadata.create_all(checkfirst=True)`）会顺带创建
-  当前元数据里的 `stock_catalog_sync` / `stock_daily_sync`，因此 **v2 / v3 的原始 DDL 未被单独走到**。
-  这是既有设计（收敛式迁移）的结果，不影响 V1→v8 的结论，但不宣称覆盖 v2/v3 的 DDL 路径。
-- 本证据是**迁移链路**专项，不是新数据包验收，也不替代 C 的 9 组 API 复验或 D 的浏览器端到端。
-- 未生成新真实数据包（上游数据源间歇性封锁中），600519 `2026-09-15` 旧包差异仍待新包关闭。
+- ~~探针库的步骤 1 会顺带创建 `stock_catalog_sync` / `stock_daily_sync`，因此 v2/v3 的原始 DDL
+  未被单独走到。~~ **此条已删除——它本身就是错的**（C 在 `5706925540` 指出）：本脚本先用
+  V1 自己的方式把版本写成 1，`advance_to` 因此**跳过 step 1**，v2/v3 的原始 DDL 是**真的执行了**。
+  现已补上逐步断言（v2 后 `stock_catalog_sync` 存在、v3 后 `stock_daily_sync` 存在），
+  基线也断言这两张表**尚不存在**。该错误只影响本报告的表述，不影响当时的实测结论。
+- 本证据是**迁移链路**专项，不是数据包验收，也不替代 C 的 9 组 API 复验或 D 的浏览器端到端。
+- 数据包已另行产出（见 `docs/evidence/c-delivery-20260917/`，来源为 tencent，非东财）。

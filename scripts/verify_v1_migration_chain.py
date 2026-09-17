@@ -153,8 +153,12 @@ def build_v1_base(tag: str) -> Any:
     return V1Base
 
 
-def create_v1_database(engine: Engine, tag: str) -> Set[str]:
-    """Reproduce what V1's own ``apply_migrations`` did: create_all + version 1."""
+def create_v1_database(engine: Engine, tag: str) -> Tuple[Set[str], Dict[str, List[str]]]:
+    """Reproduce what V1's own ``apply_migrations`` did: create_all + version 1.
+
+    Returns the V1 table set **and** each V1 table's real column list, so the caller can
+    compare whole rows instead of a hand-picked subset (C, 5706925540).
+    """
     v1_base = build_v1_base(tag)
     v1_base.metadata.create_all(bind=engine, checkfirst=True)
     with engine.begin() as connection:
@@ -166,7 +170,11 @@ def create_v1_database(engine: Engine, tag: str) -> Set[str]:
             )
         )
         connection.execute(text("INSERT INTO schema_version (version) VALUES (1)"))
-    return set(v1_base.metadata.tables)
+    columns = {
+        name: [column.name for column in table.columns]
+        for name, table in v1_base.metadata.tables.items()
+    }
+    return set(v1_base.metadata.tables), columns
 
 
 # --------------------------------------------------------------------------- #
@@ -201,8 +209,13 @@ def columns_of(engine: Engine, table: str) -> Dict[str, str]:
     return {c["name"]: str(c["type"]).lower() for c in inspect(engine).get_columns(table)}
 
 
-def advance_to(engine: Engine, target: int) -> int:
-    """Apply the real steps 1..target, recording each version like the entry point."""
+def advance_to(engine: Engine, target: int, on_step=None) -> int:
+    """Apply the real steps 1..target, recording each version like the entry point.
+
+    ``on_step`` (if given) runs as ``on_step(version)`` **after** that step committed, so
+    the caller can assert per-step artifacts - e.g. that v2/v3 created their own tables
+    rather than inheriting them from somewhere else.
+    """
     current = get_schema_version(engine)
     for version, step in migrations.MIGRATIONS:
         if version > target or version <= current:
@@ -212,7 +225,35 @@ def advance_to(engine: Engine, target: int) -> int:
             connection.execute(
                 text("INSERT INTO schema_version (version) VALUES (:v)"), {"v": version}
             )
+        if on_step is not None:
+            on_step(version)
     return get_schema_version(engine)
+
+
+def read_v1_row(engine: Engine, table: str, columns: Sequence[str], row_id: int) -> Dict[str, str]:
+    """Read **every** V1 column of one row, not a hand-picked subset (C, 5706925540)."""
+    names = ", ".join(f"`{name}`" for name in columns)
+    with engine.connect() as connection:
+        row = connection.execute(
+            text(f"SELECT {names} FROM {table} WHERE id = :i"), {"i": row_id}
+        ).one()
+    return {name: str(value) for name, value in zip(columns, row)}
+
+
+def read_schema_versions(engine: Engine) -> List[Tuple[str, str]]:
+    """The whole ``schema_version`` table, including each row's ``applied_at``."""
+    with engine.connect() as connection:
+        rows = connection.execute(
+            text("SELECT version, applied_at FROM schema_version ORDER BY version")
+        ).all()
+    return [(str(row[0]), str(row[1])) for row in rows]
+
+
+def snapshot_table(engine: Engine, table: str) -> List[Tuple[str, ...]]:
+    """Every column of every row, so 'unchanged' means the whole table."""
+    with engine.connect() as connection:
+        rows = connection.execute(text(f"SELECT * FROM {table} ORDER BY id")).all()
+    return [tuple(str(value) for value in row) for row in rows]
 
 
 # --------------------------------------------------------------------------- #
@@ -234,8 +275,14 @@ def main() -> int:
     print(f"1. Rebuild a faithful V1 database from tag {args.tag}")
     print("=" * 78)
     engine = recreate_probe_db(args.database)
-    v1_tables = create_v1_database(engine, args.tag)
+    v1_tables, v1_columns = create_v1_database(engine, args.tag)
     check("V1 created exactly the six V1 tables", v1_tables == V1_TABLES, str(sorted(v1_tables)))
+    v2_tables = {"stock_catalog_sync", "stock_daily_sync"}
+    check(
+        "V1 baseline does NOT yet have the V2 tables",
+        not (v2_tables & set(inspect(engine).get_table_names())),
+        "so v2/v3 have to create them themselves",
+    )
 
     bt_before = columns_of(engine, "backtest_result")
     ai_before = columns_of(engine, "ai_analysis")
@@ -275,24 +322,30 @@ def main() -> int:
                 "VALUES ('600519', 72, 'bullish', 'V1 report body', NOW())"
             )
         )
-    with engine.connect() as connection:
-        v1_row = connection.execute(
-            text(
-                "SELECT stock_code, strategy_name, initial_cash, total_return, "
-                "max_drawdown, trade_count FROM backtest_result WHERE id = 1"
-            )
-        ).one()
-        ai_row = connection.execute(
-            text("SELECT stock_code, quant_score, trend, summary FROM ai_analysis WHERE id = 1")
-        ).one()
-    check("V1 backtest row seeded", v1_row[1] == "v1_ma", str(tuple(v1_row)))
-    check("V1 AI row seeded", ai_row[1] == 72, str(tuple(ai_row)))
+    # Whole V1 rows, so "unchanged" covers every V1 column rather than a chosen few.
+    v1_bt_before = read_v1_row(engine, "backtest_result", v1_columns["backtest_result"], 1)
+    v1_ai_before = read_v1_row(engine, "ai_analysis", v1_columns["ai_analysis"], 1)
+    check("V1 backtest row seeded", v1_bt_before["strategy_name"] == "v1_ma",
+          f"{len(v1_bt_before)} V1 columns")
+    check("V1 AI row seeded", v1_ai_before["quant_score"] == "72",
+          f"{len(v1_ai_before)} V1 columns")
 
     print()
     print("=" * 78)
     print("3. Run the real steps 1..7 (stop where v8 begins)")
     print("=" * 78)
-    check("advanced to 7", advance_to(engine, 7) == 7)
+    per_step: List[Tuple[str, bool]] = []
+
+    def after_step(version: int) -> None:
+        tables = set(inspect(engine).get_table_names())
+        if version == 2:
+            per_step.append(("v2 step created stock_catalog_sync", "stock_catalog_sync" in tables))
+        elif version == 3:
+            per_step.append(("v3 step created stock_daily_sync", "stock_daily_sync" in tables))
+
+    check("advanced to 7", advance_to(engine, 7, on_step=after_step) == 7)
+    for label, ok in per_step:
+        check(label, ok)
     bt_at_7 = columns_of(engine, "backtest_result")
     check("v4/v6/v7 columns now exist", V2_ADDED_BACKTEST_COLUMNS - {"c_result_text"} <= set(bt_at_7),
           f"{len(bt_at_7)} columns")
@@ -353,22 +406,22 @@ def main() -> int:
     print("=" * 78)
     print("6. V1 data survived the whole chain, unchanged")
     print("=" * 78)
+    v1_bt_after = read_v1_row(engine, "backtest_result", v1_columns["backtest_result"], 1)
+    v1_ai_after = read_v1_row(engine, "ai_analysis", v1_columns["ai_analysis"], 1)
     with engine.connect() as connection:
-        v1_after = connection.execute(
-            text(
-                "SELECT stock_code, strategy_name, initial_cash, total_return, "
-                "max_drawdown, trade_count FROM backtest_result WHERE id = 1"
-            )
-        ).one()
-        ai_after = connection.execute(
-            text("SELECT stock_code, quant_score, trend, summary FROM ai_analysis WHERE id = 1")
-        ).one()
         v1_still_no_c_result = connection.execute(
             text("SELECT (c_result IS NULL AND c_result_text IS NULL) FROM backtest_result WHERE id = 1")
         ).scalar()
-    check("V1 backtest row byte-identical", tuple(v1_after) == tuple(v1_row), str(tuple(v1_after)))
-    check("V1 AI row byte-identical", tuple(ai_row) == tuple(ai_after) or tuple(ai_after) == tuple(ai_row),
-          str(tuple(ai_after)))
+    check(
+        "every V1 column of the backtest row is unchanged",
+        v1_bt_before == v1_bt_after,
+        f"{len(v1_bt_before)} columns compared",
+    )
+    check(
+        "every V1 column of the AI row is unchanged",
+        v1_ai_before == v1_ai_after,
+        f"{len(v1_ai_before)} columns compared",
+    )
     check("V1 row was never touched by the backfill", bool(v1_still_no_c_result))
 
     print()
@@ -391,17 +444,29 @@ def main() -> int:
     print("=" * 78)
     print("8. Re-running the whole migration is a no-op")
     print("=" * 78)
-    with engine.connect() as connection:
-        snapshot_before = connection.execute(
-            text("SELECT id, c_result_text FROM backtest_result ORDER BY id")
-        ).all()
+    versions_before = read_schema_versions(engine)
+    backtest_before = snapshot_table(engine, "backtest_result")
+    ai_before = snapshot_table(engine, "ai_analysis")
     for _ in range(2):
         apply_migrations(engine)
-    with engine.connect() as connection:
-        snapshot_after = connection.execute(
-            text("SELECT id, c_result_text FROM backtest_result ORDER BY id")
-        ).all()
-    check("rows unchanged by 2 more passes", snapshot_before == snapshot_after)
+    versions_after = read_schema_versions(engine)
+    backtest_after = snapshot_table(engine, "backtest_result")
+    ai_after = snapshot_table(engine, "ai_analysis")
+    check(
+        "every column of every backtest_result row is unchanged",
+        backtest_before == backtest_after,
+        f"{len(backtest_before)} rows x all columns",
+    )
+    check(
+        "every column of every ai_analysis row is unchanged",
+        ai_before == ai_after,
+        f"{len(ai_before)} rows x all columns",
+    )
+    check(
+        "schema_version rows unchanged, applied_at included",
+        versions_before == versions_after,
+        f"{len(versions_before)} version rows compared",
+    )
     check("version still 8", get_schema_version(engine) == 8)
 
     print()

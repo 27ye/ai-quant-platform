@@ -2,6 +2,7 @@
 1. Rebuild a faithful V1 database from tag v1-frozen-package-r2
 ==============================================================================
   [PASS] V1 created exactly the six V1 tables :: ['ai_analysis', 'backtest_result', 'stock_basic', 'stock_daily', 'stock_indicator', 'stock_news']
+  [PASS] V1 baseline does NOT yet have the V2 tables :: so v2/v3 have to create them themselves
   [PASS] baseline has NO V2 columns on backtest_result :: 15 V1 columns
   [PASS] baseline has NO V2 columns on ai_analysis :: 13 V1 columns
   [PASS] baseline version is 1
@@ -10,13 +11,15 @@
 ==============================================================================
 2. Seed genuine V1 rows (V1 column set only)
 ==============================================================================
-  [PASS] V1 backtest row seeded :: ('600519', 'v1_ma', Decimal('100000.00'), Decimal('0.12345678'), Decimal('-0.04567890'), 17)
-  [PASS] V1 AI row seeded :: ('600519', 72, 'bullish', 'V1 report body')
+  [PASS] V1 backtest row seeded :: 15 V1 columns
+  [PASS] V1 AI row seeded :: 13 V1 columns
 
 ==============================================================================
 3. Run the real steps 1..7 (stop where v8 begins)
 ==============================================================================
   [PASS] advanced to 7
+  [PASS] v2 step created stock_catalog_sync
+  [PASS] v3 step created stock_daily_sync
   [PASS] v4/v6/v7 columns now exist :: 28 columns
   [PASS] v5 columns now exist on ai_analysis
   [PASS] c_result_text does NOT exist yet
@@ -42,8 +45,8 @@
 ==============================================================================
 6. V1 data survived the whole chain, unchanged
 ==============================================================================
-  [PASS] V1 backtest row byte-identical :: ('600519', 'v1_ma', Decimal('100000.00'), Decimal('0.12345678'), Decimal('-0.04567890'), 17)
-  [PASS] V1 AI row byte-identical :: ('600519', 72, 'bullish', 'V1 report body')
+  [PASS] every V1 column of the backtest row is unchanged :: 15 columns compared
+  [PASS] every V1 column of the AI row is unchanged :: 13 columns compared
   [PASS] V1 row was never touched by the backfill
 
 ==============================================================================
@@ -57,7 +60,9 @@
 ==============================================================================
 8. Re-running the whole migration is a no-op
 ==============================================================================
-  [PASS] rows unchanged by 2 more passes
+  [PASS] every column of every backtest_result row is unchanged :: 2 rows x all columns
+  [PASS] every column of every ai_analysis row is unchanged :: 1 rows x all columns
+  [PASS] schema_version rows unchanged, applied_at included :: 8 version rows compared
   [PASS] version still 8
 
 ==============================================================================
