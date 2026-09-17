@@ -1,0 +1,46 @@
+{
+  "tested_SHA": "4a7402a35ec1a42a3a6964d9f351395d19315188",
+  "scope": "Deterministic calendar unit probe; not live AKShare/V8, browser, or MySQL evidence",
+  "tests": [
+    {
+      "name": "eight_default_instances_share_one_fetch",
+      "passed": true,
+      "fetch_calls": 1
+    },
+    {
+      "name": "default_return_copy_does_not_mutate_shared_cache",
+      "passed": true
+    },
+    {
+      "name": "default_refresh_reloads_shared_cache",
+      "passed": true,
+      "total_fetch_calls": 2
+    },
+    {
+      "name": "injected_fetch_isolated_and_refreshable",
+      "passed": true
+    },
+    {
+      "name": "failed_initial_fetch_can_retry",
+      "passed": true
+    },
+    {
+      "name": "static_trade_dates_refresh_backward_compatibility",
+      "passed": false,
+      "comparison": {
+        "846c1cc_before": {
+          "ok": true,
+          "loader_calls": 1
+        },
+        "4a7402a_after": {
+          "ok": false,
+          "error": "TypeError",
+          "message": "'NoneType' object is not callable",
+          "loader_calls": 0
+        }
+      }
+    }
+  ],
+  "passed": 5,
+  "failed": 1
+}
