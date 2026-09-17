@@ -364,8 +364,6 @@ export interface BacktestDataMeta {
   window_owner?: string
   frame_digest?: string | null
   c_data_hash?: string | null
-  /** C 输入快照（sha256 为展示用哈希；缺省时回退展示 c_data_hash） */
-  input_snapshot?: { sha256?: string | null; rows?: number } | null
 }
 
 /** GET /backtests/{id} 详情：回放保存时快照，GET 不取数不重算 */
@@ -387,8 +385,25 @@ export interface BacktestDetail extends BacktestSummary {
   /** snapshot_status=missing 时附原因 */
   snapshot_missing_reason?: string | null
   c_result_available?: boolean
+  /** v8 无损文本列保存为 true；v8 前 JSON 列旧记录为 false（数值经 MySQL 归一化） */
+  c_result_exact?: boolean
   c_algorithm_version?: string | null
-  c_execution_assumptions?: string | null
+  /** C 自身结果的哈希；详情默认平铺返回，与 data_meta.c_data_hash 同源 */
+  c_data_hash?: string | null
+  /** C 记录的初始权益锚点（首日） */
+  c_initial_equity?: {
+    trade_date: string
+    equity: number
+    valuation: number
+  } | null
+  /** C 实际采用的预热窗口 */
+  c_warmup?: {
+    start_date: string
+    end_date: string
+    required_rows: number
+    used_rows: number
+  } | null
+  c_execution_assumptions?: Record<string, string | boolean> | null
   c_semantics_version?: string | null
   input_snapshot_available?: boolean
   input_snapshot_rows?: number

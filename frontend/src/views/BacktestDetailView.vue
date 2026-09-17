@@ -131,11 +131,8 @@ const metaRows = computed(() => {
     rows.push({ label: '预热天数', value: `${meta.warmup_required_days} 天` })
   }
   rows.push({ label: '数据帧摘要', value: short(meta.frame_digest) })
-  // C 复核口径：该哈希语义是「C 输入快照」的 sha256，不是结果哈希
-  rows.push({
-    label: 'C 输入快照哈希',
-    value: short(meta.input_snapshot?.sha256 ?? meta.c_data_hash),
-  })
+  // 哈希统一读 data_meta.c_data_hash：C 自身结果的哈希（与 B 的 frame_digest 分开）
+  rows.push({ label: 'C 结果哈希', value: short(meta.c_data_hash) })
   return rows
 })
 
