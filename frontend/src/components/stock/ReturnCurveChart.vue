@@ -130,8 +130,8 @@ onMounted(() => {
 })
 
 watch(series, render)
-// 主题切换：重建 option 应用新调色板
-watch(() => theme.theme, render)
+// 主题/强调色切换：重建 option 应用新调色板
+watch(() => [theme.theme, theme.accent], render)
 
 onBeforeUnmount(() => {
   chart?.dispose()

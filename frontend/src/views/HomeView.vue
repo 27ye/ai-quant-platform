@@ -194,11 +194,17 @@ onBeforeUnmount(() => {
 
 h1 {
   margin: 0 0 10px;
-  font-size: clamp(32px, 5vw, 44px);
+  font-family: var(--font-brand);
+  font-size: clamp(36px, 5.5vw, 50px);
   font-weight: 700;
   line-height: 1.15;
-  color: var(--text-main);
-  letter-spacing: 0.01em;
+  letter-spacing: 0.015em;
+  /* 品牌名跟随主题色：accent → accent-hover 斜向渐变文字 */
+  background: linear-gradient(120deg, var(--accent) 20%, var(--accent-hover) 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
 .subtitle {

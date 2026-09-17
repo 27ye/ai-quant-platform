@@ -13,7 +13,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 
 import type { IndicatorsItem, KlineItem } from '../../types/api'
 import { useThemeStore } from '../../stores/theme'
-import { chartPalette } from '../../utils/chartTheme'
+import { chartPalette, hexToRgba } from '../../utils/chartTheme'
 
 echarts.use([
   CandlestickChart,
@@ -109,7 +109,12 @@ function buildOption(items: KlineItem[]): echarts.EChartsCoreOption {
       : undefined,
     tooltip: {
       trigger: 'axis',
-      axisPointer: { type: 'cross', label: { backgroundColor: pal.surfaceHover } },
+      axisPointer: {
+        type: 'cross',
+        label: { backgroundColor: pal.accent },
+        lineStyle: { color: hexToRgba(pal.accent, 0.55), width: 1 },
+        crossStyle: { color: hexToRgba(pal.accent, 0.55), width: 1 },
+      },
       backgroundColor: pal.surface,
       borderColor: pal.borderStrong,
       borderWidth: 1,
@@ -178,7 +183,28 @@ function buildOption(items: KlineItem[]): echarts.EChartsCoreOption {
     ],
     dataZoom: [
       { type: 'inside', xAxisIndex: [0, 1, 2], start: 55, end: 100 },
-      { type: 'slider', xAxisIndex: [0, 1, 2], start: 55, end: 100, bottom: 4, height: 16 },
+      {
+        type: 'slider',
+        xAxisIndex: [0, 1, 2],
+        start: 55,
+        end: 100,
+        bottom: 4,
+        height: 16,
+        borderColor: 'transparent',
+        backgroundColor: 'transparent',
+        fillerColor: hexToRgba(pal.accent, 0.14),
+        handleStyle: { color: pal.accent },
+        moveHandleStyle: { color: pal.accent },
+        dataBackground: {
+          lineStyle: { color: pal.borderStrong },
+          areaStyle: { color: pal.borderStrong, opacity: 0.25 },
+        },
+        selectedDataBackground: {
+          lineStyle: { color: pal.accent },
+          areaStyle: { color: hexToRgba(pal.accent, 0.16) },
+        },
+        textStyle: { color: pal.textFaint },
+      },
     ],
     series: [
       {
@@ -262,8 +288,8 @@ onMounted(() => {
 })
 
 watch(() => [props.items, props.indicators], render)
-// 主题切换：重建 option 应用新调色板
-watch(() => theme.theme, render)
+// 主题/强调色切换：重建 option 应用新调色板
+watch(() => [theme.theme, theme.accent], render)
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resize)
