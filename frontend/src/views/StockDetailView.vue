@@ -3,19 +3,16 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { fetchDataStatus, fetchIndicators, fetchKline, fetchScore } from '../api/stocks'
-import { fetchNews } from '../api/news'
 import type {
   DataStatus,
   IndicatorsItem,
   KlineItem,
-  NewsItem,
   ScoreData,
 } from '../types/api'
 import KlineChart from '../components/stock/KlineChart.vue'
 import AIReportCard from '../components/ai/AIReportCard.vue'
 import ScoreCard from '../components/stock/ScoreCard.vue'
 import BacktestPanel from '../components/stock/BacktestPanel.vue'
-import NewsList from '../components/stock/NewsList.vue'
 import DataStatusBadge from '../components/stock/DataStatusBadge.vue'
 import { useAppContext } from '../stores/appContext'
 import { useHealthStore } from '../stores/health'
@@ -23,17 +20,18 @@ import { useHealthStore } from '../stores/health'
 const router = useRouter()
 const health = useHealthStore()
 const appContext = useAppContext()
-const stockCode = computed(() => String(router.currentRoute.value.params.code ?? ''))
+// / 路由没有 :code 参数，回退到最近访问的股票（冻结演示默认 600519）
+const stockCode = computed(
+  () => String(router.currentRoute.value.params.code ?? '') || appContext.stockCode,
+)
 
 const kline = ref<KlineItem[]>([])
 const indicators = ref<IndicatorsItem[]>([])
 const score = ref<ScoreData | null>(null)
-const news = ref<NewsItem[]>([])
 const dataStatus = ref<DataStatus | null>(null)
 const loading = ref(false)
 const loaded = ref(false)
 const scoreLoading = ref(true)
-const newsLoading = ref(true)
 
 // Epoch 机制：切换股票时递增，过期响应直接丢弃
 const epoch = ref(0)
@@ -68,10 +66,8 @@ async function load() {
   kline.value = []
   indicators.value = []
   score.value = null
-  news.value = []
   dataStatus.value = null
   scoreLoading.value = true
-  newsLoading.value = true
 
   try {
     const klineRes = await fetchKline(stockCode.value)
@@ -98,15 +94,6 @@ async function load() {
     .catch(() => undefined)
     .finally(() => {
       if (epoch.value === currentEpoch) scoreLoading.value = false
-    })
-  fetchNews(stockCode.value)
-    .then((res) => {
-      if (epoch.value !== currentEpoch) return
-      news.value = res.data
-    })
-    .catch(() => undefined)
-    .finally(() => {
-      if (epoch.value === currentEpoch) newsLoading.value = false
     })
   // 数据状态徽标：非关键路径，失败静默不展示
   fetchDataStatus(stockCode.value)
@@ -160,16 +147,8 @@ onMounted(() => health.refresh())
       </div>
     </div>
 
-    <!-- 底部：回测 + 新闻（两列）；回测面板自包含数据逻辑（v1 快速 + v2 参数化表单） -->
-    <div class="bottom-grid">
-      <BacktestPanel :stock-code="stockCode" />
-
-      <!-- 新闻：加载完成后始终展示模块，空数组时组件内部显示「暂无新闻」 -->
-      <NewsList v-if="!newsLoading" :items="news" />
-      <el-card v-else shadow="never" class="skeleton-card">
-        <el-skeleton :rows="4" animated />
-      </el-card>
-    </div>
+    <!-- 底部：回测面板（自包含数据逻辑：v1 快速 + v2 参数化表单）；新闻已拆到独立页 /stock/:code/news -->
+    <BacktestPanel :stock-code="stockCode" />
   </main>
 </template>
 
@@ -281,19 +260,8 @@ onMounted(() => health.refresh())
   min-width: 0;
 }
 
-/* 底部网格：回测 + 新闻两列 */
-.bottom-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-
 @media (max-width: 880px) {
   .main-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .bottom-grid {
     grid-template-columns: 1fr;
   }
 }

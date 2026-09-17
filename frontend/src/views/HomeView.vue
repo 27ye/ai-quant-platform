@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import type { KlineItem } from '../types/api'
 import { mockKline } from '../mocks/stock'
-import ThemeToggle from '../components/layout/ThemeToggle.vue'
-import { useAppContext } from '../stores/appContext'
+import SearchBox from '../components/layout/SearchBox.vue'
+import { useThemeStore } from '../stores/theme'
+import { chartPalette, hexToRgba } from '../utils/chartTheme'
 import * as echarts from 'echarts/core'
 import { CandlestickChart } from 'echarts/charts'
 import { GridComponent } from 'echarts/components'
@@ -13,14 +13,32 @@ import { CanvasRenderer } from 'echarts/renderers'
 
 echarts.use([CandlestickChart, GridComponent, CanvasRenderer])
 
-const router = useRouter()
-const appContext = useAppContext()
+const theme = useThemeStore()
 const bgRef = ref<HTMLDivElement>()
 let chart: echarts.ECharts | null = null
 
-// 直接进入工作台（跟随最近访问的股票，V1 默认 600519）
-function enter() {
-  router.push(`/stock/${appContext.stockCode}`)
+// 背景蜡烛颜色随主题适配：亮色主题降低透明度，避免被白色遮罩压得失真
+function candleColors() {
+  const p = chartPalette()
+  const alpha = theme.isDark ? 0.8 : 0.5
+  return { up: hexToRgba(p.up, alpha), down: hexToRgba(p.down, alpha) }
+}
+
+function applyColors() {
+  if (!chart) return
+  const c = candleColors()
+  chart.setOption({
+    series: [
+      {
+        itemStyle: {
+          color: c.up,
+          color0: c.down,
+          borderColor: c.up,
+          borderColor0: c.down,
+        },
+      },
+    ],
+  })
 }
 
 function initBg() {
@@ -38,20 +56,10 @@ function initBg() {
     grid: { left: 0, right: 0, top: 0, bottom: 0 },
     xAxis: { type: 'category', show: false, boundaryGap: false },
     yAxis: { type: 'value', show: false, scale: true },
-    series: [
-      {
-        type: 'candlestick',
-        data,
-        itemStyle: {
-          color: '#ef4444',
-          color0: '#10b981',
-          borderColor: '#ef4444',
-          borderColor0: '#10b981',
-        },
-      },
-    ],
+    series: [{ type: 'candlestick', data }],
     animation: false,
   })
+  applyColors()
 }
 
 function resize() {
@@ -61,6 +69,8 @@ function resize() {
 onMounted(() => {
   initBg()
   window.addEventListener('resize', resize)
+  // 主题切换后 CSS 变量变化，需重建蜡烛配色
+  watch(() => theme.theme, applyColors)
 })
 
 onBeforeUnmount(() => {
@@ -77,23 +87,16 @@ onBeforeUnmount(() => {
     </div>
     <div class="bg-overlay"></div>
 
-    <!-- 首页无外壳，主题切换浮动在右上角 -->
-    <div class="home-toggle">
-      <ThemeToggle />
-    </div>
-
     <!-- 居中内容 -->
     <div class="center">
       <h1>DeepInSight</h1>
-      <p class="subtitle">真实行情 · 技术指标 · 量化评分 · 策略回测 · AI 报告</p>
-      <p class="v1-badge">V1 冻结数据演示 · 仅 600519 贵州茅台 · 样本区间 2025-01-02 ~ 2026-08-31</p>
+      <p class="subtitle">行情回放 · 技术指标 · 量化评分 · 策略回测 · AI 报告</p>
+      <p class="scope-note">冻结样本演示 · 仅 600519 贵州茅台 · 样本区间 2025-01-02 ~ 2026-08-31</p>
 
-      <button type="button" class="entry-btn" @click="enter">
-        进入工作台
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M5 12h14" /><path d="m13 6 6 6-6 6" />
-        </svg>
-      </button>
+      <!-- 大号搜索框：输入即联想，点击结果直达工作台 -->
+      <div class="hero-search">
+        <SearchBox />
+      </div>
     </div>
   </main>
 </template>
@@ -104,7 +107,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
+  /* 在工作台外壳内容区内铺满一屏（扣除顶栏高度） */
+  min-height: calc(100vh - var(--header-height));
   overflow: hidden;
 }
 
@@ -157,7 +161,6 @@ onBeforeUnmount(() => {
       rgba(59, 130, 246, 0.04) 0%,
       transparent 50%
     );
-  backdrop-filter: blur(4px);
 }
 
 [data-theme='light'] .bg-overlay {
@@ -179,13 +182,6 @@ onBeforeUnmount(() => {
       rgba(37, 99, 235, 0.04) 0%,
       transparent 50%
     );
-}
-
-.home-toggle {
-  position: absolute;
-  top: 16px;
-  right: 20px;
-  z-index: 3;
 }
 
 /* 居中内容 */
@@ -212,58 +208,37 @@ h1 {
   letter-spacing: 0.06em;
 }
 
-/* V1 冻结演示范围标注 */
-.v1-badge {
+/* 演示范围说明：降级为小字灰调，不抢主 CTA 视觉权重 */
+.scope-note {
   margin: 0 0 28px;
-  padding: 6px 14px;
-  display: inline-block;
-  background: var(--warn-bg);
-  border: 1px solid var(--warn);
-  border-radius: 999px;
-  color: var(--warn);
+  color: var(--text-faint);
   font-size: 12px;
   letter-spacing: 0.04em;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
-/* 进入工作台入口按钮 */
-.entry-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 44px;
-  padding: 0 28px;
-  border: none;
-  border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 15px;
-  font-weight: 600;
-  font-family: inherit;
-  letter-spacing: 0.04em;
-  cursor: pointer;
+/* hero 搜索框：比顶栏更大更醒目，浮在背景上带柔和阴影；聚焦时accent描边 + 柔光圈 */
+.hero-search {
+  width: min(420px, 100%);
+  margin: 0 auto;
+}
+
+.hero-search :deep(.el-input__wrapper) {
+  height: 46px;
+  border-radius: 10px;
+  background: var(--surface);
+  border-color: var(--border-strong);
   box-shadow: var(--shadow-md);
-  transition:
-    background 0.15s ease,
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
 }
 
-.entry-btn:hover {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-lg);
+.hero-search :deep(.el-input__inner) {
+  font-size: 14px;
 }
 
-.entry-btn:active {
-  transform: translateY(0);
-}
-
-.entry-btn svg {
-  transition: transform 0.15s ease;
-}
-
-.entry-btn:hover svg {
-  transform: translateX(3px);
+.hero-search :deep(.el-input__wrapper.is-focus) {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 3px var(--accent-bg),
+    var(--shadow-md);
 }
 </style>

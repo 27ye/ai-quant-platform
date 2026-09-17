@@ -1,6 +1,5 @@
 <script setup lang="ts">
-// 内页布局壳：左侧栏（导航 + 后端状态）+ 顶栏（搜索 + 主题切换）+ 内容区
-// 首页走全屏无壳布局（App.vue 按路由分流）
+// 内页布局壳：左侧栏（导航 + 后端状态）+ 顶栏（搜索 + 主题切换）+ 内容区，全站统一（含 /home 品牌首页）
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -17,12 +16,19 @@ const health = useHealthStore()
 const navItems = computed(() => {
   const code = appContext.stockCode
   return [
-    { label: '首页', to: '/', match: (p: string) => p === '/', icon: 'home' },
+    { label: '首页', to: '/home', match: (p: string) => p === '/home', icon: 'home' },
     {
       label: '工作台',
       to: `/stock/${code}`,
-      match: (p: string) => /^\/stock\/[^/]+$/.test(p),
+      // / 也直接渲染工作台（无 :code 时回退最近访问股票），一并高亮
+      match: (p: string) => p === '/' || /^\/stock\/[^/]+$/.test(p),
       icon: 'chart',
+    },
+    {
+      label: '新闻资讯',
+      to: `/stock/${code}/news`,
+      match: (p: string) => /\/stock\/[^/]+\/news$/.test(p),
+      icon: 'news',
     },
     {
       label: '回测历史',
@@ -46,7 +52,7 @@ const currentPath = computed(() => route.path)
   <div class="shell">
     <!-- 左侧栏 -->
     <aside class="sidebar">
-      <router-link to="/" class="brand">
+      <router-link to="/home" class="brand">
         <span class="brand-mark" aria-hidden="true"></span>
         <span class="brand-name">DeepInSight</span>
       </router-link>
@@ -64,6 +70,9 @@ const currentPath = computed(() => route.path)
           </svg>
           <svg v-else-if="item.icon === 'chart'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 3v18h18" /><path d="m7 14 4-4 3 3 5-6" />
+          </svg>
+          <svg v-else-if="item.icon === 'news'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 5h13v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5z" /><path d="M17 9h3v9a2 2 0 0 1-2 2" /><path d="M8 9h5M8 13h5M8 17h3" />
           </svg>
           <svg v-else-if="item.icon === 'history'" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 12a9 9 0 1 0 2.6-6.4" /><path d="M3 4v5h5" /><path d="M12 7v5l3 3" />
