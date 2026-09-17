@@ -430,3 +430,139 @@ def test_persist_failure_is_recorded_as_a_failure_not_a_success(tmp_path, monkey
     assert entry["status"] == "export_failed"
     assert "mysql is down" in entry["error"]
     assert (entry["readback"] or {}).get("ok") is False
+
+
+# -- delivery-only fallback source (when eastmoney's kline endpoint is down) ---
+
+
+class _FakeResponse:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return self._payload
+
+
+def _tencent_payload(symbol, rows):
+    return {"code": 0, "data": {symbol: {"qfqday": rows, "version": "1"}}}
+
+
+def test_tencent_symbol_mapping_covers_every_market():
+    assert mod._tencent_symbol("600519") == "sh600519"
+    assert mod._tencent_symbol("000001") == "sz000001"
+    assert mod._tencent_symbol("300750") == "sz300750"
+    assert mod._tencent_symbol("430047") == "bj430047"
+    with pytest.raises(mod.BatchError):
+        mod._tencent_symbol("999999")
+
+
+def test_tencent_row_order_is_close_before_high_low():
+    """The feed is ``[date, open, close, high, low, volume]`` - not OHLC.
+
+    Reading it as OHLC would silently swap close with high and produce a frame whose
+    high/low do not bracket the close, so this pins the mapping.
+    """
+    row = mod.TencentQfqSource._parse_row(
+        STOCK, ["2026-09-16", "1273.930", "1258.000", "1274.980", "1254.100", "26235.000"]
+    )
+
+    assert row["open"] == 1273.93
+    assert row["close"] == 1258.0
+    assert row["high"] == 1274.98
+    assert row["low"] == 1254.10
+    assert row["volume"] == 26235  # already lots (手), same unit as eastmoney
+    assert row["high"] >= max(row["open"], row["close"])
+    assert row["low"] <= min(row["open"], row["close"])
+
+
+def test_tencent_fallback_trims_the_lookback_and_derives_change_pct(monkeypatch):
+    import requests
+
+    rows = [
+        ["2024-11-28", "1400.000", "1410.000", "1412.000", "1398.000", "20000.000"],
+        ["2024-11-29", "1410.000", "1420.000", "1422.000", "1408.000", "21000.000"],
+        ["2024-12-02", "1422.537", "1421.537", "1426.527", "1411.637", "26820.000"],
+        ["2024-12-03", "1421.000", "1430.000", "1432.000", "1420.000", "22000.000"],
+    ]
+    seen = {}
+
+    def fake_get(url, timeout=None):
+        seen["url"] = url
+        return _FakeResponse(_tencent_payload("sh600519", rows))
+
+    monkeypatch.setattr(requests, "get", fake_get)
+
+    out = mod.TencentQfqSource().get_daily_kline(STOCK, date(2024, 12, 1), date(2024, 12, 3))
+
+    # The two lookback rows are dropped, but they were used for the first change_pct.
+    assert [str(row.trade_date) for row in out] == ["2024-12-02", "2024-12-03"]
+    assert out[0].change_pct is not None
+    assert out[0].change_pct == pytest.approx((1421.537 - 1420.0) / 1420.0)
+    assert out[1].change_pct == pytest.approx((1430.0 - 1421.537) / 1421.537)
+
+    # Fields this endpoint does not publish stay absent rather than being invented.
+    assert out[0].amount is None
+    assert out[0].turnover_rate is None
+
+    # The request must cover the lookback window and ask for qfq rows.
+    assert "sh600519" in seen["url"]
+    assert "qfq" in seen["url"]
+    assert "2024-11-16" in seen["url"]
+    assert "2024-12-03" in seen["url"]
+
+
+def test_tencent_fallback_raises_when_the_vendor_returns_nothing(monkeypatch):
+    import requests
+
+    monkeypatch.setattr(
+        requests, "get", lambda url, timeout=None: _FakeResponse(_tencent_payload("sh600519", []))
+    )
+
+    with pytest.raises(mod.BatchError):
+        mod.TencentQfqSource().get_daily_kline(STOCK, date(2024, 12, 1), date(2024, 12, 3))
+
+
+def test_fallback_provenance_is_recorded_and_the_app_provider_is_not_relabelled():
+    class _AppProvider:
+        """Stands in for StockService, which has no ``note`` attribute."""
+
+        def get_daily_kline(self, code, start, end):  # pragma: no cover - unused here
+            raise AssertionError("not called")
+
+    assert mod.source_note(_AppProvider()) == mod.SOURCE_NOTE
+    assert mod.source_note(mod.TencentQfqSource()) == mod.TENCENT_SOURCE_NOTE
+    # The fallback must be advertised as such, not passed off as the app's provider.
+    assert "DELIVERY FALLBACK ONLY" in mod.TENCENT_SOURCE_NOTE
+    assert "amount/turnover_rate" in mod.TENCENT_SOURCE_NOTE
+
+
+def test_fetch_stock_batch_stamps_the_fallback_source_on_the_frozen_batch():
+    class _Provider:
+        note = mod.TENCENT_SOURCE_NOTE
+
+        def get_daily_kline(self, code, start, end):
+            return [
+                DailyKlineSchema(
+                    stock_code=code,
+                    trade_date=date(2026, 9, 15),
+                    open=1.0,
+                    high=1.1,
+                    low=0.9,
+                    close=1.05,
+                    volume=10,
+                )
+            ]
+
+    batch = mod.fetch_stock_batch(
+        _Provider(),
+        stock_code=STOCK,
+        start_date=date(2026, 9, 1),
+        end_date=date(2026, 9, 15),
+        now=lambda: datetime(2026, 9, 16, tzinfo=timezone.utc),
+    )
+
+    assert batch.source == mod.TENCENT_SOURCE_NOTE
+    assert batch.ok
