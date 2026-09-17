@@ -1,5 +1,7 @@
 # C 对 B74c 更正回复的复核（2026-09-17）
 
+> 后续状态：三处逐股 source 已在 B821 关闭；集成缺口及新文档协调见 [B821 复核](C_V2_B821_INTEGRATION_REVIEW_20260917.md)。下文保留 B74c 当时证据范围。
+
 对应 [B 更正回复](https://github.com/27ye/ai-quant-platform/issues/11#issuecomment-5707050712)。完整被测 SHA：**`74c74fb3370555aaf94d02bdbb0547c70ffe8b00`**。
 
 **结论：本批生成代码溯源更正已接受，V1迁移脚本强化复验通过；跨来源精度说明主要位置已改，manifest仍漏3个逐股source字段。无需因此重新导出6份行情或重复跑九组计算；D可继续做来源决策。最终签字未发。**

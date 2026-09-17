@@ -1,39 +1,39 @@
 # C 项目进度看板
 
-更新：2026-09-17，新腾讯包复核后。正式分支：`feature/v2-c-backtest-params`；[PR #10](https://github.com/27ye/ai-quant-platform/pull/10)为唯一最终集成，[PR #12](https://github.com/27ye/ai-quant-platform/pull/12)保留C来源/审阅。
+更新：2026-09-17，B821 / D b480014 复核。正式分支 `feature/v2-c-backtest-params`；[PR #10](https://github.com/27ye/ai-quant-platform/pull/10) 为唯一最终集成，[PR #12](https://github.com/27ye/ai-quant-platform/pull/12) 保留 C 来源/审阅。
 
-**当前：B腾讯新包已交付，C三股九组离线及D cc57482候选的HTTP/MySQL技术预验通过。B溯源与迁移补证已通过，精度说明仅剩逐股source三处残留；待D确认腾讯来源并给最终SHA，C再最终签字。**
+**当前：B 三处来源残留已关闭，六份数据文件不变；D 尚缺六个 B 提交及 C 新批次验收工具。按 B 转达的 D 腾讯采用决定推进，等待集成与最终 SHA，C 再复验签字。**
 
 ```mermaid
 flowchart LR
-    B["B 腾讯新包 dedad609<br/>6文件hash通过"] --> C["C候选技术预验通过<br/>离线9组 · HTTP/MySQL9组"]
-    D["D当前候选 cc57482"] --> C
-    C --> M["B仅剩3处逐股<br/>source说明待同步"]
-    M --> F["D确认数据来源<br/>冻结最终SHA"]
-    F --> S["C最终复验/签字<br/>待完成"]
+    B["B821 新包/来源更正完成"] --> D["D 补入六个 B 提交<br/>及 C 新批次验收工具"]
+    C["既有候选九组技术预验通过"] --> D
+    D --> F["冻结最终 SHA + 数据批次"]
+    F --> S["C 最终九组复验与签字"]
     classDef done fill:#dafbe1,stroke:#1a7f37,color:#1f2328
     classDef pending fill:#fff8c5,stroke:#9a6700,color:#1f2328
-    class B,C,D done
-    class M,F,S pending
+    class B,C done
+    class D,F,S pending
 ```
 
 | 事项 | 负责人 | 最新状态 / 证据 |
 |---|---|---|
-| C量化核心 | C | ✅ 保持92df017，算法未改；验收脚本b2c372e支持显式新批次文件名，21项测试通过 |
-| B新包与测试 | B，C复核 | ✅ B74c本轮369 tests；6数据文件不变，原包内一致性与九组结论保持原范围 |
-| 600519的9/15差异 | B/C | ✅ 新包raw/normalized为1272.75/13762；旧包仍保留原差异证据 |
-| V1真实表结构→v8 | B/C | ✅ D候选前轮通过；本轮B74c强化脚本在独立MySQL8.0.31上35项PASS |
-| 新包三股九组 | C | ✅ 离线回放与候选HTTP/真实MySQL完整对象/类型精确一致，每组283点；不是最终签字 |
-| 腾讯/东财一致性文字 | B | 🟠 顶层/脚本/README已更正，仅manifest的stocks[0..2].source仍有旧句 |
-| manifest导出代码溯源 | B，C复核 | ✅ 已补base HEAD、dirty状态、生成脚本指纹与发布提交；C核对实际blob一致 |
-| 来源采用与最终SHA | D | ⏳ 当前仍cc57482；确认腾讯作为最终数据并验包/集成 |
-| 真实页面、AI、CI | A/D | ⏳ 按PR #10关口收尾；C本轮不代签 |
-| 最终C结论 | C | ⏳ 等元信息修正与D最终版本，按[验收清单](C_V2_FINAL_ACCEPTANCE_READY_20260917.md)复验 |
+| C 核心与工具 | C | ✅ 核心92df017未改；b2c372e新批次工具此前21项测试通过 |
+| B 元信息/六数据文件 | B/C | ✅ B821三处source已修正；六文件hash与原交付一致 |
+| B 测试及真实迁移 | B/C | ✅ 此前B74c的369 tests / 35项MySQL PASS保持原范围；本轮文档变化未重复测试 |
+| 候选三股九组 | C | ✅ 此前D cc57482 + 新包direct/POST/重建连接GET通过，每组283点；未给新D头改签 |
+| B 交付合入 | D | ⏳ D b480014尚缺b7cb06a至821f322六提交，新包/导出/迁移证据不在当前树 |
+| C 验收工具集成 | D | ⏳ D脚本尚无--filename-template；需集成b2c372e或明确外部工具SHA |
+| 来源决定与最终SHA | D | ⏳ 按B转达的已采用腾讯推进，请最终说明记录来源决定并公布40位SHA |
+| 交接文档预热规则 | B | 🟠 backend_status.md仍写旧规则；实际代码已按long，文档需同步 |
+| 页面哈希标签 | A/D | 🟠 PR13 d7ba01c仍写“C结果哈希”；保持“C输入快照哈希” |
+| 页面/真实AI/CI | A/D | ⏳ 由对应成员收尾，C本轮不代签 |
+| 最终量化结论 | C | ⏳ 最终SHA + 批次就绪后复验 |
 
-- [最新B74c更正复核](C_V2_B74C_CORRECTION_REVIEW_20260917.md) / [本轮证据](evidence/c-b74c-20260917/summary.json)
-- [前轮B新包处理报告](C_V2_B_TENCENT_REVIEW_20260917.md) / [新证据摘要](evidence/c-tencent-20260917/summary.json)
-- [D cc57482前轮523 tests及阶段检查](C_V2_D_PLAN_ALIGNMENT_20260916.md) / [原B9a1与A定向复核](C_V2_FOLLOWUP_REVIEW_20260916.md)
-- 当前D完整SHA：`cc574827c6c08d2336336a48d9f7a09e9582c60a`；新包完整SHA：`dedad60977511aae8237fc4bb84e7a5321490df1`。测试数按各自版本记录，不相加。
+- [最新 B821 集成复核](C_V2_B821_INTEGRATION_REVIEW_20260917.md) / [证据](evidence/c-b821-20260917/summary.json)
+- [B74c测试/迁移证据](C_V2_B74C_CORRECTION_REVIEW_20260917.md) / [腾讯包候选九组证据](C_V2_B_TENCENT_REVIEW_20260917.md)
+- [最终验收清单](C_V2_FINAL_ACCEPTANCE_READY_20260917.md)
+- D 当前完整 SHA：`b4800149eeaa19037e665e3e40821462a6eabae6`；B：`821f322b988e8c1b1e3b6408185a41403e8b2cf4`。测试数量按各自被测版本记录，不相加。
 
 ## C 后续同步约定
 
