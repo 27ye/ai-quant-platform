@@ -47,6 +47,13 @@ class TradingCalendarProvider:
         self._fetch = fetch
 
     def get_trade_dates(self, refresh: bool = False) -> List[date]:
+        if self._trade_dates is not None and self._fetch is None:
+            if refresh:
+                # Preserve the injected-calendar refresh contract while serializing
+                # its AKShare load with the default provider's cold start.
+                with TradingCalendarProvider._shared_load_lock:
+                    self._trade_dates = self._load_from_akshare()
+            return self._trade_dates
         if self._trade_dates is None and self._fetch is None:
             if refresh or TradingCalendarProvider._shared_trade_dates is None:
                 with TradingCalendarProvider._shared_load_lock:
