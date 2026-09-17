@@ -1,0 +1,13 @@
+{
+  "B_SHA": "ab774a6591f2e9b5b25b2feee733c4c6c83b9be1",
+  "D_SHA": "cc574827c6c08d2336336a48d9f7a09e9582c60a",
+  "migration_v8_ast_equal": false,
+  "B_files_changed": [
+    "backend/app/db/migrations.py",
+    "tests/test_c_result_lossless.py"
+  ],
+  "scope": "v8 function AST comparison only; B new test suite not rerun",
+  "B_migration_file_sha256": "78967499337a5841a82754b862bd17694e52317253828d8fe1c28b3d8c206c84",
+  "migration_v8_executable_ast_equal": true,
+  "difference": "Function docstring only; executable statements are equal. D does not yet contain B ab774a6 as a source merge."
+}

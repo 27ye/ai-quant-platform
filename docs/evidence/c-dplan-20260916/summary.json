@@ -1,0 +1,58 @@
+{
+  "status": "stage_checks_passed_final_acceptance_pending",
+  "combined_sha": "cc574827c6c08d2336336a48d9f7a09e9582c60a",
+  "C_core_sha": "92df017404126e9af920e1ad82e4a136d813f8d1",
+  "source_archive_sha256": "d78817d14d6a3c35d27cc1321f886c0b2090c885a4e23fbdc2c7b6e6d7cce811",
+  "source_receipt_sha256": "bf5217cc1261aeff15d7a458270c4eb117784a8dc3b651e62b8de04fbb872633",
+  "original_source_files": 245,
+  "plan_comment": "https://github.com/27ye/ai-quant-platform/pull/10#issuecomment-5694870966",
+  "sole_final_integration_PR": 10,
+  "C_source_review_PR": 12,
+  "summary": {
+    "pytest_passed": 523,
+    "compatibility_checks_passed": 7,
+    "static_contract_checks_passed": 8,
+    "C_core_files_equal_to_published_git_blobs": 12,
+    "mysql": "8.0.31",
+    "recovered_legacy_records": 9
+  },
+  "evidence": {
+    "checks.json": {
+      "source_report_sha256": "f65665017f603f618eaa63f86fc027dc318f531bdaca1324f5a1bd5f4913fbd1",
+      "published_sha256": "473eee58672164848d1fe1716171eed45eda524b9bc814ea4225019685bcdbb0"
+    },
+    "compatibility.json": {
+      "source_report_sha256": "0814a4c33cb4edeccc92f832f4fec31f87939aabc1c6644285319f1bf2fb4e0a",
+      "published_sha256": "0b11f91558dfe7f359acad676fbb870ef49652f3c8d06135cc17388f0af84e7a"
+    },
+    "migration-recovery.json": {
+      "source_report_sha256": "28b3aa1e5755b0ebd68baf8d41ff4d2f1c40719a838665d74fb9e7257fa3ea17",
+      "published_sha256": "cbdb3d7ecb7ee1f2af11e9374820de9949561a9d1a3a6b5db04e4f66f56e0147"
+    },
+    "http-contract-source.json": {
+      "source_report_sha256": "8e5778e81e7b56dc3a725b40cc5a6a70878982afba02f3d6684b40bca62ea495",
+      "published_sha256": "8e5778e81e7b56dc3a725b40cc5a6a70878982afba02f3d6684b40bca62ea495"
+    },
+    "b-recovery-comparison.json": {
+      "source_report_sha256": "4eb9d66f8f5d07fa121b97f833f7f14da07605fee3186b57e9ff854aadac12b9",
+      "published_sha256": "4eb9d66f8f5d07fa121b97f833f7f14da07605fee3186b57e9ff854aadac12b9"
+    }
+  },
+  "not_claimed": [
+    "Final combined-SHA sign-off",
+    "New independent real-data package acceptance",
+    "New full nine-case POST/GET MySQL matrix on this combined SHA",
+    "V1-to-v8 upgrade in this C run",
+    "Frontend build or browser acceptance in this C run",
+    "Live provider or real LLM in this C run",
+    "Remote deployment or remote CI passed"
+  ],
+  "D_reported_separately": [
+    "Frontend build, MySQL 8.0.41 V1-to-v8, frozen/live 600519 with real LLM, partial browser flows; see PR10 body"
+  ],
+  "next_gates": [
+    "B publishes new independent real data package with manifest/hashes/readback",
+    "D validates package, finishes browser/CI review and publishes final SHA",
+    "C verifies exact final SHA and new package, direct/POST/recreated-engine MySQL GET and V1 baseline"
+  ]
+}
