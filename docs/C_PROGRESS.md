@@ -2,12 +2,12 @@
 
 更新：2026-09-17，C固定批次验收已签字。正式分支`feature/v2-c-backtest-params`；PR #10为唯一最终集成，PR #12/#13/#14保留来源与审阅。
 
-**C结论：`85b7617149fbff67189e52f6527c9921ff09d388` + `c-delivery-20260917`，三股×三参数9/9通过。V2整体仍为Draft，实时链路与A/B复审、用户最终验收未完成。**
+**C结论：`85b7617149fbff67189e52f6527c9921ff09d388` + `c-delivery-20260917`，三股×三参数9/9通过。V2整体仍为Draft，B正式复审已APPROVED；实时链路、A页面复验和用户最终验收仍待完成。**
 
 ```mermaid
 flowchart LR
     I["D85b7617集成及固定数据包"] --> C["C量化9/9通过<br/>542测试 · MySQL精确回读"]
-    C --> R["剩余：实时链路<br/>A/B复审 · 用户最终验收"]
+    C --> R["剩余：实时链路<br/>A页面复验 · 用户最终验收"]
     R --> M["D按门槛决定Ready/合并"]
     classDef done fill:#dafbe1,stroke:#1a7f37,color:#1f2328
     class I,C done
@@ -26,11 +26,16 @@ flowchart LR
 | C输入快照哈希标签 | ✅ D源码已修正；A继续页面验收 |
 | C最终固定批次签字 | ✅ 绑定85b7617与c-delivery-20260917，不等于整体V2通过 |
 | 实时K线/实时AI | ⏳ D报告当前502/50001，恢复后同SHA复验 |
-| A/B复审与用户最终验收 | ⏳ 不由C代签；PR继续Draft，不转Ready、不合并 |
+| B数据/集成正式复审 | ✅ review 5232794359 在85b7617上APPROVED；旧CHANGES_REQUESTED已被新结论取代，不等于整体放行 |
+| A页面复验与用户最终验收 | ⏳ 不由C代签；PR继续Draft，不转Ready、不合并 |
 
 [完整C验收结论](C_V2_FINAL_QUANT_ACCEPTANCE_85B7617_20260917.md) · [证据摘要](evidence/c-final85-20260917/summary.json) · [原D冷启动复核](C_V2_D4A_COLDSTART_REVIEW_20260917.md)
 
 已纳入D两条回复5710957724、5710993739；两者是同一SHA，无需因追加说明重跑同样测试。后续代码/数据变化须按新版本复验；C本轮证据提交可外链引用，无需为合入验收文字反复冻结代码。
+
+### B正式评审状态补记
+
+已核对 [B APPROVED评审](https://github.com/27ye/ai-quant-platform/pull/10#pullrequestreview-5232794359)，其针对85b7617的数据集成/日历修复通过，C固定包签字已另发。B提出三项非阻塞维护建议：刷新快照前会话不能有未提交写入；锁仅进程内有效，扩展多worker需另行设计；逐股锁保留不回收属于明确维护选择。本轮记录这些边界，不修改他人代码，不重跑未变的SHA，不取消实时门禁。[状态证据](evidence/c-final85-20260917/B-review-status.json)。
 
 ## C 后续同步约定
 
