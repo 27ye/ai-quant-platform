@@ -1,43 +1,36 @@
 # C 项目进度看板
 
-更新：2026-09-17，D4a7402a冷启动修复候选复核。正式分支`feature/v2-c-backtest-params`；[PR #10](https://github.com/27ye/ai-quant-platform/pull/10)唯一最终集成，[PR #12](https://github.com/27ye/ai-quant-platform/pull/12)保留C来源/审阅。
+更新：2026-09-17，C固定批次验收已签字。正式分支`feature/v2-c-backtest-params`；PR #10为唯一最终集成，PR #12/#13/#14保留来源与审阅。
 
-**当前：D4a7402a既有525项测试及C/AI7项通过；补充日历检查5通过、1失败（静态注入refresh回归）。B540a00f文字更正关闭，D仍待合入8个B提交和C新批次验收工具；最终签字未完成。**
+**C结论：`85b7617149fbff67189e52f6527c9921ff09d388` + `c-delivery-20260917`，三股×三参数9/9通过。V2整体仍为Draft，实时链路与A/B复审、用户最终验收未完成。**
 
 ```mermaid
 flowchart LR
-    B["B540a00f 数据包及说明就绪"] --> D["D合入B/C交付<br/>处理日历refresh回归"]
-    C["D4a7402a 525测试/兼容7项通过<br/>补充日历5通过1失败"] --> D
-    D --> F["最终SHA + 数据批次<br/>页面与CI证据"]
-    F --> S["C最终九组复验签字"]
+    I["D85b7617集成及固定数据包"] --> C["C量化9/9通过<br/>542测试 · MySQL精确回读"]
+    C --> R["剩余：实时链路<br/>A/B复审 · 用户最终验收"]
+    R --> M["D按门槛决定Ready/合并"]
+    classDef done fill:#dafbe1,stroke:#1a7f37,color:#1f2328
+    class I,C done
 ```
 
-| 事项 | 负责人 | 状态与证据 |
-|---|---|---|
-| C核心 | C | ✅ 12文件逐字节匹配92df017，无算法改动 |
-| D4a7402a既有回归 | C复核 | ✅ 525 tests、compileall、离线C/AI7项通过 |
-| 日历并发与刷新 | D | 🟠 C新增确定性探针5通过1失败：静态trade_dates注入后refresh会TypeError；未证明默认实时路径受影响 |
-| B数据及文档 | B/C | ✅ B540a00f跨字段校验/完整frame说明已修正；不重复导出相同包 |
-| B来源PR | B/D，C已确认依赖 | ✅ PR #14 @540a00f保留来源审阅；缺C V2入口，不作独立V2合并。建议D将B分支集成至PR #10，再统一最终验收 |
-| B交付合入 | D | ⏳ 当前4a7402a仍缺8个B提交，完整合入B540a00f |
-| C验收工具 | D | ⏳ 纳入b2c372e文件名模板支持或明确外部工具SHA |
-| 候选三股九组 | C | ✅ 前轮Dcc57482+腾讯包direct/POST/真实MySQL GET保持原范围，不改签至4a7402a |
-| B迁移证据 | B/C | ✅ 前轮B74c 369 tests/35项MySQL PASS保持原范围 |
-| 页面/真实数据与LLM | A/D | ⏳ D新增实时API/浏览器记录由D负责；C本轮仅离线验证 |
-| 哈希标签 | A/D | 🟠 A PR13 d7ba01c合入时保持“C输入快照哈希” |
-| 远程CI | D | ⏳ 本轮查询0 check-run/0 status，尚无通过证据 |
-| 最终量化结论 | C | ⏳ 最终SHA及批次确定后复验 |
+| 事项 | 当前结论 |
+|---|---|
+| A/B/C来源历史与数据交付 | ✅ 已进入D85b7617；六文件hash通过，新批次工具存在 |
+| C量化核心 | ✅ 12文件与92df017相同，算法未改 |
+| 完整回归 | ✅ C独立542 tests、compileall通过 |
+| 固定窗口九组 | ✅ direct、POST、重建engine/session的MySQL GET完整值/类型一致；3曲线各283点 |
+| 离线与API哈希 | ✅ data_mode明确统一为dataframe后，九组完整对象精确一致 |
+| 历史零重算/AI隔离 | ✅ MySQL历史GET禁止服务解析；另C/D离线兼容7项通过 |
+| 真实V1→v8/中断恢复 | ✅ 本机独立MySQL8.0.31通过，旧列/精确结果文本及重复迁移版本时间保全 |
+| 静态日历refresh回归 | ✅ 6项定向探针全过，关闭原问题 |
+| C输入快照哈希标签 | ✅ D源码已修正；A继续页面验收 |
+| C最终固定批次签字 | ✅ 绑定85b7617与c-delivery-20260917，不等于整体V2通过 |
+| 实时K线/实时AI | ⏳ D报告当前502/50001，恢复后同SHA复验 |
+| A/B复审与用户最终验收 | ⏳ 不由C代签；PR继续Draft，不转Ready、不合并 |
 
-- [最新D冷启动复核](C_V2_D4A_COLDSTART_REVIEW_20260917.md) / [证据摘要](evidence/c-d4a7402-20260917/summary.json)
-- [前轮B集成缺口与关闭记录](C_V2_B821_INTEGRATION_REVIEW_20260917.md) / [原候选九组证据](C_V2_B_TENCENT_REVIEW_20260917.md)
-- [最终验收清单](C_V2_FINAL_ACCEPTANCE_READY_20260917.md)
-- D：`4a7402a35ec1a42a3a6964d9f351395d19315188`；B：`540a00f604044bd046cd3935f4df9d018063b44b`。测试按被测版本记录，不相加。
+[完整C验收结论](C_V2_FINAL_QUANT_ACCEPTANCE_85B7617_20260917.md) · [证据摘要](evidence/c-final85-20260917/summary.json) · [原D冷启动复核](C_V2_D4A_COLDSTART_REVIEW_20260917.md)
 
-### B第二版状态回复的C处理（2026-09-17）
-
-已读 [B最新状态](https://github.com/27ye/ai-quant-platform/issues/11#issuecomment-5710196731)，核对PR #14实际头为540a00f、base为main；该树缺windowed_backtest.py/backtest_config.py，含B适配器及新数据包。[依赖证据](evidence/c-d4a7402-20260917/PR14-dependency-review.json)。C确认PR #14可保留为来源与评审，不要求关闭；建议D将完整B分支合入PR #10集成分支并保留历史，验收后仅从PR #10进入main。C不执行合并、改base或重写他人分支。
-
-B回复中的C84fa85d/D846c1cc是旧时点：此前C已在8778578发布D4a7402a候选复核及日历刷新回归证据。本轮B/D源SHA未再变，无需重复原测试或导出。C仍等待最终组合SHA+固定批次，执行既定九组量化复验；此前真实MySQL证据与本轮离线检查保持各自版本和范围。
+已纳入D两条回复5710957724、5710993739；两者是同一SHA，无需因追加说明重跑同样测试。后续代码/数据变化须按新版本复验；C本轮证据提交可外链引用，无需为合入验收文字反复冻结代码。
 
 ## C 后续同步约定
 
