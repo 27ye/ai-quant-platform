@@ -351,7 +351,7 @@ export interface PaginatedBacktests {
 
 /**
  * 回测详情的数据元信息（B 契约字段；frame_digest 是 B 交给 C 的数据帧摘要，
- * c_data_hash 是 C 自身结果的哈希——两者分开，不可混用）
+ * c_data_hash 是 C 输入快照的 SHA-256——两者分开，不可混用）
  */
 export interface BacktestDataMeta {
   requested_start_date?: string
@@ -388,7 +388,7 @@ export interface BacktestDetail extends BacktestSummary {
   /** v8 无损文本列保存为 true；v8 前 JSON 列旧记录为 false（数值经 MySQL 归一化） */
   c_result_exact?: boolean
   c_algorithm_version?: string | null
-  /** C 自身结果的哈希；详情默认平铺返回，与 data_meta.c_data_hash 同源 */
+  /** C 输入快照的 SHA-256；详情默认平铺返回，与 data_meta.c_data_hash 同源 */
   c_data_hash?: string | null
   /** C 记录的初始权益锚点（首日） */
   c_initial_equity?: {
