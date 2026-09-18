@@ -89,7 +89,7 @@ $env:MYSQL_DATABASE="ai_quant_test"   # 本地验证建议用独立库，不要�
 - **一次取数、两处输出**：同一批 provider 行派生 `*_raw`（原精度）与 `*_normalized`（4/2/6），从根上消除"raw 直连 / normalized 走库内缓存"的双源快照差异。
 - 批次目录**独占**：目标目录已存在且非空会被拒绝，不会就地覆盖上一批的哈希清单。
 - 失败批次只写 `status=failed` 的 manifest、**不落数据文件**；文件名形如 `{code}_qfq_{raw,normalized}_{window}.json`。
-- **`--source tencent` 是交付专用备用来源，不改变应用运行时 Provider**：`StockService` 仍是单厂商（东财 + 同源 `push2delay` 回退），Provider 失败仍如实抛 `50001`。该来源与东财**不是等价替代**——436 个共同交易日中 378/209/327 行（600519/000001/300750）OHLC 原值不同（最大 ~0.004 元），成交量一致、仅 2 位舍入后一致，而交付精度是 4 位；`amount`/`turnover_rate` 该端点不发布（C 侧列为可选），`change_pct` 为派生值。这些都写在 manifest 与批次 README 中。
+- **交付工具与运行时分别溯源**：`--source tencent` 只决定本次导出批次的来源；从 D 的 `0c66c7d` 起，运行时 Provider 也可在东财 K 线瞬时失败后独立请求腾讯 qfq。两者不能相互证明成功；运行时失败仍抛 `50001`。腾讯与东财**不是等价替代**——436 个共同交易日中 378/209/327 行（600519/000001/300750）OHLC 原值不同（最大 ~0.004 元），成交量一致、仅 2 位舍入后一致，而交付精度是 4 位；`amount`/`turnover_rate` 该端点不发布（C 侧列为可选），`change_pct` 为派生值。这些都写在 manifest 与批次 README 中。混源缓存及盘中完整性判据仍按 `V2_B_DATA_CONTRACT.md` §2.1 追踪。
 
 ## 4. 启动与验证
 
