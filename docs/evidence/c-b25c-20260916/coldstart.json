@@ -1,0 +1,204 @@
+{
+  "status": "passed",
+  "B_SHA": "25c11aa7b55d67fa5f77b3c603ca84b5369dc48e",
+  "scope": "Isolated in-memory SQLite, actual FastAPI route/repository/service, synthetic 1000-row catalog; no real provider or MySQL",
+  "cases": [
+    {
+      "case": "never_synced",
+      "passed": true,
+      "http_status": 503,
+      "body": {
+        "code": 50006,
+        "message": "stock catalog not synced",
+        "data": null
+      },
+      "provider_calls_during_get": {
+        "catalog": 0,
+        "search": 0,
+        "kline": 0
+      },
+      "state": null,
+      "retained_local_matches": [],
+      "successful_timestamp_preserved": null
+    },
+    {
+      "case": "first_sync_failed",
+      "passed": true,
+      "http_status": 503,
+      "body": {
+        "code": 50006,
+        "message": "stock catalog not synced",
+        "data": null
+      },
+      "provider_calls_during_get": {
+        "catalog": 0,
+        "search": 0,
+        "kline": 0
+      },
+      "state": {
+        "status": "failed",
+        "row_count": 0,
+        "last_success_at": "None",
+        "last_error": "controlled refresh failure",
+        "is_complete": false
+      },
+      "retained_local_matches": [],
+      "successful_timestamp_preserved": null
+    },
+    {
+      "case": "synced_match",
+      "passed": true,
+      "http_status": 200,
+      "body": {
+        "code": 0,
+        "message": "success",
+        "data": [
+          {
+            "stock_code": "600519",
+            "stock_name": "贵州茅台",
+            "industry": null,
+            "total_market_cap": null,
+            "float_market_cap": null
+          }
+        ]
+      },
+      "provider_calls_during_get": {
+        "catalog": 0,
+        "search": 0,
+        "kline": 0
+      },
+      "state": {
+        "status": "success",
+        "row_count": 1000,
+        "last_success_at": "2026-09-16 08:31:46.013990",
+        "last_error": null,
+        "is_complete": true
+      },
+      "retained_local_matches": [
+        {
+          "stock_code": "600519",
+          "stock_name": "贵州茅台",
+          "industry": null,
+          "total_market_cap": null,
+          "float_market_cap": null
+        }
+      ],
+      "successful_timestamp_preserved": true
+    },
+    {
+      "case": "synced_no_match",
+      "passed": true,
+      "http_status": 200,
+      "body": {
+        "code": 0,
+        "message": "success",
+        "data": []
+      },
+      "provider_calls_during_get": {
+        "catalog": 0,
+        "search": 0,
+        "kline": 0
+      },
+      "state": {
+        "status": "success",
+        "row_count": 1000,
+        "last_success_at": "2026-09-16 08:31:46.053590",
+        "last_error": null,
+        "is_complete": true
+      },
+      "retained_local_matches": [
+        {
+          "stock_code": "600519",
+          "stock_name": "贵州茅台",
+          "industry": null,
+          "total_market_cap": null,
+          "float_market_cap": null
+        }
+      ],
+      "successful_timestamp_preserved": true
+    },
+    {
+      "case": "synced_database_error",
+      "passed": true,
+      "http_status": 500,
+      "body": {
+        "code": 50002,
+        "message": "database error",
+        "data": null
+      },
+      "provider_calls_during_get": {
+        "catalog": 0,
+        "search": 0,
+        "kline": 0
+      },
+      "state": {
+        "status": "success",
+        "row_count": 1000,
+        "last_success_at": "2026-09-16 08:31:46.088916",
+        "last_error": null,
+        "is_complete": true
+      },
+      "retained_local_matches": null,
+      "successful_timestamp_preserved": true
+    },
+    {
+      "case": "empty_keyword",
+      "passed": true,
+      "http_status": 400,
+      "body": {
+        "code": 40001,
+        "message": "invalid parameter",
+        "data": null
+      },
+      "provider_calls_during_get": {
+        "catalog": 0,
+        "search": 0,
+        "kline": 0
+      },
+      "state": null,
+      "retained_local_matches": [],
+      "successful_timestamp_preserved": null
+    },
+    {
+      "case": "previous_success_then_refresh_failed",
+      "passed": true,
+      "http_status": 200,
+      "body": {
+        "code": 0,
+        "message": "success",
+        "data": [
+          {
+            "stock_code": "600519",
+            "stock_name": "贵州茅台",
+            "industry": null,
+            "total_market_cap": null,
+            "float_market_cap": null
+          }
+        ]
+      },
+      "provider_calls_during_get": {
+        "catalog": 0,
+        "search": 0,
+        "kline": 0
+      },
+      "state": {
+        "status": "failed",
+        "row_count": 1000,
+        "last_success_at": "2026-09-16 08:31:46.150864",
+        "last_error": "controlled refresh failure",
+        "is_complete": true
+      },
+      "retained_local_matches": [
+        {
+          "stock_code": "600519",
+          "stock_name": "贵州茅台",
+          "industry": null,
+          "total_market_cap": null,
+          "float_market_cap": null
+        }
+      ],
+      "successful_timestamp_preserved": true
+    }
+  ],
+  "finding": "Previously successful catalog remains searchable after a failed refresh; error and successful timestamp are preserved; 7 API cases pass with zero provider calls during GET."
+}

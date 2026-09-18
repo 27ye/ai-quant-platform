@@ -1,0 +1,30 @@
+{
+  "COMBINED_SHA": "85b7617149fbff67189e52f6527c9921ff09d388",
+  "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+  "C_core_SHA": "92df017404126e9af920e1ad82e4a136d813f8d1",
+  "core_files_exact": {
+    "backtest.py": "56933f9ec8456b0d99221e19df0b9afee96302544bbc557ebfd902b9557a1ef4",
+    "backtest_config.py": "0e2650229797c497e5d3a2c2fad87d26ef9befc9bda7b8ba77766bf599454b93",
+    "config.py": "064d9300c8fb519e1f42b1b4cdaf76cb5a0a5b03e0730744c1ff887619d37fb6",
+    "indicators.py": "261c37216f2ad57c298d171e99b63d70cd2ac8f68935d53d984f208cc821c9fd",
+    "metrics.py": "778a8bba0fd1a1597ce88179b4992e4d3eb747431a98b79746a67ff49ea9388b",
+    "pipeline.py": "16eb006f8b05559643f04bd33822af3af1c6c16222e055f3f38237b05ec467f7",
+    "scoring.py": "da96571755caceb3a0d312276da48610245a7b3d865727fee789d9e9e0f8888f",
+    "serialization.py": "365ba06027b65c8b37cfdd67756a1befda5f3890a009c3b7aba036766f6f108e",
+    "strategy.py": "d475f0a69a71eb06d18cffdd02b8e9569bab174cd40beea03686a3949de5bfdb",
+    "validators.py": "710db6dbd43753efc47ce7060367fdd54b01c5c6665a4d1049affcbde91897df",
+    "windowed_backtest.py": "2c54b1269b3952bc33b288ec097183e8d5ba330b17cb564dc1c289b9ca0536c4",
+    "__init__.py": "68471afb7db565c3608b3d4d5fd545aa2424494178e00fd728c7227ec997fa31"
+  },
+  "scope": "Exact D archive, isolated test configuration; no live provider or real LLM claims",
+  "pytest_exit_code": 0,
+  "pytest_counts": {
+    "tests": 542,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "compileall_exit_code": 0,
+  "compatibility_exit_code": 0,
+  "changed_original_files": []
+}

@@ -1,0 +1,17 @@
+{
+  "B_SHA": "dedad60977511aae8237fc4bb84e7a5321490df1",
+  "pytest_exit": 0,
+  "counts": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "368",
+    "time": "19.220",
+    "timestamp": "2026-09-17T09:06:52.342998+08:00"
+  },
+  "consistency-new_exit": 0,
+  "consistency-old_exit": 1,
+  "compileall_exit": 0,
+  "scope": "Exact B source only; no C overlay; 212 original files unchanged"
+}

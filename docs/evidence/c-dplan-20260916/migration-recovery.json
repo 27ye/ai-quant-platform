@@ -1,0 +1,20 @@
+{
+  "combined_sha": "cc574827c6c08d2336336a48d9f7a09e9582c60a",
+  "status": "passed",
+  "scope": "Real local MySQL; isolated copy of nine v7 rows; interruption recovery, exact text protection and repeat migration. Not V1 upgrade or final data-package acceptance.",
+  "existing_databases_modified": false,
+  "mysql_version": "8.0.31",
+  "interruption": {
+    "column_already_exists": true,
+    "unfilled_legacy_rows": 9,
+    "version_after_failure": 7
+  },
+  "recovered_legacy_rows": 9,
+  "legacy_exact_false_rows": 9,
+  "exact_text_protected": true,
+  "seeded_exact_record_readback_equal": true,
+  "new_exact_flag": true,
+  "repeat_migration_unchanged": true,
+  "original_database_fingerprints_unchanged": true,
+  "harness_sha256": "d42e074be3a40fa1c761fc5c63d84ae1606d846cdc1aae08541251ec9723b26e"
+}

@@ -1,0 +1,42 @@
+{
+  "tested_SHA": "85b7617149fbff67189e52f6527c9921ff09d388",
+  "batch": "c-delivery-20260917",
+  "decision": "PASS: C fixed-batch quantitative acceptance only; overall V2 remains Draft with live-data gates outstanding.",
+  "pytest": 542,
+  "MySQL_version": "8.0.31",
+  "fixed_window": "2025-07-04..2026-08-31",
+  "cases": 9,
+  "curves_per_case": {
+    "equity": 283,
+    "benchmark": 283,
+    "drawdown": 283
+  },
+  "calendar_regression_closed": true,
+  "AI_isolation_scope": "SQLite + synthetic data + fake LLM, 7 checks",
+  "HTTP_transport": "httpx ASGI transport through actual FastAPI routes; no browser or real TCP server restart claimed",
+  "market_input": "Exact normalized fixed package loaded into unique local MySQL database; frozen repository adapter, not runtime Eastmoney/calendar coverage",
+  "original_archive_sha256": "dc5df4ce43775e84e75988edbb9636893be03c2705cec62ecd0aee3381bd2fee",
+  "evidence": {
+    "AI-compatibility.json": {
+      "published_sha256": "172af3e9680781437238d7106ea4536d3c6468312899bae4e99c6ffda369478d"
+    },
+    "calendar-probe.json": {
+      "published_sha256": "ffff647acaf8a394983856b9121be9da07f8525f495f68595cc51d6b1db3c433"
+    },
+    "checks.json": {
+      "published_sha256": "8e4dcb0ba8f169e2980ae5f485468bfc649f31836e30495b1ce2924dc1bf8ac4"
+    },
+    "cross-path-equality.json": {
+      "published_sha256": "f0ea5ad49ecaf34fb5ece09482f56f76a6955112e3dd567493620c77a3044b14"
+    },
+    "mysql-acceptance.json": {
+      "published_sha256": "f89d1c4ee8e9165985275beebffcdcf5be9e8c7e8be3e02517964ec4d4563765"
+    },
+    "offline-summary.json": {
+      "published_sha256": "930806b5a1870854950f157c2b0c5a0e9341f37c98382c9d470df65a31c69fb9"
+    },
+    "package-audit.json": {
+      "published_sha256": "102c14385aa762baa59115d388bc4822202254daf83de8a258000253803a8fe4"
+    }
+  }
+}

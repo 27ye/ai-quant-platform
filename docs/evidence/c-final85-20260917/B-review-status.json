@@ -1,0 +1,13 @@
+{
+  "html_url": "https://github.com/27ye/ai-quant-platform/pull/10#pullrequestreview-5232794359",
+  "state": "APPROVED",
+  "submitted_at": "2026-09-17T08:00:36Z",
+  "commit_id": "85b7617149fbff67189e52f6527c9921ff09d388",
+  "scope": "B data/integration review; not whole V2 release approval",
+  "nonblocking_notes": [
+    "refresh_snapshot rollback requires no pending uncommitted changes in the session",
+    "locks are process-local; current single-worker usage only",
+    "per-stock locks intentionally retained; future maintenance note"
+  ],
+  "C_signoff": "https://github.com/27ye/ai-quant-platform/pull/10#issuecomment-5711094432"
+}

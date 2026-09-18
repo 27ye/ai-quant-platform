@@ -1,0 +1,88 @@
+{
+  "new": {
+    "reports": [
+      {
+        "raw_file": "000001_qfq_raw_20241201_20260916.json",
+        "normalized_file": "000001_qfq_normalized_20241201_20260916.json",
+        "rows": 437,
+        "structural_problems": [],
+        "rounding_only_rows": 437,
+        "materially_different_rows": []
+      },
+      {
+        "raw_file": "300750_qfq_raw_20241201_20260916.json",
+        "normalized_file": "300750_qfq_normalized_20241201_20260916.json",
+        "rows": 437,
+        "structural_problems": [],
+        "rounding_only_rows": 437,
+        "materially_different_rows": []
+      },
+      {
+        "raw_file": "600519_qfq_raw_20241201_20260916.json",
+        "normalized_file": "600519_qfq_normalized_20241201_20260916.json",
+        "rows": 437,
+        "structural_problems": [],
+        "rounding_only_rows": 437,
+        "materially_different_rows": []
+      }
+    ]
+  },
+  "old": {
+    "reports": [
+      {
+        "raw_file": "000001_qfq_raw_20241201_20260915.json",
+        "normalized_file": "000001_qfq_normalized_20241201_20260915.json",
+        "rows": 436,
+        "structural_problems": [],
+        "rounding_only_rows": 436,
+        "materially_different_rows": []
+      },
+      {
+        "raw_file": "300750_qfq_raw_20241201_20260915.json",
+        "normalized_file": "300750_qfq_normalized_20241201_20260915.json",
+        "rows": 436,
+        "structural_problems": [],
+        "rounding_only_rows": 436,
+        "materially_different_rows": []
+      },
+      {
+        "raw_file": "600519_qfq_raw_20241201_20260915.json",
+        "normalized_file": "600519_qfq_normalized_20241201_20260915.json",
+        "rows": 436,
+        "structural_problems": [],
+        "rounding_only_rows": 435,
+        "materially_different_rows": [
+          {
+            "trade_date": "2026-09-15",
+            "fields": {
+              "low": {
+                "expected_from_raw": 1271.28,
+                "normalized": 1273.0
+              },
+              "close": {
+                "expected_from_raw": 1272.75,
+                "normalized": 1278.66
+              },
+              "volume": {
+                "expected_from_raw": 13762,
+                "normalized": 2942
+              },
+              "amount": {
+                "expected_from_raw": 1756915149.0,
+                "normalized": 376338636.0
+              },
+              "turnover_rate": {
+                "expected_from_raw": 0.0011,
+                "normalized": 0.0002
+              },
+              "change_pct": {
+                "expected_from_raw": -0.0041,
+                "normalized": 0.0005
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

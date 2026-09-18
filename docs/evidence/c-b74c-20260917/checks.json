@@ -1,0 +1,10 @@
+{
+  "pytest_exit": 0,
+  "counts": {
+    "tests": 369,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "compileall_exit": 0
+}

@@ -1,0 +1,190 @@
+{
+  "combined_SHA": "cc574827c6c08d2336336a48d9f7a09e9582c60a",
+  "B_data_SHA": "dedad60977511aae8237fc4bb84e7a5321490df1",
+  "V1_SHA": "7157cf6abcdfba010bbbb164a460ccd9463e837f",
+  "status": "passed",
+  "existing_databases_modified": false,
+  "scope": "Provisional Tencent package on current D candidate, not D-approved final SHA. Frozen MySQL repository market adapter; no live provider, calendar completeness, browser or real LLM claims.",
+  "cases": [
+    {
+      "case": "600519-default",
+      "id": 3,
+      "POST_HTTP": 200,
+      "GET_HTTP": 200,
+      "direct_POST_C_fields_exact": true,
+      "effective_parameters_projection_correct": true,
+      "recreated_engine_full_GET_types_exact": true,
+      "c_result_exact": true,
+      "data_hash": "0fa1aa408689f559a12c37afe6c726c01be0e80b3a70d07363c59ec86e465153",
+      "orders": 18,
+      "round_trips": 9,
+      "curve_points": 283,
+      "total_return": -0.10459106827047016
+    },
+    {
+      "case": "600519-ma10-30",
+      "id": 4,
+      "POST_HTTP": 200,
+      "GET_HTTP": 200,
+      "direct_POST_C_fields_exact": true,
+      "effective_parameters_projection_correct": true,
+      "recreated_engine_full_GET_types_exact": true,
+      "c_result_exact": true,
+      "data_hash": "9ab75c3158920dd2fe73b29ada28d367c333c9dde66e26e2025941418bfa989d",
+      "orders": 14,
+      "round_trips": 7,
+      "curve_points": 283,
+      "total_return": -0.20405293792274415
+    },
+    {
+      "case": "600519-ma20-60-cost",
+      "id": 5,
+      "POST_HTTP": 200,
+      "GET_HTTP": 200,
+      "direct_POST_C_fields_exact": true,
+      "effective_parameters_projection_correct": true,
+      "recreated_engine_full_GET_types_exact": true,
+      "c_result_exact": true,
+      "data_hash": "97e7e76a66dadda99ebe307dfb72a6a3c5e39ed81e8c5fa9cb88c20c8c1fb888",
+      "orders": 7,
+      "round_trips": 3,
+      "curve_points": 283,
+      "total_return": -0.12636769778176782
+    },
+    {
+      "case": "000001-default",
+      "id": 6,
+      "POST_HTTP": 200,
+      "GET_HTTP": 200,
+      "direct_POST_C_fields_exact": true,
+      "effective_parameters_projection_correct": true,
+      "recreated_engine_full_GET_types_exact": true,
+      "c_result_exact": true,
+      "data_hash": "6f3b5ec3699fa71c8fef97c5131aea893cc4b1e1ec963b892db5dffb371444d3",
+      "orders": 21,
+      "round_trips": 10,
+      "curve_points": 283,
+      "total_return": -0.04580485242339982
+    },
+    {
+      "case": "000001-ma10-30",
+      "id": 7,
+      "POST_HTTP": 200,
+      "GET_HTTP": 200,
+      "direct_POST_C_fields_exact": true,
+      "effective_parameters_projection_correct": true,
+      "recreated_engine_full_GET_types_exact": true,
+      "c_result_exact": true,
+      "data_hash": "8f00d96ee1e9f6395ab9dcc22e084d98ebf5abe606bdf2ff83bf01f94e00ea73",
+      "orders": 11,
+      "round_trips": 5,
+      "curve_points": 283,
+      "total_return": -0.06214366422597861
+    },
+    {
+      "case": "000001-ma20-60-cost",
+      "id": 8,
+      "POST_HTTP": 200,
+      "GET_HTTP": 200,
+      "direct_POST_C_fields_exact": true,
+      "effective_parameters_projection_correct": true,
+      "recreated_engine_full_GET_types_exact": true,
+      "c_result_exact": true,
+      "data_hash": "51d7fdc9e326a3156b8a78ae7052b5b0cc9781dd322270116ed9f311a289d9e8",
+      "orders": 7,
+      "round_trips": 3,
+      "curve_points": 283,
+      "total_return": -0.03621509425046565
+    },
+    {
+      "case": "300750-default",
+      "id": 9,
+      "POST_HTTP": 200,
+      "GET_HTTP": 200,
+      "direct_POST_C_fields_exact": true,
+      "effective_parameters_projection_correct": true,
+      "recreated_engine_full_GET_types_exact": true,
+      "c_result_exact": true,
+      "data_hash": "fc03a520077a4632c771c767984dbcfff35ceaac8a35d7c10e635940ee0a981a",
+      "orders": 18,
+      "round_trips": 9,
+      "curve_points": 283,
+      "total_return": 0.07544871522253693
+    },
+    {
+      "case": "300750-ma10-30",
+      "id": 10,
+      "POST_HTTP": 200,
+      "GET_HTTP": 200,
+      "direct_POST_C_fields_exact": true,
+      "effective_parameters_projection_correct": true,
+      "recreated_engine_full_GET_types_exact": true,
+      "c_result_exact": true,
+      "data_hash": "409f040e25a58fd8eb610f8af2bad69137b82a32088bb5747045bfdf787205e0",
+      "orders": 12,
+      "round_trips": 6,
+      "curve_points": 283,
+      "total_return": 0.17257031810022228
+    },
+    {
+      "case": "300750-ma20-60-cost",
+      "id": 11,
+      "POST_HTTP": 200,
+      "GET_HTTP": 200,
+      "direct_POST_C_fields_exact": true,
+      "effective_parameters_projection_correct": true,
+      "recreated_engine_full_GET_types_exact": true,
+      "c_result_exact": true,
+      "data_hash": "d74df6e804446ebf97cf34d155893b8abb259dd92faa4cfa524d9c8e1545be5d",
+      "orders": 5,
+      "round_trips": 2,
+      "curve_points": 283,
+      "total_return": 0.25458314506235635
+    }
+  ],
+  "daily_readback": [
+    {
+      "stock_code": "600519",
+      "rows": 437,
+      "values_equal": true,
+      "new_session": true,
+      "null_amount_turnover_preserved": true
+    },
+    {
+      "stock_code": "000001",
+      "rows": 437,
+      "values_equal": true,
+      "new_session": true,
+      "null_amount_turnover_preserved": true
+    },
+    {
+      "stock_code": "300750",
+      "rows": 437,
+      "values_equal": true,
+      "new_session": true,
+      "null_amount_turnover_preserved": true
+    }
+  ],
+  "mysql_version": "8.0.31",
+  "V1_chain": {
+    "baseline_backtest_columns": 15,
+    "baseline_AI_columns": 13,
+    "v2_v3_tables_created_in_own_steps": {
+      "2": true,
+      "3": true
+    },
+    "interruption_version_stayed_7": true,
+    "recovered_to_8": true,
+    "all_original_V1_columns_preserved": true,
+    "V1_no_envelope": true,
+    "pre_v8_exact_false": true
+  },
+  "history_list": {
+    "HTTP": 200,
+    "rows": 11,
+    "history_service_resolution_forbidden": true
+  },
+  "repeat_migration_rows_and_versions_unchanged": true,
+  "completed_cases": 9,
+  "harness_sha256": "d1766245a1b6c20d85101a069eb58b2a750fd58f520b1eea1ecf6ddbb2ab2566"
+}

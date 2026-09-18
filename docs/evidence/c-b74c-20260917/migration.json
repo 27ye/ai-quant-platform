@@ -1,0 +1,10 @@
+{
+  "B_SHA": "74c74fb3370555aaf94d02bdbb0547c70ffe8b00",
+  "status": "passed",
+  "existing_databases_modified": false,
+  "scope": "B revised probe with only Git lookup and fresh-database creation adapters; no DROP executed; migration/assertion logic unchanged",
+  "script_sha256": "98d4d2c392fa357665ee542af37e71038f0ea3bbbf9de8b85d5732b1767efba7",
+  "mysql_version": "8.0.31",
+  "assertions_passed": 35,
+  "failures": []
+}

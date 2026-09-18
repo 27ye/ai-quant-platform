@@ -1,0 +1,197 @@
+{
+  "source_sha": "9a1b9b45235c07b01b0ab30d0fcbb7ad719fea8b",
+  "scope": "production CLI main() and direct export_stock(), fake single-call provider, in-memory SQLite; no .env, credentials, real MySQL or live provider",
+  "note": "Allowlisted summary: full SQL, stdout/stderr, local paths and generated data files omitted",
+  "cases": [
+    {
+      "case": "explicit_complete_valid_control",
+      "passed": true,
+      "run": {
+        "exit_code": 0,
+        "exception": null,
+        "output_directory_exists": true,
+        "sql_count": 76,
+        "provider_calls": 1,
+        "persist_calls": 1,
+        "files": [
+          "600519_qfq_normalized_20260915_20260915.json",
+          "600519_qfq_raw_20260915_20260915.json",
+          "MANIFEST.json"
+        ]
+      },
+      "manifest": {
+        "status": "ok",
+        "last_complete_trading_day": "2026-09-15",
+        "stocks": [
+          {
+            "stock_code": "600519",
+            "status": "ok",
+            "rows_written": 1
+          }
+        ]
+      }
+    },
+    {
+      "case": "required_settled_day_cannot_be_omitted",
+      "passed": true,
+      "run": {
+        "exit_code": 2,
+        "exception": null,
+        "output_directory_exists": false,
+        "sql_count": 0,
+        "provider_calls": 0,
+        "persist_calls": 0,
+        "files": []
+      }
+    },
+    {
+      "case": "direct_export_stock_omitted_bound_refused",
+      "passed": true,
+      "run": {
+        "output_directory_exists": false,
+        "provider_calls": 0,
+        "persist_calls": 0
+      },
+      "manifest_entry": {
+        "stock_code": "600519",
+        "status": "missing_settled_day",
+        "readback": {
+          "ok": false,
+          "reason": "gate rejected the batch"
+        }
+      }
+    },
+    {
+      "case": "existing_batch_refused_without_overwrite",
+      "passed": true,
+      "run": {
+        "exit_code": 2,
+        "exception": null,
+        "output_directory_exists": true,
+        "sql_count": 0,
+        "provider_calls": 0,
+        "persist_calls": 0,
+        "files": [
+          "600519_qfq_normalized_20260915_20260915.json",
+          "600519_qfq_raw_20260915_20260915.json",
+          "MANIFEST.json"
+        ]
+      },
+      "existing_file_hashes_unchanged": true,
+      "file_hashes": {
+        "600519_qfq_normalized_20260915_20260915.json": "d57cde807e080af15cf070c62ddd267ce2dfc0adc6b8e78717b0cdf3129d74ab",
+        "600519_qfq_raw_20260915_20260915.json": "d57cde807e080af15cf070c62ddd267ce2dfc0adc6b8e78717b0cdf3129d74ab",
+        "MANIFEST.json": "2b434c6d8b3a788f747e1b20e4900209109653b7802532c7361eb310073f8811"
+      },
+      "manifest": {
+        "status": "ok",
+        "last_complete_trading_day": "2026-09-15",
+        "stocks": [
+          {
+            "stock_code": "600519",
+            "status": "ok",
+            "rows_written": 1
+          }
+        ]
+      }
+    },
+    {
+      "case": "explicit_request_past_bound_refused",
+      "passed": true,
+      "run": {
+        "exit_code": 2,
+        "exception": null,
+        "output_directory_exists": false,
+        "sql_count": 0,
+        "provider_calls": 0,
+        "persist_calls": 0,
+        "files": []
+      }
+    },
+    {
+      "case": "provider_row_past_bound_refused",
+      "passed": true,
+      "run": {
+        "exit_code": 1,
+        "exception": null,
+        "output_directory_exists": true,
+        "sql_count": 21,
+        "provider_calls": 1,
+        "persist_calls": 0,
+        "files": [
+          "MANIFEST.json"
+        ]
+      },
+      "manifest": {
+        "status": "failed",
+        "last_complete_trading_day": "2026-09-15",
+        "stocks": [
+          {
+            "stock_code": "600519",
+            "status": "beyond_settled_day"
+          }
+        ]
+      }
+    },
+    {
+      "case": "write_failure_has_current_failed_manifest",
+      "passed": true,
+      "run": {
+        "exit_code": 1,
+        "exception": null,
+        "output_directory_exists": true,
+        "sql_count": 21,
+        "provider_calls": 1,
+        "persist_calls": 1,
+        "files": [
+          "600519_qfq_normalized_20260915_20260915.json",
+          "600519_qfq_raw_20260915_20260915.json",
+          "MANIFEST.json"
+        ]
+      },
+      "manifest": {
+        "status": "failed",
+        "last_complete_trading_day": "2026-09-15",
+        "stocks": [
+          {
+            "stock_code": "600519",
+            "status": "export_failed"
+          }
+        ]
+      }
+    },
+    {
+      "case": "failed_batch_retry_refused_without_overwrite",
+      "passed": true,
+      "run": {
+        "exit_code": 2,
+        "exception": null,
+        "output_directory_exists": true,
+        "sql_count": 0,
+        "provider_calls": 0,
+        "persist_calls": 0,
+        "files": [
+          "600519_qfq_normalized_20260915_20260915.json",
+          "600519_qfq_raw_20260915_20260915.json",
+          "MANIFEST.json"
+        ]
+      },
+      "existing_file_hashes_unchanged": true,
+      "file_hashes": {
+        "600519_qfq_normalized_20260915_20260915.json": "d57cde807e080af15cf070c62ddd267ce2dfc0adc6b8e78717b0cdf3129d74ab",
+        "600519_qfq_raw_20260915_20260915.json": "d57cde807e080af15cf070c62ddd267ce2dfc0adc6b8e78717b0cdf3129d74ab",
+        "MANIFEST.json": "5c7717a7a5bac03ac8571ac4964e3af031f0ff53a28b45974ebd80ce5cd60523"
+      },
+      "manifest": {
+        "status": "failed",
+        "last_complete_trading_day": "2026-09-15",
+        "stocks": [
+          {
+            "stock_code": "600519",
+            "status": "export_failed"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "source_sha": "2871253240edb3d0ecc8ade946a754b2326a9274",
+  "scope": "production CLI main(), fake single-call provider, in-memory SQLite only; no .env, credentials, real MySQL or live provider",
+  "cases": [
+    {
+      "case": "same_batch_id_and_directory_overwrite_prior_artifacts",
+      "first": {
+        "exit_code": 0,
+        "exception": null,
+        "provider_calls": 1
+      },
+      "second": {
+        "exit_code": 0,
+        "exception": null,
+        "provider_calls": 1
+      },
+      "raw_hash_before": "d57cde807e080af15cf070c62ddd267ce2dfc0adc6b8e78717b0cdf3129d74ab",
+      "raw_hash_after": "43480d5219d3177d0de3d1cfff6ee0bdd8b5ff80703a3f4aacf8f27057d798d5",
+      "old_artifact_overwritten": true
+    },
+    {
+      "case": "write_failure_after_files_replace_leaves_old_success_manifest",
+      "run": {
+        "exit_code": null,
+        "exception": "RuntimeError",
+        "exception_message": "injected DB write failure",
+        "provider_calls": 1
+      },
+      "manifest_unchanged": true,
+      "manifest_stock_status": "ok",
+      "manifest_raw_hash": "43480d5219d3177d0de3d1cfff6ee0bdd8b5ff80703a3f4aacf8f27057d798d5",
+      "actual_raw_hash": "a57a4eecba397134c176fb7c2bd72f47a64ae87df00334f225d472522401c5e8",
+      "hash_matches": false
+    },
+    {
+      "case": "rows_later_than_declared_last_complete_trading_day",
+      "run": {
+        "exit_code": 0,
+        "exception": null,
+        "provider_calls": 1
+      },
+      "declared_last_complete_trading_day": "2026-09-15",
+      "actual_window": [
+        "2026-09-16",
+        "2026-09-16"
+      ],
+      "status": "ok"
+    }
+  ]
+}
