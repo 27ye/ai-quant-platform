@@ -12,6 +12,8 @@ import {
 import { CanvasRenderer } from 'echarts/renderers'
 
 import type { IndicatorsItem, KlineItem } from '../../types/api'
+import { useThemeStore } from '../../stores/theme'
+import { chartPalette, hexToRgba } from '../../utils/chartTheme'
 
 echarts.use([
   CandlestickChart,
@@ -27,32 +29,14 @@ echarts.use([
 
 const props = defineProps<{ items: KlineItem[]; indicators?: IndicatorsItem[] }>()
 
-// A 股习惯：红涨绿跌；线条用中性 + 单一金色点缀
-const UP_COLOR = '#ff4d4f'
-const DOWN_COLOR = '#00b386'
-const GOLD = '#d4a958'
+const theme = useThemeStore()
 
+// 均线颜色：固定色相，暗/亮两主题下都可读
 const MA_COLORS: Record<string, string> = {
-  ma5: '#f2f2f2',
-  ma10: GOLD,
-  ma20: '#6ea8fe',
-  ma60: 'rgba(255,255,255,0.4)',
-}
-
-const AXIS_LABEL = { color: 'rgba(255,255,255,0.45)', fontSize: 11 }
-const AXIS_LINE = { lineStyle: { color: 'rgba(255,255,255,0.12)' } }
-const SPLIT_LINE = { lineStyle: { color: 'rgba(255,255,255,0.06)' } }
-const TOOLTIP = {
-  backgroundColor: '#14171d',
-  borderColor: 'rgba(255,255,255,0.12)',
-  borderWidth: 1,
-  textStyle: { color: '#f2f2f2' },
-  valueFormatter: (value: number | number[]) =>
-    Array.isArray(value) ? value.map((v) => fmt(v)) : fmt(value),
-}
-
-function fmt(value: unknown): string {
-  return typeof value === 'number' ? value.toFixed(2) : String(value ?? '—')
+  ma5: '#f59e0b',
+  ma10: '#3b82f6',
+  ma20: '#a855f7',
+  ma60: '#a1a1aa',
 }
 
 const chartEl = ref<HTMLElement | null>(null)
@@ -70,7 +54,17 @@ function alignIndicators(items: KlineItem[]): Map<string, IndicatorsItem> {
   return map
 }
 
+function fmt(value: unknown): string {
+  return typeof value === 'number' ? value.toFixed(2) : String(value ?? '—')
+}
+
 function buildOption(items: KlineItem[]): echarts.EChartsCoreOption {
+  // 每次构建都从 CSS 变量取色，主题切换后重建即可生效
+  const pal = chartPalette()
+  const AXIS_LABEL = { color: pal.textFaint, fontSize: 11 }
+  const AXIS_LINE = { lineStyle: { color: pal.borderStrong } }
+  const SPLIT_LINE = { lineStyle: { color: pal.border } }
+
   const dates = items.map((item) => formatDate(item.trade_date))
   const rawDates = items.map((item) => item.trade_date)
   const indicatorMap = alignIndicators(items)
@@ -96,8 +90,8 @@ function buildOption(items: KlineItem[]): echarts.EChartsCoreOption {
       itemStyle: {
         color:
           hist == null || items[index].close >= items[index].open
-            ? UP_COLOR
-            : DOWN_COLOR,
+            ? pal.up
+            : pal.down,
       },
     }
   })
@@ -109,14 +103,24 @@ function buildOption(items: KlineItem[]): echarts.EChartsCoreOption {
           top: 0,
           right: 8,
           itemWidth: 14,
-          textStyle: { color: 'rgba(255,255,255,0.55)', fontSize: 11 },
+          textStyle: { color: pal.textSub, fontSize: 11 },
           data: ['MA5', 'MA10', 'MA20', 'MA60'],
         }
       : undefined,
     tooltip: {
       trigger: 'axis',
-      axisPointer: { type: 'cross', label: { backgroundColor: '#1c2129' } },
-      ...TOOLTIP,
+      axisPointer: {
+        type: 'cross',
+        label: { backgroundColor: pal.accent },
+        lineStyle: { color: hexToRgba(pal.accent, 0.55), width: 1 },
+        crossStyle: { color: hexToRgba(pal.accent, 0.55), width: 1 },
+      },
+      backgroundColor: pal.surface,
+      borderColor: pal.borderStrong,
+      borderWidth: 1,
+      textStyle: { color: pal.textMain },
+      valueFormatter: (value: number | number[]) =>
+        Array.isArray(value) ? value.map((v) => fmt(v)) : fmt(value),
       confine: true,
       position: function (point: [number, number], _: unknown, __: unknown, size: unknown) {
         return [point[0] + 14, point[1] + 14]
@@ -179,7 +183,28 @@ function buildOption(items: KlineItem[]): echarts.EChartsCoreOption {
     ],
     dataZoom: [
       { type: 'inside', xAxisIndex: [0, 1, 2], start: 55, end: 100 },
-      { type: 'slider', xAxisIndex: [0, 1, 2], start: 55, end: 100, bottom: 4, height: 16 },
+      {
+        type: 'slider',
+        xAxisIndex: [0, 1, 2],
+        start: 55,
+        end: 100,
+        bottom: 4,
+        height: 16,
+        borderColor: 'transparent',
+        backgroundColor: 'transparent',
+        fillerColor: hexToRgba(pal.accent, 0.14),
+        handleStyle: { color: pal.accent },
+        moveHandleStyle: { color: pal.accent },
+        dataBackground: {
+          lineStyle: { color: pal.borderStrong },
+          areaStyle: { color: pal.borderStrong, opacity: 0.25 },
+        },
+        selectedDataBackground: {
+          lineStyle: { color: pal.accent },
+          areaStyle: { color: hexToRgba(pal.accent, 0.16) },
+        },
+        textStyle: { color: pal.textFaint },
+      },
     ],
     series: [
       {
@@ -189,10 +214,10 @@ function buildOption(items: KlineItem[]): echarts.EChartsCoreOption {
         yAxisIndex: 0,
         data: items.map((item) => [item.open, item.close, item.low, item.high]),
         itemStyle: {
-          color: UP_COLOR,
-          color0: DOWN_COLOR,
-          borderColor: UP_COLOR,
-          borderColor0: DOWN_COLOR,
+          color: pal.up,
+          color0: pal.down,
+          borderColor: pal.up,
+          borderColor0: pal.down,
         },
       },
       ...maSeries,
@@ -204,7 +229,7 @@ function buildOption(items: KlineItem[]): echarts.EChartsCoreOption {
         data: items.map((item, index) => ({
           value: item.volume,
           itemStyle: {
-            color: item.close >= items[index].open ? UP_COLOR : DOWN_COLOR,
+            color: item.close >= items[index].open ? pal.up : pal.down,
           },
         })),
         barMaxWidth: 12,
@@ -216,8 +241,8 @@ function buildOption(items: KlineItem[]): echarts.EChartsCoreOption {
         yAxisIndex: 2,
         data: aligned.map((row) => row?.macd ?? null),
         symbol: 'none',
-        lineStyle: { width: 1, color: '#f2f2f2' },
-        itemStyle: { color: '#f2f2f2' },
+        lineStyle: { width: 1, color: pal.textSub },
+        itemStyle: { color: pal.textSub },
         emphasis: { disabled: true },
       },
       {
@@ -227,8 +252,8 @@ function buildOption(items: KlineItem[]): echarts.EChartsCoreOption {
         yAxisIndex: 2,
         data: aligned.map((row) => row?.macd_signal ?? null),
         symbol: 'none',
-        lineStyle: { width: 1, color: GOLD },
-        itemStyle: { color: GOLD },
+        lineStyle: { width: 1, color: pal.accent },
+        itemStyle: { color: pal.accent },
         emphasis: { disabled: true },
       },
       {
@@ -263,6 +288,8 @@ onMounted(() => {
 })
 
 watch(() => [props.items, props.indicators], render)
+// 主题/强调色切换：重建 option 应用新调色板
+watch(() => [theme.theme, theme.accent], render)
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resize)

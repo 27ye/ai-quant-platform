@@ -2,36 +2,37 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { fetchIndicators, fetchKline, fetchScore, runBacktest } from '../api/stocks'
-import { fetchNews } from '../api/news'
+import { fetchDataStatus, fetchIndicators, fetchKline, fetchScore, searchStocks } from '../api/stocks'
 import type {
-  BacktestData,
+  DataStatus,
   IndicatorsItem,
   KlineItem,
-  NewsItem,
   ScoreData,
 } from '../types/api'
 import KlineChart from '../components/stock/KlineChart.vue'
 import AIReportCard from '../components/ai/AIReportCard.vue'
 import ScoreCard from '../components/stock/ScoreCard.vue'
 import BacktestPanel from '../components/stock/BacktestPanel.vue'
-import NewsList from '../components/stock/NewsList.vue'
+import DataStatusBadge from '../components/stock/DataStatusBadge.vue'
+import { useAppContext } from '../stores/appContext'
 import { useHealthStore } from '../stores/health'
 
 const router = useRouter()
 const health = useHealthStore()
-const stockCode = computed(() => String(router.currentRoute.value.params.code ?? ''))
+const appContext = useAppContext()
+// / 路由没有 :code 参数，回退到最近访问的股票（冻结演示默认 600519）
+const stockCode = computed(
+  () => String(router.currentRoute.value.params.code ?? '') || appContext.stockCode,
+)
 
 const kline = ref<KlineItem[]>([])
 const indicators = ref<IndicatorsItem[]>([])
 const score = ref<ScoreData | null>(null)
-const backtest = ref<BacktestData | null>(null)
-const news = ref<NewsItem[]>([])
+const dataStatus = ref<DataStatus | null>(null)
+const stockName = ref('')
 const loading = ref(false)
 const loaded = ref(false)
 const scoreLoading = ref(true)
-const backtestLoading = ref(true)
-const newsLoading = ref(true)
 
 // Epoch 机制：切换股票时递增，过期响应直接丢弃
 const epoch = ref(0)
@@ -59,16 +60,15 @@ const dateRange = computed(() => {
 async function load() {
   if (!stockCode.value) return
   const currentEpoch = ++epoch.value
+  // 登记最近访问的股票，供侧栏导航拼链接
+  appContext.setStockCode(stockCode.value)
   loading.value = true
   loaded.value = false
   kline.value = []
   indicators.value = []
   score.value = null
-  backtest.value = null
-  news.value = []
+  dataStatus.value = null
   scoreLoading.value = true
-  backtestLoading.value = true
-  newsLoading.value = true
 
   try {
     const klineRes = await fetchKline(stockCode.value)
@@ -96,24 +96,23 @@ async function load() {
     .finally(() => {
       if (epoch.value === currentEpoch) scoreLoading.value = false
     })
-  runBacktest(stockCode.value)
+  // 数据状态徽标：非关键路径，失败静默不展示
+  fetchDataStatus(stockCode.value)
     .then((res) => {
       if (epoch.value !== currentEpoch) return
-      backtest.value = res.data
+      dataStatus.value = res.data
     })
     .catch(() => undefined)
-    .finally(() => {
-      if (epoch.value === currentEpoch) backtestLoading.value = false
-    })
-  fetchNews(stockCode.value)
+
+  // 股票名称：搜索接口按代码精确匹配，失败静默（仅展示增强，非关键路径）
+  stockName.value = ''
+  searchStocks(stockCode.value)
     .then((res) => {
       if (epoch.value !== currentEpoch) return
-      news.value = res.data
+      const hit = res.data.find((s) => s.stock_code === stockCode.value) ?? res.data[0]
+      stockName.value = hit?.stock_name ?? ''
     })
     .catch(() => undefined)
-    .finally(() => {
-      if (epoch.value === currentEpoch) newsLoading.value = false
-    })
 }
 
 watch(stockCode, load, { immediate: true })
@@ -126,9 +125,10 @@ onMounted(() => health.refresh())
     <div class="stock-bar">
       <div class="stock-identity">
         <span class="stock-code">{{ stockCode }}</span>
+        <span v-if="stockName" class="stock-name">{{ stockName }}</span>
         <span v-if="dateRange" class="date-range">{{ dateRange }}</span>
         <span v-if="health.acceptanceMode" class="mode-badge">{{ health.acceptanceMode }}</span>
-        <span class="v1-badge">V1 冻结演示 · 仅 600519 · 2025-01-02 ~ 2026-08-31</span>
+        <DataStatusBadge v-if="dataStatus" :status="dataStatus" />
       </div>
       <div v-if="latest" class="stock-quote">
         <span class="price">{{ latest.close.toFixed(2) }}</span>
@@ -159,19 +159,8 @@ onMounted(() => health.refresh())
       </div>
     </div>
 
-    <!-- 底部：回测 + 新闻（两列） -->
-    <div class="bottom-grid">
-      <BacktestPanel v-if="backtest" :data="backtest" />
-      <el-card v-else-if="backtestLoading" shadow="never" class="skeleton-card">
-        <el-skeleton :rows="4" animated />
-      </el-card>
-
-      <!-- 新闻：加载完成后始终展示模块，空数组时组件内部显示「暂无新闻」 -->
-      <NewsList v-if="!newsLoading" :items="news" />
-      <el-card v-else shadow="never" class="skeleton-card">
-        <el-skeleton :rows="4" animated />
-      </el-card>
-    </div>
+    <!-- 底部：回测面板（自包含数据逻辑：v1 快速 + v2 参数化表单）；新闻已拆到独立页 /stock/:code/news -->
+    <BacktestPanel :stock-code="stockCode" />
   </main>
 </template>
 
@@ -190,7 +179,7 @@ onMounted(() => health.refresh())
   gap: 16px;
   padding-bottom: 14px;
   margin-bottom: 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border);
 }
 
 .stock-identity {
@@ -202,38 +191,35 @@ onMounted(() => health.refresh())
 .stock-code {
   font-size: 20px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--text-main);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
 }
 
+.stock-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-sub);
+}
+
 .date-range {
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--text-faint);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
 .mode-badge {
   padding: 1px 6px;
-  border: 1px solid var(--accent, #d4a958);
+  border: 1px solid var(--accent);
   border-radius: 3px;
-  color: var(--accent, #d4a958);
+  color: var(--accent);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
-/* V1 冻结演示徽标（详情页同步标注，避免误读为实时行情） */
-.v1-badge {
-  padding: 2px 10px;
-  border: 1px solid rgba(212, 169, 88, 0.4);
-  border-radius: 999px;
-  background: rgba(212, 169, 88, 0.08);
-  color: rgba(212, 169, 88, 0.9);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-}
+/* 数据状态徽标样式在 DataStatusBadge 组件内 */
 
 .stock-quote {
   display: flex;
@@ -244,7 +230,7 @@ onMounted(() => health.refresh())
 .price {
   font-size: 28px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--text-main);
   font-variant-numeric: tabular-nums;
 }
 
@@ -255,11 +241,11 @@ onMounted(() => health.refresh())
 }
 
 .change.up {
-  color: var(--up, #ff4d4f);
+  color: var(--up);
 }
 
 .change.down {
-  color: var(--down, #00b386);
+  color: var(--down);
 }
 
 /* 主网格：左(图表+评分) + 右AI分析 */
@@ -279,9 +265,6 @@ onMounted(() => health.refresh())
 
 .chart-card {
   flex: 1;
-  background: var(--surface, #14171d);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
   min-height: 0;
 }
 
@@ -295,24 +278,8 @@ onMounted(() => health.refresh())
   min-width: 0;
 }
 
-/* 底部网格：回测 + 新闻两列 */
-.bottom-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-
-.skeleton-card {
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
-}
-
 @media (max-width: 880px) {
   .main-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .bottom-grid {
     grid-template-columns: 1fr;
   }
 }

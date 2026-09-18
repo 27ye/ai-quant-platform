@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import { searchStocks } from '../api/stocks'
-import type { StockBrief, KlineItem } from '../types/api'
+import type { KlineItem } from '../types/api'
 import { mockKline } from '../mocks/stock'
+import SearchBox from '../components/layout/SearchBox.vue'
+import { useThemeStore } from '../stores/theme'
+import { chartPalette, hexToRgba } from '../utils/chartTheme'
 import * as echarts from 'echarts/core'
 import { CandlestickChart } from 'echarts/charts'
 import { GridComponent } from 'echarts/components'
@@ -12,40 +13,32 @@ import { CanvasRenderer } from 'echarts/renderers'
 
 echarts.use([CandlestickChart, GridComponent, CanvasRenderer])
 
-const router = useRouter()
+const theme = useThemeStore()
 const bgRef = ref<HTMLDivElement>()
 let chart: echarts.ECharts | null = null
 
-// 搜索
-const keyword = ref('')
-const results = ref<StockBrief[]>([])
-const loading = ref(false)
-const showDropdown = ref(false)
-
-async function onSearch() {
-  if (!keyword.value.trim()) return
-  loading.value = true
-  try {
-    const res = await searchStocks(keyword.value)
-    results.value = res.data
-    // 空结果时仍展示下拉，用于显示 V1 冻结演示提示
-    showDropdown.value = true
-  } catch {
-    results.value = []
-    showDropdown.value = false
-  } finally {
-    loading.value = false
-  }
+// 背景蜡烛颜色随主题适配：亮色主题降低透明度，避免被白色遮罩压得失真
+function candleColors() {
+  const p = chartPalette()
+  const alpha = theme.isDark ? 0.8 : 0.5
+  return { up: hexToRgba(p.up, alpha), down: hexToRgba(p.down, alpha) }
 }
 
-function goDetail(stock: StockBrief) {
-  keyword.value = ''
-  showDropdown.value = false
-  router.push(`/stock/${stock.stock_code}`)
-}
-
-function onBlur() {
-  setTimeout(() => (showDropdown.value = false), 200)
+function applyColors() {
+  if (!chart) return
+  const c = candleColors()
+  chart.setOption({
+    series: [
+      {
+        itemStyle: {
+          color: c.up,
+          color0: c.down,
+          borderColor: c.up,
+          borderColor0: c.down,
+        },
+      },
+    ],
+  })
 }
 
 function initBg() {
@@ -63,20 +56,10 @@ function initBg() {
     grid: { left: 0, right: 0, top: 0, bottom: 0 },
     xAxis: { type: 'category', show: false, boundaryGap: false },
     yAxis: { type: 'value', show: false, scale: true },
-    series: [
-      {
-        type: 'candlestick',
-        data,
-        itemStyle: {
-          color: '#ff4d4f',
-          color0: '#00b386',
-          borderColor: '#ff4d4f',
-          borderColor0: '#00b386',
-        },
-      },
-    ],
+    series: [{ type: 'candlestick', data }],
     animation: false,
   })
+  applyColors()
 }
 
 function resize() {
@@ -86,6 +69,8 @@ function resize() {
 onMounted(() => {
   initBg()
   window.addEventListener('resize', resize)
+  // 主题切换后 CSS 变量变化，需重建蜡烛配色
+  watch(() => theme.theme, applyColors)
 })
 
 onBeforeUnmount(() => {
@@ -105,35 +90,12 @@ onBeforeUnmount(() => {
     <!-- 居中内容 -->
     <div class="center">
       <h1>DeepInSight</h1>
-      <p class="subtitle">真实行情 · 技术指标 · 量化评分 · 策略回测 · AI 报告</p>
-      <p class="v1-badge">V1 冻结数据演示 · 仅 600519 贵州茅台 · 样本区间 2025-01-02 ~ 2026-08-31</p>
+      <p class="subtitle">行情回放 · 技术指标 · 量化评分 · 策略回测 · AI 报告</p>
+      <p class="scope-note">冻结样本演示 · 仅 600519 贵州茅台 · 样本区间 2025-01-02 ~ 2026-08-31</p>
 
-      <div class="search-box">
-        <el-input
-          v-model="keyword"
-          size="large"
-          placeholder="输入股票代码或名称，如 600519 / 茅台"
-          clearable
-          @input="onSearch"
-          @focus="showDropdown = results.length > 0"
-          @blur="onBlur"
-        >
-          <template #prefix>
-            <span class="search-icon">⌕</span>
-          </template>
-        </el-input>
-
-        <ul v-if="showDropdown" class="dropdown">
-          <li v-if="results.length === 0" class="dd-empty">
-            <span>V1 冻结演示仅包含 600519，未命中其他股票</span>
-          </li>
-          <li v-for="stock in results.slice(0, 8)" :key="stock.stock_code">
-            <button type="button" class="dd-item" @click="goDetail(stock)">
-              <span class="dd-name">{{ stock.stock_name }}</span>
-              <span class="dd-code">{{ stock.stock_code }}</span>
-            </button>
-          </li>
-        </ul>
+      <!-- 大号搜索框：输入即联想，点击结果直达工作台 -->
+      <div class="hero-search">
+        <SearchBox />
       </div>
     </div>
   </main>
@@ -145,7 +107,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: calc(100vh - 52px);
+  /* 在工作台外壳内容区内铺满一屏（扣除顶栏高度） */
+  min-height: calc(100vh - var(--header-height));
   overflow: hidden;
 }
 
@@ -175,6 +138,7 @@ onBeforeUnmount(() => {
   }
 }
 
+/* 遮罩：纵向渐变压暗背景 + 两处微光（暗色默认） */
 .bg-overlay {
   position: absolute;
   inset: 0;
@@ -182,22 +146,42 @@ onBeforeUnmount(() => {
   background:
     linear-gradient(
       180deg,
-      rgba(14, 17, 22, 0.4) 0%,
-      rgba(14, 17, 22, 0.65) 40%,
-      rgba(14, 17, 22, 0.85) 70%,
-      rgba(14, 17, 22, 0.95) 100%
+      rgba(9, 9, 11, 0.4) 0%,
+      rgba(9, 9, 11, 0.65) 40%,
+      rgba(9, 9, 11, 0.85) 70%,
+      rgba(9, 9, 11, 0.95) 100%
     ),
     radial-gradient(
       ellipse at 30% 20%,
-      rgba(212, 169, 88, 0.05) 0%,
+      rgba(59, 130, 246, 0.06) 0%,
       transparent 50%
     ),
     radial-gradient(
       ellipse at 70% 80%,
-      rgba(58, 123, 213, 0.04) 0%,
+      rgba(59, 130, 246, 0.04) 0%,
       transparent 50%
     );
-  backdrop-filter: blur(4px);
+}
+
+[data-theme='light'] .bg-overlay {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(250, 250, 250, 0.45) 0%,
+      rgba(250, 250, 250, 0.7) 40%,
+      rgba(250, 250, 250, 0.88) 70%,
+      rgba(250, 250, 250, 0.96) 100%
+    ),
+    radial-gradient(
+      ellipse at 30% 20%,
+      rgba(37, 99, 235, 0.06) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at 70% 80%,
+      rgba(37, 99, 235, 0.04) 0%,
+      transparent 50%
+    );
 }
 
 /* 居中内容 */
@@ -210,122 +194,57 @@ onBeforeUnmount(() => {
 
 h1 {
   margin: 0 0 10px;
-  font-size: clamp(32px, 5vw, 44px);
+  font-family: var(--font-brand);
+  font-size: clamp(36px, 5.5vw, 50px);
   font-weight: 700;
   line-height: 1.15;
-  color: rgba(255, 255, 255, 0.95);
-  letter-spacing: 0.01em;
+  letter-spacing: 0.015em;
+  /* 品牌名跟随主题色：accent → accent-hover 斜向渐变文字 */
+  background: linear-gradient(120deg, var(--accent) 20%, var(--accent-hover) 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
 .subtitle {
   margin: 0 0 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-sub);
   font-size: 14px;
   letter-spacing: 0.06em;
 }
 
-/* V1 冻结演示范围标注 */
-.v1-badge {
+/* 演示范围说明：降级为小字灰调，不抢主 CTA 视觉权重 */
+.scope-note {
   margin: 0 0 28px;
-  padding: 6px 14px;
-  display: inline-block;
-  background: rgba(212, 169, 88, 0.08);
-  border: 1px solid rgba(212, 169, 88, 0.22);
-  border-radius: 999px;
-  color: rgba(212, 169, 88, 0.85);
+  color: var(--text-faint);
   font-size: 12px;
   letter-spacing: 0.04em;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
-/* 搜索框 */
-.search-box {
-  position: relative;
-  text-align: left;
+/* hero 搜索框：比顶栏更大更醒目，浮在背景上带柔和阴影；聚焦时accent描边 + 柔光圈 */
+.hero-search {
+  width: min(420px, 100%);
+  margin: 0 auto;
 }
 
-.search-box :deep(.el-input__wrapper) {
-  background: rgba(20, 23, 29, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
-  height: 44px;
+.hero-search :deep(.el-input__wrapper) {
+  height: 46px;
+  border-radius: 10px;
+  background: var(--surface);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
 }
 
-.search-box :deep(.el-input__wrapper:hover) {
-  border-color: rgba(255, 255, 255, 0.18);
+.hero-search :deep(.el-input__inner) {
+  font-size: 14px;
 }
 
-.search-box :deep(.el-input__wrapper.is-focus) {
-  border-color: var(--accent, #d4a958);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), 0 0 0 2px rgba(212, 169, 88, 0.12);
+.hero-search :deep(.el-input__wrapper.is-focus) {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 3px var(--accent-bg),
+    var(--shadow-md);
 }
-
-.search-box :deep(.el-input__inner) {
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 15px;
-}
-
-.search-box :deep(.el-input__inner::placeholder) {
-  color: rgba(255, 255, 255, 0.32);
-}
-
-.search-icon {
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 16px;
-}
-
-.dropdown {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  list-style: none;
-  margin: 0;
-  padding: 4px;
-  background: #181c23;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  z-index: 200;
-}
-
-.dd-item {
-  display: flex;
-  width: 100%;
-  box-sizing: border-box;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-  transition: background 0.12s ease;
-}
-
-.dd-item:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.dd-name {
-  font-weight: 500;
-}
-
-.dd-code {
-  color: rgba(255, 255, 255, 0.38);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-}
-
-/* 空结果提示 */
-.dd-empty {
-  padding: 10px 14px;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 13px;
-  text-align: center;
-}
-
 </style>

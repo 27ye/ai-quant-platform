@@ -1,5 +1,13 @@
 // AI 分析 mock：字段对齐 docs/API_SPEC.md 第 9 节
-import type { AIAnalysisData, ApiResponse } from '../types/api'
+import { AxiosError } from 'axios'
+
+import type {
+  AIAnalysisData,
+  AIReportDetail,
+  AIReportSummary,
+  ApiResponse,
+  PaginatedAIReports,
+} from '../types/api'
 
 export function mockAIAnalysis(stockCode: string): ApiResponse<AIAnalysisData> {
   return {
@@ -29,6 +37,138 @@ export function mockAIAnalysis(stockCode: string): ApiResponse<AIAnalysisData> {
       conclusion:
         '建议以中性偏多思路对待：持仓者可继续持有并关注 MA20 支撑，空仓者等待回调至均线附近再考虑介入，突破布林带上轨且放量时可视为趋势加强信号。',
       model_name: 'mock-model',
+    },
+  }
+}
+
+// ============ V2 AI 报告历史 mock（契约：D 的 V2_AI_REPORT_HISTORY_CONTRACT.md）============
+// 覆盖两种记录形态：id=101 完整快照（complete）+ id=100 旧记录（legacy_missing）
+
+const MOCK_REPORT_SUMMARIES: AIReportSummary[] = [
+  {
+    report_id: 101,
+    stock_code: '600519',
+    quant_score: 82,
+    trend: 'bullish',
+    summary:
+      '趋势得分较高，均线多头排列延续，量能配合尚可，综合评分处于强势区间，维持谨慎乐观。',
+    model_name: 'deepseek-v4-flash',
+    data_as_of: '2026-09-14T15:00:00Z',
+    created_at: '2026-09-15T08:30:00Z',
+    source_mode: 'live',
+    snapshot_status: 'complete',
+  },
+  {
+    report_id: 100,
+    stock_code: '600519',
+    quant_score: 33,
+    trend: 'bearish',
+    summary: '早期冻结演示报告：趋势偏弱，成交低迷，评分处于较弱区间，建议观望。',
+    model_name: 'deepseek-v4-flash',
+    data_as_of: null,
+    created_at: '2026-09-10T02:12:00Z',
+    source_mode: 'unknown',
+    snapshot_status: 'legacy_missing',
+  },
+]
+
+export function mockAIReports(params: {
+  stock_code?: string
+  page?: number
+  page_size?: number
+}): ApiResponse<PaginatedAIReports> {
+  const page = params.page ?? 1
+  const pageSize = params.page_size ?? 20
+  const filtered = params.stock_code
+    ? MOCK_REPORT_SUMMARIES.filter((item) => item.stock_code === params.stock_code)
+    : MOCK_REPORT_SUMMARIES
+  const start = (page - 1) * pageSize
+  return {
+    code: 0,
+    message: 'success',
+    data: {
+      items: filtered.slice(start, start + pageSize),
+      total: filtered.length,
+      page,
+      page_size: pageSize,
+    },
+  }
+}
+
+export function mockAIReportDetail(reportId: number): ApiResponse<AIReportDetail> {
+  const base = mockAIAnalysis('600519').data
+  if (reportId === 100) {
+    // V1 旧记录：无上下文快照、无版本字段，来源未知
+    return {
+      code: 0,
+      message: 'success',
+      data: {
+        ...base,
+        quant_score: 33,
+        trend: 'bearish',
+        report_id: 100,
+        created_at: '2026-09-10T02:12:00Z',
+        data_as_of: null,
+        source_mode: 'unknown',
+        prompt_version: null,
+        context_schema_version: null,
+        output_schema_version: null,
+        context_hash: null,
+        snapshot_status: 'legacy_missing',
+        context_snapshot: null,
+      },
+    }
+  }
+  // 未知 ID：模拟契约 404 + code=40006（report not found）
+  if (reportId !== 101) {
+    throw new AxiosError('Request failed with status code 404', 'ERR_BAD_REQUEST', undefined, undefined, {
+      status: 404,
+      statusText: 'Not Found',
+      data: { code: 40006, message: 'report not found' },
+      headers: {},
+      config: {} as never,
+    })
+  }
+  return {
+    code: 0,
+    message: 'success',
+    data: {
+      ...base,
+      quant_score: 82,
+      report_id: reportId,
+      created_at: '2026-09-15T08:30:00Z',
+      data_as_of: '2026-09-14T15:00:00Z',
+      source_mode: 'live',
+      prompt_version: 'v2.0',
+      context_schema_version: 'v2.0',
+      output_schema_version: 'v2.0',
+      context_hash:
+        '9af45d325e7cced7fc420da9f502e3abcf72ede1b7ad95070b264f8b0c4052f4',
+      snapshot_status: 'complete',
+      context_snapshot: {
+        stock: { stock_code: '600519', stock_name: '贵州茅台', industry: '白酒' },
+        market_snapshot: {
+          trade_date: '2026-09-14',
+          close: 1450.5,
+          change_pct: 0.012,
+          turnover_rate: 0.002,
+        },
+        technical_indicators: null,
+        quant_score: { score: 82, level: 'strong', reasons: ['趋势得分较高'] },
+        backtest_metrics: null,
+        news: [],
+        data_as_of: '2026-09-14T15:00:00Z',
+        provenance: {
+          source_mode: 'live',
+          provider: 'akshare',
+          market_start_date: '2025-09-14',
+          market_end_date: '2026-09-14',
+          market_rows: 243,
+          news_status: 'empty',
+          news_count: 0,
+          retrieved_at: '2026-09-14T15:00:00Z',
+        },
+      },
     },
   }
 }
