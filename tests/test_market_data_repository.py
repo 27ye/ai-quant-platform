@@ -159,6 +159,36 @@ def test_query_daily_serves_complete_cache_without_refetch():
         assert len(rows) == 60
 
 
+def test_query_provenance_preserves_actual_source_on_live_and_cache_hits():
+    with _session() as session:
+        repository = MarketDataRepository(session)
+        start = date(2025, 1, 1)
+        end = start + timedelta(days=59)
+        provider = RecordingProvider(60)
+        provider.last_kline_source = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+        live = MarketDataService(
+            stock_service=StockService(provider=provider), repository=repository
+        )
+        live.query_daily(STOCK_CODE, start, end, min_rows=60, trading_days=lambda s, e: 60)
+        assert live.get_query_provenance(STOCK_CODE) == {
+            "source_mode": "live",
+            "provider": provider.last_kline_source,
+        }
+
+        class FailingProvider:
+            def get_daily_kline(self, *args, **kwargs):
+                raise AssertionError("complete cache must not refetch")
+
+        cached = MarketDataService(
+            stock_service=StockService(provider=FailingProvider()), repository=repository
+        )
+        cached.query_daily(STOCK_CODE, start, end, min_rows=60, trading_days=lambda s, e: 60)
+        assert cached.get_query_provenance(STOCK_CODE) == {
+            "source_mode": "cache",
+            "provider": provider.last_kline_source,
+        }
+
+
 def test_query_daily_refetches_when_cache_is_stale():
     with _session() as session:
         repository = MarketDataRepository(session)

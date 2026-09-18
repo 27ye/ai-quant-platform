@@ -583,9 +583,17 @@ class MarketDataService:
         return None
 
     def get_query_provenance(self, stock_code: str) -> dict[str, str]:
+        mode = self._query_source_modes.get(stock_code, "unknown")
+        if mode == "live":
+            provider = self._stock.last_kline_source or self._stock.provider_name
+        elif mode == "cache" and self._repository is not None:
+            sync = self._repository.get_daily_sync(stock_code)
+            provider = sync.source if sync and sync.source else "unknown"
+        else:
+            provider = "unknown"
         return {
-            "source_mode": self._query_source_modes.get(stock_code, "unknown"),
-            "provider": self._stock.provider_name,
+            "source_mode": mode,
+            "provider": provider,
         }
 
     @staticmethod

@@ -1,7 +1,7 @@
-"""Tests for the AKShare provider's transient retry + delayed-host fallback."""
+"""Tests for the AKShare provider's transient retry + Tencent qfq fallback."""
 import sys
 import types
-from datetime import date
+from datetime import date, timedelta
 
 import pandas as pd
 import pytest
@@ -52,6 +52,23 @@ def test_kline_retries_transient_error_then_succeeds(monkeypatch):
     assert calls["n"] == 2  # one transient failure, then success
 
 
+def test_primary_kline_still_requires_amount_and_does_not_fallback(monkeypatch):
+    import requests
+
+    monkeypatch.setitem(
+        sys.modules,
+        "akshare",
+        _fake_akshare(stock_zh_a_hist=lambda **kwargs: _kline_frame().drop(columns=["成交额"])),
+    )
+    monkeypatch.setattr(
+        requests, "get", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("no fallback"))
+    )
+    with pytest.raises(StockDataSchemaError, match="成交额"):
+        AKShareStockProvider().get_daily_kline(
+            "600519", date(2025, 1, 1), date(2025, 1, 5)
+        )
+
+
 def test_kline_raises_after_retries_exhausted(monkeypatch):
     import requests
 
@@ -75,7 +92,7 @@ def test_kline_raises_after_retries_exhausted(monkeypatch):
         AKShareStockProvider().get_daily_kline("600519", date(2025, 1, 1), date(2025, 1, 5))
 
     assert calls["hist"] == 3  # bounded primary attempts
-    assert calls["fallback"] == 1  # fallback attempted exactly once, no real network
+    assert calls["fallback"] == 2  # bounded Tencent retry, no real network
 
 
 def test_stock_info_falls_back_to_delayed_host(monkeypatch):
@@ -131,7 +148,7 @@ def test_stock_info_raises_when_fallback_also_fails(monkeypatch):
         AKShareStockProvider().get_stock_info("600519")
 
 
-def test_kline_falls_back_to_delayed_host(monkeypatch):
+def test_kline_falls_back_to_tencent_qfq_and_marks_source(monkeypatch):
     import requests
 
     monkeypatch.setattr(AKShareStockProvider, "retry_delay_seconds", 0)
@@ -147,19 +164,92 @@ def test_kline_falls_back_to_delayed_host(monkeypatch):
         def json(self):
             return {
                 "data": {
-                    "klines": [
-                        "2025-01-02,100.0,105.0,110.0,90.0,1000,100000.0,5.0,0.5,0.5,1.0",
-                        "2025-01-03,101.0,106.0,111.0,91.0,1100,110000.0,5.0,0.6,0.6,1.1",
-                    ]
+                    "sh600519": {"qfqday": [
+                        ["2024-12-31", "99", "100", "101", "98", "900"],
+                        ["2025-01-02", "100", "105", "110", "90", "1000"],
+                        ["2025-01-03", "101", "106", "111", "91", "1100"],
+                    ]}
                 }
             }
 
-    monkeypatch.setattr(requests, "get", lambda *args, **kwargs: _Response())
+    urls = []
 
-    frame = AKShareStockProvider().get_daily_kline("600519", date(2025, 1, 1), date(2025, 1, 5))
+    def get(url, **kwargs):
+        urls.append(url)
+        return _Response()
+
+    monkeypatch.setattr(requests, "get", get)
+
+    provider = AKShareStockProvider()
+    frame = provider.get_daily_kline("600519", date(2025, 1, 1), date(2025, 1, 5))
 
     assert list(frame["trade_date"]) == [date(2025, 1, 2), date(2025, 1, 3)]
     assert list(frame["close"]) == [105.0, 106.0]
+    assert frame.loc[0, "change_pct"] == pytest.approx(0.05)
+    assert pd.isna(frame.loc[0, "amount"])
+    assert pd.isna(frame.loc[0, "turnover_rate"])
+    assert provider.last_kline_source == provider.tencent_kline_url
+    assert len(urls) == 1 and "sh600519,day," in urls[0] and urls[0].endswith(",qfq")
+
+
+def test_tencent_retries_one_transient_connection_failure(monkeypatch):
+    import requests
+
+    monkeypatch.setattr(AKShareStockProvider, "retry_delay_seconds", 0)
+    monkeypatch.setitem(
+        sys.modules,
+        "akshare",
+        _fake_akshare(stock_zh_a_hist=lambda **kwargs: (_ for _ in ()).throw(ConnectionError("down"))),
+    )
+    calls = 0
+
+    def get(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise requests.ConnectionError("temporary disconnect")
+        return _response_with({"data": {"sh600519": {"qfqday": [
+            ["2025-01-02", "100", "105", "110", "90", "1000"]
+        ]}}})
+
+    monkeypatch.setattr(requests, "get", get)
+    frame = AKShareStockProvider().get_daily_kline(
+        "600519", date(2025, 1, 1), date(2025, 1, 5)
+    )
+    assert calls == 2
+    assert len(frame) == 1
+
+
+def test_tencent_fallback_fetches_long_windows_in_chunks(monkeypatch):
+    import requests
+
+    monkeypatch.setattr(AKShareStockProvider, "retry_delay_seconds", 0)
+    monkeypatch.setitem(
+        sys.modules,
+        "akshare",
+        _fake_akshare(stock_zh_a_hist=lambda **kwargs: (_ for _ in ()).throw(ConnectionError("down"))),
+    )
+    urls = []
+
+    def get(url, **kwargs):
+        urls.append(url)
+        parts = url.split("?param=", 1)[1].split(",")
+        chunk_start = date.fromisoformat(parts[2]) + timedelta(days=15)
+        chunk_end = date.fromisoformat(parts[3])
+        return _response_with({"data": {"sh600519": {"qfqday": [
+            [(chunk_start - timedelta(days=1)).isoformat(), "99", "100", "101", "98", "900"],
+            [chunk_start.isoformat(), "100", "105", "110", "90", "1000"],
+            [chunk_end.isoformat(), "101", "106", "111", "91", "1100"],
+        ]}}})
+
+    monkeypatch.setattr(requests, "get", get)
+    frame = AKShareStockProvider().get_daily_kline(
+        "600519", date(2021, 1, 1), date(2025, 1, 1)
+    )
+    assert len(urls) == 3
+    assert len(frame) == 6
+    assert frame.iloc[0]["trade_date"] == date(2021, 1, 1)
+    assert frame.iloc[-1]["trade_date"] == date(2025, 1, 1)
 
 
 def test_call_budget_returns_quickly_when_upstream_hangs(monkeypatch):
@@ -260,10 +350,10 @@ def test_kline_fallback_rejects_malformed_row(monkeypatch):
 
     monkeypatch.setitem(sys.modules, "akshare", _fake_akshare(stock_zh_a_hist=hist))
 
-    good = "2025-01-02,100.0,105.0,110.0,90.0,1000,100000.0,5.0,0.5,0.5,1.0"
-    malformed = "2025-01-03,101.0,106.0"  # only 3 columns -> corrupt upstream row
+    good = ["2025-01-02", "100", "105", "110", "90", "1000"]
+    malformed = ["2025-01-03", "101", "106"]
     monkeypatch.setattr(
-        requests, "get", lambda *a, **k: _response_with({"rc": 0, "data": {"klines": [good, malformed]}})
+        requests, "get", lambda *a, **k: _response_with({"data": {"sh600519": {"qfqday": [good, malformed]}}})
     )
 
     with pytest.raises(StockDataSchemaError):
@@ -332,7 +422,7 @@ def test_fallbacks_reject_non_200_status(monkeypatch):
     with pytest.raises(StockDataProviderError):
         AKShareStockProvider().get_stock_info("600519")
 
-    # kline: HTTP 503 with valid-looking klines must still fail.
+    # kline: HTTP 503 with valid-looking qfq rows must still fail.
     def hist(**kwargs):
         raise ConnectionError("connection reset")
 
@@ -342,7 +432,7 @@ def test_fallbacks_reject_non_200_status(monkeypatch):
         requests,
         "get",
         lambda *a, **k: _response_with(
-            {"rc": 0, "data": {"klines": ["2025-01-02,100.0,105.0,110.0,90.0,1000,1,0,0.5,0.5,1.0"]}},
+            {"data": {"sh600519": {"qfqday": [["2025-01-02", "100", "105", "110", "90", "1000"]]}}},
             status_code=503,
         ),
     )
@@ -396,7 +486,7 @@ def test_background_workers_are_capped(monkeypatch):
 
 
 def test_kline_error_reports_the_fallback_reason(monkeypatch):
-    """An empty delayed-host payload must not be reported as the primary error."""
+    """An empty Tencent qfq payload must not be reported as the primary error."""
     import requests
 
     monkeypatch.setattr(AKShareStockProvider, "retry_delay_seconds", 0)
@@ -408,7 +498,7 @@ def test_kline_error_reports_the_fallback_reason(monkeypatch):
     monkeypatch.setattr(
         requests,
         "get",
-        lambda *a, **k: _response_with({"rc": 0, "data": {"dktotal": 0, "klines": []}}),
+        lambda *a, **k: _response_with({"data": {"sh600519": {"day": [["2025-01-02", "100", "105", "110", "90", "1000"]]}}}),
     )
 
     with pytest.raises(StockDataProviderError) as excinfo:
@@ -416,8 +506,8 @@ def test_kline_error_reports_the_fallback_reason(monkeypatch):
 
     message = str(excinfo.value)
     assert "primary host unreachable" in message  # the primary cause is kept
-    assert "delayed-host fallback also failed" in message  # ... and the real reason
-    assert "no klines" in message
+    assert "Tencent qfq fallback also failed" in message
+    assert "no qfqday rows" in message  # never silently use unadjusted `day`
 
 
 def test_stock_info_error_reports_the_fallback_reason(monkeypatch):
