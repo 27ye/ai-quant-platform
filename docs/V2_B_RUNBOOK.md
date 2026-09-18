@@ -134,7 +134,7 @@ curl.exe "http://127.0.0.1:8000/api/v1/backtests?stock_code=600519"
 | 编号 | 证据 |
 |---|---|
 | V01 | 600519 / 000001 / 300750 **各 437 行**真实日线（2024-12-02 ~ 2026-09-16），见交付包 |
-| V02 | 两轮低频探测（间隔 32 分钟）见 `docs/V2_B_DATA_EVIDENCE.md`；2026-09-16/17 东财 **kline 端点**长时段不可用与替代来源分析见 `docs/B_DATASOURCE_DIAGNOSIS.md` |
+| V02 | 两轮低频探测（间隔 32 分钟）见 `docs/V2_B_DATA_EVIDENCE.md`；2026-09-16/17 东财 **kline 端点**长时段不可用与替代来源分析见 `docs/B_DATASOURCE_DIAGNOSIS.md`。**⚠️ 那两轮证据绑定的是当时的被测 SHA，不是最终候选**；实时链路当前不可用（D 的门禁同因此为红），**V02 必须在最终 SHA 上复验**，不得把旧证据当作最终通过 |
 | V03 | 注入超时/畸形报文/数据库失败的用例见 `tests/test_provider_retry.py`、`tests/test_stock_catalog.py`、`tests/test_data_status.py`；**API 层错误码契约**见 `tests/test_v2_error_contract.py`（B 侧实际码：`40001`/`40002`/`40003`/`40005` backtest not found/`50001`/`50002`/`50003`/`50004` backtest error/`50005`/`50006` 目录从未同步；**`40006` report not found 属 D 侧 AI 报告链路，B 分支上不存在**），且失败不留下成功记录 |
 | V04 | 省略 `parameters` 的旧请求与 V1 冻结基线一致（`final_equity 90834.22588204397`、12 次往返/24 条订单） |
 | V05 | 两组参数产生独立 `backtest_id`；详情 0.02s 读快照；未知 ID `404/40005` |
