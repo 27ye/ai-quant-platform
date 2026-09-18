@@ -105,3 +105,65 @@ AKShare request failed for 600519: ('Connection aborted.', RemoteDisconnected(..
 
 实时端点不可用时，**冻结样本链路**（本地文件 → `ai_quant_test` → 量化）完全离线可跑，B/C 已完成一致性验证；
 实时 AKShare 冒烟待上述网络/代理问题解决后单独记录。
+
+## 7. 2026-09-16/17 长时段 kline 不可用 + 替代来源评估（新增）
+
+> 本节记录一次**持续约 16 小时**的行情中断的完整排查，以及为交付包引入的备用来源。
+> 结论先行：**被阻断的只有 kline 这一个端点**；应用运行时 Provider **未改动**；交付包改用
+> 明确标注的备用来源。
+
+### 7.1 现象与时长
+
+自 **2026-09-16 17:16** 起至 **2026-09-17 09:20**，三只验收股票（600519 / 000001 / 300750）的日线取数**持续失败**，
+期间仅 09-17 08:06 出现**一次数秒级**可用窗口。累计 **70+ 次取数全部失败**（含 20 轮导出重试）。
+
+### 7.2 逐项排除（都可复现）
+
+| 假设 | 实测 | 结论 |
+|---|---|---|
+| 全站封 IP | `push2delay.eastmoney.com/api/qt/stock/get` 与 `ulist.np` 均 **HTTP 200 正常** | ❌ 本机未被封 |
+| 某台主机故障 | 扫 **48 个主机**（`push2his`/`push2delay`/`push2` × 编号 1–99 抽样）：32 个 `ConnectionError`、16 个 200 但 `dktotal=0` | ❌ 不是单主机问题 |
+| 缺 `ut` 令牌 | `ut` 取 `fa5fd1943c7b386f172d6893dbfba10b` / `7eea3edcaed734bea9cbfc24409ed989` / `bd1d9ddb04089700cf9c27f6f7426281` 与不带 `ut` 结果**完全相同** | ❌ 不是参数 |
+| 窗口太长 | 1 周 / 1 月 / 6 月 / 1 年 / 全量 各 3 次 | ❌ 全部失败，与窗口长度无关 |
+| 本地代理 | `HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY` 均为空；`lmclientCore` 占用的 `127.0.0.1:7892` 走 HTTP/SOCKS5 均 **TLS 握手失败** | ❌ 与代理无关，且该端口**不能**当代理用 |
+
+**特征**：`push2his…/api/qt/stock/kline/get` 握手后立即 `RemoteDisconnected`；
+`push2delay…/kline/get` 返回 `HTTP 200` + `{"rc":0,…,"dktotal":0,"klines":[]}`（契约已记录的"限流后恒空"）。
+按 §3.2 的契约，空响应抛 `50001`，**不伪装成 40003 空数据**。
+
+### 7.3 替代来源评估（口径验证优先）
+
+| 来源 | 可达 | 字段 | 与东财的一致性 |
+|---|---|---|---|
+| **腾讯** `web.ifzq.gtimg.cn/appstock/app/fqkline/get`（qfq） | ✅ | `[date, open, close, high, low, volume]`（**非** OHLC 顺序），volume 单位同为**手** | 共同 436 日中 **OHLC 有 378/209/327 行不同**（600519/000001/300750），最大 \|差\| ~0.004 元；**成交量完全一致**；**仅 2 位舍入后一致**；无 `amount`/`turnover_rate` |
+| 新浪 `ak.stock_zh_a_daily(adjust="qfq")` | ✅ | 含 `amount`/`outstanding_share`/`turnover`（`turnover` 已是小数，与 B 的存储口径一致） | **复权口径不同**：2024-12-02 为 1415.45/1414.52，与东财 1422.54/1421.54 **差约 0.5%** |
+
+**结论**：`amount` 是**厂商无关**的成交额原始值（新浪与东财实测**完全相同**：`4086609952`），
+但**价格复权口径因厂商而异**。因此选**腾讯**（价格与东财最接近，量级差 0.004 元）而**非**新浪（差 0.5%）；
+并在交付物中如实标注差异，**不声称逐值相同**。
+
+### 7.4 采取的处置（不改变运行时行为）
+
+- **应用运行时 Provider 零改动**：`StockService` 仍是单厂商（东财 + 同源 `push2delay` 回退），
+  失败仍如实抛 `50001`。§3.2 的契约与 C 的复验**未被推翻**。
+- 备用来源**只存在于导出脚本**：`scripts/export_c_delivery.py --source tencent`（默认 `eastmoney`），
+  来源写入 manifest 的 `market_data_source` / `source_note` 与**逐股** `source`，不会被冒充成东财数据。
+- 交付包 `docs/evidence/c-delivery-20260917/` 即由此产出：三股×437 行，`raw`/`normalized` 三对全部一致，
+  独立 MySQL 回读 `ok`。溯源（含导出时工作区为 dirty 的说明）、精度差异与已知限制见包内 README。
+- **是否需要**长期引入跨厂商兜底（会改变 `50001` 语义与契约）属**产品决策**，需 D/C 认可；
+  本环境只做了交付脚本层面的备用来源。
+
+### 7.5 复现命令
+
+```powershell
+# 端点 / 主机可达性
+curl.exe -sS -o NUL -w "code=%{http_code}`n" --max-time 15 `
+  "https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=1.600519&klt=101&fqt=1&beg=20260908&end=20260916&fields1=f1&fields2=f51"
+curl.exe -sS --max-time 15 `
+  "https://push2delay.eastmoney.com/api/qt/stock/kline/get?secid=1.600519&klt=101&fqt=1&beg=20260908&end=20260916&fields1=f1&fields2=f51"
+# 非 kline 端点仍可用（用于区分"被封 IP"与"仅该端点受限"）
+curl.exe -sS --max-time 15 "https://push2delay.eastmoney.com/api/qt/stock/get?secid=1.600519&fields=f43,f57,f58"
+
+# 应用侧（应如实抛 50001，且延迟主机回退也失败）
+.\.venv\Scripts\python.exe -c "from datetime import date; from backend.app.services.stock_service import StockService as S; print(S().get_daily_kline('600519', date(2024,12,1), date(2026,9,16)))"
+```

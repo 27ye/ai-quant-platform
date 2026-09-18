@@ -1,16 +1,28 @@
 # B 后端进度交接单
 
-> 更新时间：本轮协作结束时
+> 更新时间：V2 开发阶段（B1–B5 完成）
 > 用途：让新会话 / 新成员无需依赖历史对话即可接续工作。
+> **V2 契约与证据见** `docs/V2_B_DATA_CONTRACT.md`、`docs/V2_B_RUNBOOK.md`、`docs/V2_B_DATA_EVIDENCE.md`。
 
 ## 1. 仓库与分支
 
-- 上游（主仓库）：`https://github.com/27ye/ai-quant-platform`，`main` 当前指向 `9fb1acf`
+- 上游（主仓库）：`https://github.com/27ye/ai-quant-platform`，`main` 当前指向 `8062599`（PR #8/#9 已合并，**V1 已完成**）
 - 你的 fork：`https://github.com/Lawera2601/ai-quant-platform`
 - 相关分支：
-  - `feature/V1-ai-stock-search`：股票搜索/信息，**PR #6 已合并**（`e966bf1` 已入 upstream main）
-  - `feature/V1-db-news`：MySQL 建表/迁移 + 行情 Upsert/查询 + 新闻服务 → **PR #7 开门**
-- 本地 `main` 仍在 `2070c17`（未同步 upstream 的 PR #6 与后续，合并后需 `git fetch upstream` 再同步）。
+  - `feature/V1-db-news`：PR #7 **已合并**（`582510c`，merge commit `d04f7d5`）
+  - **`feature/v2-b-market-data`：V2 B 侧工作分支（当前）**，已推送 fork
+  - 其余 V1 分支（`feature/V1-ai-stock-search` / `-quant-endpoints` / `-kline` / `-frontend-ui`）均已并入 main
+
+## 1.1 V2（B 侧）已完成内容
+
+| 任务 | 交付 |
+|---|---|
+| M0 契约 | `docs/V2_B_DATA_CONTRACT.md`（数据源阻塞清单、迁移字段、接口提案与 JSON 样例、待评审问题）；同步更新 `docs/API_SPEC.md`（§4.1 搜索语义、§4.4 data-status、§8 回测与历史、错误码 `40005`）与 `docs/DATABASE_DESIGN.md`（§6 快照列、§11 新表、§12 迁移版本） |
+| B1 目录 + 本地搜索 | `scripts/sync_stock_catalog.py`、`StockCatalogService/Repository`、表 `stock_catalog_sync`；搜索查 MySQL，已同步时不调用全市场 Provider（实测 5915 只，搜索 0.01–0.07s） |
+| B2 来源元数据 + data-status | 表 `stock_daily_sync`、`GET /stocks/{code}/data-status`（mode/来源/覆盖/新鲜度；无元数据报 `unknown`，日历无法证明则 `coverage=unknown`） |
+| B3 参数化回测 | `schemas/backtest.py`（C1 白名单）、`BacktestService`（预热窗口 + 一次性快照 + `backtest_id`）、`QuantService.run_backtest(config=, frame=)` |
+| B4 迁移 + 历史 | `db/migrations.py` 分步迁移 **v1→v8**（幂等 ALTER，失败不记版本）：v4 快照列、v5 AI 快照列、v6 `input_snapshot`、v7 `c_result`、v8 `c_result_text`（LONGTEXT + 旧行回填）；`GET /backtests`、`GET /backtests/{id}`（读快照，不重算）。V1→v8 全链路与 **v8 中断恢复**见 `docs/evidence/v1-migration-chain-20260917/` |
+| B5 验证与说明 | `docs/V2_B_RUNBOOK.md`、`docs/V2_B_DATA_EVIDENCE.md`、`docs/B_DATASOURCE_DIAGNOSIS.md`、`scripts/warm_market_data.py`、`scripts/verify_c_delivery_consistency.py`、`scripts/verify_v1_migration_chain.py`；全量 `pytest` **369 passed**；交付包 `docs/evidence/c-delivery-20260917/` |
 
 ## 2. 你（B 后端）已完成的接口
 
@@ -20,9 +32,12 @@
 | `GET /api/v1/stocks/{code}/indicators` | 指标序列（包装 C `calculate_indicators`） | #5 | ✅ 已合 main |
 | `GET /api/v1/stocks/{code}/score` | 评分（包装 C `calculate_quant_score`） | #5 | ✅ 已合 main |
 | `POST /api/v1/backtests` | 回测（包装 C `run_backtest`） | #5 | ✅ 已合 main |
-| `GET /api/v1/stocks/search?keyword=` | 股票搜索（`regex=False` 子串匹配，≤50 条） | #6 | ✅ 已合 main |
+| `GET /api/v1/stocks/search?keyword=` | 股票搜索（**V2 起查本地目录**，≤50 条） | #6 / V2 | ✅ 已合 main，V2 语义已更新 |
 | `GET /api/v1/stocks/{code}` | 股票基本信息 | #6 | ✅ 已合 main |
-| `GET /api/v1/stocks/{code}/news` | 个股新闻（AKShare `stock_news_em` → 统一新闻结构） | #7 | 🕒 待 Review/合并 |
+| `GET /api/v1/stocks/{code}/news` | 个股新闻（AKShare `stock_news_em` → 统一新闻结构） | #7 | ✅ 已合 main |
+| `GET /api/v1/stocks/{code}/data-status` | 目录 + 行情来源/覆盖/新鲜度 | V2 | ✅ 分支 `feature/v2-b-market-data` |
+| `POST /api/v1/backtests`（+`parameters`） | 参数化回测，返回 `backtest_id` 与快照 | V2 | ✅ 同上 |
+| `GET /api/v1/backtests` / `{backtest_id}` | 回测历史列表与快照详情（不重算） | V2 | ✅ 同上 |
 
 ## 3. 关键架构 / 约定
 
@@ -32,9 +47,9 @@
 - **行情 Upsert/查询**：`backend/app/services/market_data_service.py` —— `MarketDataRepository` 按 `(stock_code, trade_date)` Upsert；`MarketDataService` 复用 `StockService` 的清洗 + 自动扩窗，`.query_daily(..., min_rows=60, max_stale_days=3, max_gap_days=15, trading_days=None)`。**完整性依据 = `trading_days`（`(start,end)->期望交易日数`，可用交易日历）**：仅当 `len(缓存) ≥ trading_days(start,end)` 才算完整命中；`trading_days` 为 `None` 时保守重拉（无法证明完整不命中）。`max_gap_days` 仅为辅助检查。其余命中条件：全部 bar 对 C 有效（有限且 >0 的 OHLC、OHLC 序、`volume` 非空且 ≥0）、覆盖起始、最新 bar 距 end ≤ `max_stale_days`。否则经 `StockService` 拉取补全；**统一精度（4/2/6 位）后、入库及返回前做有效性校验**，有效行数不足 `min_rows` 返回 `InsufficientStockDataError`（`40003`）。导出可注入的 `MarketDataSource` Protocol。
 - **新闻服务**：`backend/app/services/news_service.py` —— `NewsService.get_news(stock_code, limit, max_age_seconds=None, refresh=False)` 返回**按 `publish_time` 倒序、`NULL` 最后**的统一 `NewsItemContext` 列表；带**缓存刷新策略**（缓存最新 `publish_time` 超过 `max_age_seconds`（默认 6h）或 `refresh=True` 时重新拉取并 Upsert）。`AKShareStockProvider.get_stock_news` 先对全部有效新闻按时间倒序再应用 `limit`。导出可注入的 `NewsSource` Protocol。
 - **DB 异常**：两个 Repository 的 `SQLAlchemyError` 统一转为 `DatabaseOperationError`（`50002`）并 rollback，`/news` 在 DB 故障时返回 `ApiResponse{code:50002, message:"database error"}`
-- 错误：统一业务码 + `ApiResponse`（`40001`/`40002`/`40003`/`50001`/`50002`/`50003`），见 `docs/API_SPEC.md`。
+- 错误：统一业务码 + `ApiResponse`（B 侧实际实现：`40001` 参数、`40002` 资源不存在、`40003` 数据不足、`40005` backtest not found、`50000`/`50001` 数据源、`50002` 数据库、`50003`、`50004` backtest error、`50005` AI service、`50006` 目录从未同步；**`40006` report not found 属 D 侧 AI 报告链路，B 分支上不存在**），见 `docs/API_SPEC.md`。
 - 契约：`docs/API_SPEC.md`（新增 4.3 股票新闻）。
-- 测试：`pytest tests -q` → **143 passed**（基线 95 + 新增 48）。
+- 测试：`pytest tests -q` → **369 passed**（V1 阶段基线 95 → V1 结束 244 → V2 B 侧 289 → 交付收口 369）。
 - **真实 trading_days 来源**：`backend/app/data/trading_calendar.py` 的 `TradingCalendarProvider`（用 AKShare `tool_trade_date_hist_sina` 取 A 股真实交易日历，进程内缓存，`refresh()` 可重载；构造时可用 `trade_dates`/`fetch` 注入以便离线测试）。**`count_between(start,end) -> Optional[int]`**：日历为空、或未覆盖完整窗口（最早/最晚交易日未包住 `[start,end]`）时返回 `None`（覆盖未知），调用方据此保守重拉，**不把未知当可信 0**。接入方式：**构造器注入** `MarketDataService(..., trading_days=provider.as_callable())`，或**每次调用** `query_daily(..., trading_days=...)`。当前环境到 sina/eastmoney 的 https 仍受 TLS/网络阻塞，真实抓取需可用网络/代理。
 
 ### 可注入接口（给 D）
@@ -58,11 +73,21 @@ items = service.get_news(
 - 两个服务都支持无 DB 构造（`NewsSource` / `MarketDataSource` 只依赖可用注入源），便于 D 在 AI Context 中注入。
 - `NewsService` 满足 `NewsAnalysisService` 协议（`get_news(stock_code, limit) -> Sequence[NewsItemContext]`）。
 
-## 4. 下一步（B）
+## 4. 当前状态与剩余（B）
 
-1. **PR #7**（`feature/V1-db-news`）待 Review，由 27ye 合并。该分支已基于含 PR #6 的最新 main，为干净增量。
-2. 合并后同步：`git fetch upstream` → `git checkout main` → `git merge upstream/main`（本地 `main` 落后至 `2070c17`）。
-3. 进入 Demo 1.0 全链路联调：A 前端 `VITE_USE_MOCK=false` → 逐接口联调 → 删 mock。D 接入 `NewsService` 到 AI Context（`AnalysisContextProvider` 已用 `NewsItemContext` 契约）。
+前四项均已收口，保留原编号便于对照：
+
+1. ~~待评审 / 合并~~ → 契约问题按 `docs/V2_B_DATA_CONTRACT.md` §8 定稿；目录完整性口径维持 **≥1000 行**（C 已确认不再作为修复阻塞）。**集成状态必须分开看**：B 的早期提交（到 `e4ef000` 为止，含 v8 中断恢复 `ab774a6`）已在 PR #10 的 `b480014` 树里；**但之后的 6 个提交（`b7cb06a`、`dedad60`、`5404c25`、`74c74fb`、`d63aaa0`、`821f322`）尚未合入**，其中包括本轮交付的数据包与其生成脚本。见 PR #10 的说明。
+2. ~~等 C1 定稿~~ → C1 已定稿。**2026-09-17 按 C 复核更正本节**（原写预热为 `max(ma_trend_period, ma_long_period+1)`，并称"C 已复验"——两处都不准确）：
+   - **参数约束**：单字段 `2 ≤ period ≤ 120` 由 B 侧 `schemas/backtest.py` 强制；跨字段 `2 ≤ short < long` **B 侧同样强制**——`resolve_effective_parameters()` 对 `ma_short_period >= ma_long_period` 抛 `InvalidParameterError`（`backtest_service.py:125-128`）。C 侧另行校验完整契约。（更正：本节初版曾写"B 树内没有该检查"，那是我用**过窄的搜索式**没命中就下的结论，实际存在。）
+   - **V2 预热口径**：C 只使用「V2 开始日**前**最后 **`long`** 条有效日线」，即 `warmup_required_days()` 返回 `config.ma_long_period`——`long=120`、单日窗口时**正好 120 条，不是 121**（与 `quant/strategy.py:18` 的 `len(data) >= ma_long_period` 一致）。**数据传递形式**：B 传**一份完整 frame（预热 + 回测区间）加 `start_date`/`end_date`**，由 C 自行选择窗口；**不是**两份分开的行情列表（更正：初版"分开传递预热区间与回测区间"的措辞会被误读为两份列表）。
+   - `max(ma_trend_period, ma_long_period+1)` 是 **V1 legacy** 路径的口径（`quant/pipeline.py:23`、`quant/backtest.py:20`），**不适用于 `v2_windowed`**。
+   - 交付包另要求覆盖 **≥120 条**（`DELIVERY_WARMUP_MIN_BARS = 120`），那是**数据包覆盖要求**，不用来给每个请求做门禁。
+3. ~~等 D1 定稿~~ → AI 快照列已作为 **v5** 并入同一迁移序列（D 分支的独立重写被取代）。
+4. ~~V01/V02 第三只股票 300750~~ → 三只均已取到 **437 行**（2024-12-02 ~ 2026-09-16），交付包见 `docs/evidence/c-delivery-20260917/`。
+5. **剩余**：实时源稳定性属 V2 联合验收范围（B 配合，**不单独宣布通过**）。2026-09-16/17 东财 **kline 端点**长时段不可用，
+   已按 `docs/B_DATASOURCE_DIAGNOSIS.md` §7 的处置引入**交付脚本专用**备用来源（**运行时 Provider 未改动**）；
+   是否需要长期跨厂商兜底（会改变 `50001` 语义）属产品决策，待 D/C 明确。
 
 ## 5. 安全约定
 

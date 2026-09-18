@@ -1,0 +1,16 @@
+# The byte content of these files *is* the evidence: every one of them is pinned by a
+# published SHA-256 (see README.md). Git must therefore never normalise their line
+# endings.
+#
+# The export writes them with CRLF (Python text mode on Windows). With
+# `core.autocrlf=true` and no attribute, the committed blob would be LF, so a fresh
+# clone would reproduce different bytes and none of the published hashes would verify -
+# exactly what C caught on the first delivery (`4142a248...` committed vs the published
+# `75caedb8...` for 600519 normalized).
+*.json -text
+
+# Same reason as `docs/evidence/c-delivery/`: CRLF bytes would otherwise make
+# `git diff --check` report one "trailing whitespace" finding per line, burying real
+# whitespace problems. Scoped to these paths only; a CR at end of line is part of the
+# terminator here. This changes no file's bytes.
+*.json whitespace=cr-at-eol
