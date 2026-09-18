@@ -3,17 +3,29 @@ from datetime import date, timedelta
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
 
 from backend.app.core.errors import InsufficientStockDataError
-from backend.app.api.v1.dependencies import get_market_data_source, get_stock_service
+from backend.app.api.v1.dependencies import (
+    get_market_data_source,
+    get_stock_catalog_service,
+    get_stock_service,
+)
 from backend.app.data.providers.base import (
     EmptyStockDataError,
     InvalidStockCodeError,
     StockDataProvider,
     StockDataSchemaError,
 )
+from backend.app.db.migrations import apply_migrations
 from backend.app.main import app
 from backend.app.schemas.stock import DailyKlineSchema, StockBasicSchema
+from backend.app.services.stock_catalog_service import (
+    StockCatalogRepository,
+    StockCatalogService,
+)
 from backend.app.services.stock_service import DEFAULT_MIN_KLINE_ROWS, StockService
 
 STOCK_CODE = "600519"
@@ -206,17 +218,43 @@ def test_endpoint_provider_error_returns_50001():
     assert response.json()["code"] == 50001
 
 
-def test_search_stocks_returns_list():
-    class FakeService:
-        def search_stocks(self, keyword):
-            return [StockBasicSchema(stock_code=STOCK_CODE, stock_name="贵州茅台")]
+def test_search_stocks_returns_list(monkeypatch):
+    """V2 B1: search answers from the synced catalog, without a provider call."""
+    from backend.app.services import stock_catalog_service as catalog_module
 
-    app.dependency_overrides[get_stock_service] = lambda: FakeService()
+    monkeypatch.setattr(catalog_module, "MIN_CATALOG_ROWS", 1)
+
+    class FakeProvider(StockDataProvider):
+        last_catalog_source = "fake-catalog"
+
+        def get_daily_kline(self, *args, **kwargs):  # pragma: no cover - unused
+            raise NotImplementedError
+
+        def fetch_stock_catalog(self):
+            return [{"stock_code": STOCK_CODE, "stock_name": "贵州茅台"}]
+
+        def search_stocks(self, keyword):  # pragma: no cover - must not be called
+            raise AssertionError("search must be answered from the local catalog")
+
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    apply_migrations(engine)
+    session = Session(bind=engine)
+    service = StockCatalogService(
+        provider=FakeProvider(),
+        repository=StockCatalogRepository(session),
+    )
+    service.sync()
+    app.dependency_overrides[get_stock_catalog_service] = lambda: service
 
     try:
         response = TestClient(app).get("/api/v1/stocks/search?keyword=茅台")
     finally:
         app.dependency_overrides.clear()
+        session.close()
 
     assert response.status_code == 200
     assert response.json()["code"] == 0

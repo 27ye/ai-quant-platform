@@ -1,0 +1,18 @@
+{
+  "date": "2026-09-17",
+  "B_SHA": "821f322b988e8c1b1e3b6408185a41403e8b2cf4",
+  "D_SHA": "b4800149eeaa19037e665e3e40821462a6eabae6",
+  "C_core_SHA": "92df017404126e9af920e1ad82e4a136d813f8d1",
+  "C_acceptance_tool_SHA": "b2c372ebca1176194880e2eb88ab8b447b218fd8",
+  "result": "Prior B source corrections closed; final integration and C signoff pending",
+  "validation_this_round": "Remote commit ancestry, exact source/tree inspection, six file hashes, documentation delta",
+  "tests_not_repeated": true,
+  "evidence": {
+    "A-hash-label.json": {
+      "published_sha256": "c6325dbd015c6a77d17266f10db8b616195211ff4dc4439d7bcf546d15efe174"
+    },
+    "audit.json": {
+      "published_sha256": "2788c56b9c7ca85bd0a7783d5e63e78a7627d37d0bbfa84f83398d9975d36828"
+    }
+  }
+}

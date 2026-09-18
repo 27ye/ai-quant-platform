@@ -1,0 +1,28 @@
+{
+  "mysql": "8.0.31",
+  "read_only": true,
+  "schema_or_settings_modified": false,
+  "cases": [
+    {
+      "input_json": "{\"number\":99633.35582084299}",
+      "mysql_json_text": "{\"number\": 99633.355820843}",
+      "native_json_equal": false,
+      "text_envelope_bytes_equal": true,
+      "text_envelope_decoded_equal": true
+    },
+    {
+      "input_json": "{\"number\":100030.06482269087}",
+      "mysql_json_text": "{\"number\": 100030.06482269088}",
+      "native_json_equal": false,
+      "text_envelope_bytes_equal": true,
+      "text_envelope_decoded_equal": true
+    },
+    {
+      "input_json": "{\"number\":-0.09368913987128313}",
+      "mysql_json_text": "{\"number\": -0.09368913987128312}",
+      "native_json_equal": false,
+      "text_envelope_bytes_equal": true,
+      "text_envelope_decoded_equal": true
+    }
+  ]
+}

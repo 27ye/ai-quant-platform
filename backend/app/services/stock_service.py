@@ -52,6 +52,13 @@ class StockService:
     def __init__(self, provider: Optional[StockDataProvider] = None) -> None:
         self._provider = provider or AKShareStockProvider()
 
+    @property
+    def provider_name(self) -> str:
+        name = type(self._provider).__name__
+        if name == "AKShareStockProvider":
+            return "akshare"
+        return name
+
     def get_daily_kline(
         self,
         stock_code: str,
@@ -94,6 +101,11 @@ class StockService:
             StockBasicSchema(stock_code=item["stock_code"], stock_name=item["stock_name"])
             for item in items
         ]
+
+    @property
+    def last_kline_source(self) -> Optional[str]:
+        """Which host served the most recent successful daily fetch (V2 B2)."""
+        return getattr(self._provider, "last_kline_source", None)
 
     def get_stock_info(self, stock_code: str) -> StockBasicSchema:
         """Return basic stock info (name, industry, market caps) via AKShare."""

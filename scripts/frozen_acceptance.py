@@ -135,6 +135,7 @@ def validate_mysql_frozen(stock_code: str, frozen_dir: str, metadata: Optional[s
 
     get_settings.cache_clear()
     from fastapi.testclient import TestClient
+    from backend.app.api.v1 import dependencies
     from backend.app.db.migrations import apply_migrations
     from backend.app.db.session import SessionLocal, engine
     from backend.app.main import create_app
@@ -148,6 +149,8 @@ def validate_mysql_frozen(stock_code: str, frozen_dir: str, metadata: Optional[s
         apply_migrations(engine)
         app = create_app()
         install_frozen_overrides(app, package)
+        counting_llm = CountingLLMClient(dependencies.get_llm_client())
+        app.dependency_overrides[dependencies.get_llm_client] = lambda: counting_llm
 
         with TestClient(app, raise_server_exceptions=False) as client:
             first = client.get(f"/api/v1/stocks/{stock_code}/kline")
@@ -173,28 +176,61 @@ def validate_mysql_frozen(stock_code: str, frozen_dir: str, metadata: Optional[s
             repaired = client.get(f"/api/v1/stocks/{stock_code}/kline")
             _assert_api_success(repaired, "frozen middle-gap refresh failed")
             _assert_kline_matches_package(repaired.json()["data"], package, "gap repair")
-            response = client.post("/api/v1/ai/analyze", json={"stock_code": stock_code})
-        _assert_api_success(response, "frozen AI API did not return success")
+            first_report = client.post("/api/v1/ai/analyze", json={"stock_code": stock_code})
+            second_report = client.post("/api/v1/ai/analyze", json={"stock_code": stock_code})
+        _assert_api_success(first_report, "first frozen AI API did not return success")
+        _assert_api_success(second_report, "second frozen AI API did not return success")
+
+        generation_calls = counting_llm.calls
+        restarted_app = create_app()
+        install_frozen_overrides(restarted_app, package)
+        restarted_app.dependency_overrides[dependencies.get_llm_client] = lambda: counting_llm
+        first_id = first_report.json()["data"]["report_id"]
+        second_id = second_report.json()["data"]["report_id"]
+        with TestClient(restarted_app, raise_server_exceptions=False) as client:
+            report_list = client.get(
+                f"/api/v1/ai/reports?stock_code={stock_code}&page=1&page_size=20"
+            )
+            first_detail = client.get(f"/api/v1/ai/reports/{first_id}")
+            second_detail = client.get(f"/api/v1/ai/reports/{second_id}")
+        _assert_api_success(report_list, "frozen report history list failed")
+        _assert_api_success(first_detail, "first frozen report detail failed")
+        _assert_api_success(second_detail, "second frozen report detail failed")
+        history_ids = [item["report_id"] for item in report_list.json()["data"]["items"]]
+        if history_ids != [second_id, first_id] or first_id == second_id:
+            raise FrozenAcceptanceError("frozen report history ordering is invalid")
+        if counting_llm.calls != generation_calls:
+            raise FrozenAcceptanceError("history read unexpectedly called the LLM")
 
         with SessionLocal() as db:
             db_readback = MarketDataRepository(db).list_daily(stock_code, package.start_date, package.end_date)
             _assert_analysis_matches_package(db_readback, package, "mysql readback")
             records = db.query(AIAnalysis).filter_by(stock_code=stock_code).all()
-            if len(records) != 1:
-                raise FrozenAcceptanceError("expected exactly one persisted frozen report")
-            record = records[0]
-            data = response.json()["data"]
-            if any(getattr(record, key) != value for key, value in data.items()):
-                raise FrozenAcceptanceError("persisted report does not match API response")
+            records = sorted(records, key=lambda item: item.id)
+            if len(records) != 2:
+                raise FrozenAcceptanceError("expected exactly two persisted frozen reports")
+            response_data = [first_report.json()["data"], second_report.json()["data"]]
+            from scripts.validate_ai_analysis import record_response_mismatches
+
+            for record, data in zip(records, response_data):
+                mismatches = record_response_mismatches(record, data)
+                if mismatches:
+                    raise FrozenAcceptanceError(
+                        "persisted report mismatch fields: " + ",".join(mismatches)
+                    )
+                if data["source_mode"] != "frozen" or data["snapshot_status"] != "complete":
+                    raise FrozenAcceptanceError("frozen report metadata is invalid")
             print(json.dumps({
                 "validated": True,
                 "mode": "frozen_api_mysql",
                 "database": name,
                 "stock_code": stock_code,
-                "report_id": record.id,
+                "report_ids": [first_id, second_id],
                 "score": comparison["direct"]["score"]["score"],
                 "rows": len(package.bars),
                 "news_items": len(package.news),
+                "llm_generation_calls": generation_calls,
+                "history_llm_calls": counting_llm.calls - generation_calls,
             }, ensure_ascii=False), flush=True)
     finally:
         engine.dispose()
@@ -264,6 +300,17 @@ class FrozenStockProvider:
         return self.package.news[:limit]
 
 
+class CountingLLMClient:
+    def __init__(self, delegate: Any) -> None:
+        self._delegate = delegate
+        self.model_name = delegate.model_name
+        self.calls = 0
+
+    async def complete_json(self, messages):
+        self.calls += 1
+        return await self._delegate.complete_json(messages)
+
+
 class FrozenMarketDataSource:
     def __init__(self, service: Any, package: FrozenPackage) -> None:
         self._service = service
@@ -278,6 +325,9 @@ class FrozenMarketDataSource:
     def sync_daily(self, stock_code: str, start_date: date, end_date: date, **kwargs):
         _assert_in_window(start_date, end_date, self._package)
         return self._service.sync_daily(stock_code, start_date, end_date, **kwargs)
+
+    def get_query_provenance(self, stock_code: str) -> dict[str, str]:
+        return {"source_mode": "frozen", "provider": "frozen-package"}
 
 
 def _validate_metadata_contract(meta: dict) -> None:

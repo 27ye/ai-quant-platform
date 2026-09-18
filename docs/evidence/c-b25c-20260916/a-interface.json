@@ -1,0 +1,10 @@
+{
+  "repo": "kokona339/ai-quant-platform",
+  "branch": "feature/v2-a-backtest-form",
+  "sha": "010841099b20b500ed322b15cec32d9e7add97cd",
+  "file": "frontend/src/api/http.ts",
+  "file_sha256": "74b78a90178c7046e9b0f4ae05ba6d3aaf3832cb75ed93da06234c9475f195c7",
+  "contains_50006_mapping": false,
+  "verification": "Exact-SHA static inspection only; no new frontend runtime test",
+  "latest_a_comment_checked": "https://github.com/27ye/ai-quant-platform/issues/11#issuecomment-5693908455"
+}

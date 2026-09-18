@@ -1,0 +1,1036 @@
+{
+  "scope": "C core request/result examples only; NOT a complete HTTP response",
+  "data_source": "All bars are synthetic fixtures, not real prices or investment evidence.",
+  "http_fields_not_defined_here": [
+    "code/message/data envelope",
+    "backtest_id",
+    "created_at",
+    "pagination",
+    "snapshot_status"
+  ],
+  "default_parameters": {
+    "ma_short_period": 5,
+    "ma_long_period": 20,
+    "initial_cash": 100000.0,
+    "transaction_cost": 0.001,
+    "slippage": 0.0
+  },
+  "samples": [
+    {
+      "name": "default_open_position",
+      "request": {
+        "stock_code": "600519",
+        "start_date": "2025-06-30",
+        "end_date": "2025-07-01",
+        "parameters": {
+          "ma_short_period": 5,
+          "ma_long_period": 20,
+          "initial_cash": 100000.0,
+          "transaction_cost": 0.001,
+          "slippage": 0.0
+        }
+      },
+      "core_result": {
+        "strategy_name": "ma_long_only",
+        "start_date": "2025-06-30",
+        "end_date": "2025-07-01",
+        "initial_cash": 100000.0,
+        "final_equity": 102397.6023976024,
+        "total_return": 0.023976023976024052,
+        "annual_return": 18.79307530418916,
+        "max_drawdown": 0.0,
+        "sharpe_ratio": 29.09630941557104,
+        "win_rate": null,
+        "trade_count": 0,
+        "order_count": 1,
+        "benchmark_return": 0.02499999999999991,
+        "current_position": 1,
+        "parameters": {
+          "contract_status": "provisional",
+          "short_ma": 5,
+          "long_ma": 20,
+          "initial_cash": 100000.0,
+          "transaction_cost": 0.001,
+          "slippage": 0.0,
+          "allow_fractional_shares": true,
+          "risk_free_rate": 0.0,
+          "annualization_days": 252,
+          "benchmark_method": "first_open_to_last_close_no_cost",
+          "effective_trading_days": 2
+        },
+        "equity_curve": [
+          {
+            "trade_date": "2025-06-30",
+            "equity": 100732.60073260074
+          },
+          {
+            "trade_date": "2025-07-01",
+            "equity": 102397.6023976024
+          }
+        ],
+        "benchmark_curve": [
+          {
+            "trade_date": "2025-06-30",
+            "benchmark_equity": 100833.33333333333
+          },
+          {
+            "trade_date": "2025-07-01",
+            "benchmark_equity": 102500.0
+          }
+        ],
+        "drawdown_curve": [
+          {
+            "trade_date": "2025-06-30",
+            "drawdown": 0.0
+          },
+          {
+            "trade_date": "2025-07-01",
+            "drawdown": 0.0
+          }
+        ],
+        "trades": [
+          {
+            "order_id": 1,
+            "signal_date": "2025-06-27",
+            "execution_date": "2025-06-30",
+            "side": "buy",
+            "execution_price": 120.0,
+            "shares": 832.5008325008325,
+            "gross_amount": 99900.0999000999,
+            "fee": 99.9000999000999,
+            "cash_after": 0.0,
+            "position_after": 1,
+            "round_trip_pnl": null,
+            "round_trip_return": null
+          }
+        ],
+        "stock_code": "600519",
+        "semantics_version": "v2_windowed",
+        "algorithm_version": "ma_long_only_v2.0.0",
+        "requested_start_date": "2025-06-30",
+        "requested_end_date": "2025-07-01",
+        "effective_parameters": {
+          "contract_status": "provisional",
+          "frequency": "daily",
+          "adjust": "qfq",
+          "ma_short_period": 5,
+          "ma_medium_period": 10,
+          "ma_long_period": 20,
+          "ma_trend_period": 60,
+          "macd_fast_period": 12,
+          "macd_slow_period": 26,
+          "macd_signal_period": 9,
+          "macd_hist_multiplier": 2.0,
+          "rsi_period": 14,
+          "boll_period": 20,
+          "boll_std_multiplier": 2.0,
+          "boll_std_ddof": 0,
+          "trend_max_score": 40,
+          "momentum_max_score": 25,
+          "volume_max_score": 20,
+          "risk_max_score": 15,
+          "rsi_strong_lower": 50.0,
+          "rsi_strong_upper": 70.0,
+          "rsi_neutral_lower": 40.0,
+          "rsi_neutral_upper": 80.0,
+          "macd_rising_periods": 3,
+          "volume_ma_period": 20,
+          "volume_high_ratio": 1.2,
+          "volume_normal_ratio": 0.8,
+          "flat_price_change_threshold": 0.005,
+          "volatility_lookback": 60,
+          "volatility_std_ddof": 1,
+          "low_volatility_threshold": 0.2,
+          "medium_volatility_threshold": 0.35,
+          "drawdown_lookback": 120,
+          "low_drawdown_threshold": -0.1,
+          "medium_drawdown_threshold": -0.2,
+          "strategy_name": "ma_long_only",
+          "initial_cash": 100000.0,
+          "transaction_cost": 0.001,
+          "slippage": 0.0,
+          "allow_fractional_shares": true,
+          "risk_free_rate": 0.0,
+          "annualization_days": 252,
+          "benchmark_method": "first_open_to_last_close_no_cost"
+        },
+        "warmup": {
+          "start_date": "2025-06-02",
+          "end_date": "2025-06-27",
+          "required_rows": 20,
+          "used_rows": 20
+        },
+        "initial_equity": {
+          "trade_date": "2025-06-30",
+          "equity": 100000.0,
+          "valuation": "before_open"
+        },
+        "execution_assumptions": {
+          "model": "research_fractional_v1",
+          "signal": "previous_observation_close",
+          "execution": "next_observation_open",
+          "first_day_signal": "last_warmup_close",
+          "transaction_cost": "proportional_on_each_buy_and_sell",
+          "slippage": "buy_price_increased_sell_price_decreased",
+          "fractional_shares": true,
+          "forced_final_sale": false,
+          "benchmark_includes_costs": false,
+          "exchange_execution_constraints": "not_modelled",
+          "price_basis": "qfq"
+        },
+        "input_snapshot": {
+          "schema_version": "quant_input_v1",
+          "stock_code": "600519",
+          "frequency": "daily",
+          "adjust": "qfq",
+          "data_mode": "synthetic_frontend_contract",
+          "columns": [
+            "stock_code",
+            "trade_date",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume"
+          ],
+          "rows": [
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-02",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-03",
+              "open": 101.0,
+              "high": 102.0,
+              "low": 100.0,
+              "close": 101.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-04",
+              "open": 102.0,
+              "high": 103.0,
+              "low": 101.0,
+              "close": 102.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-05",
+              "open": 103.0,
+              "high": 104.0,
+              "low": 102.0,
+              "close": 103.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-06",
+              "open": 104.0,
+              "high": 105.0,
+              "low": 103.0,
+              "close": 104.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-09",
+              "open": 105.0,
+              "high": 106.0,
+              "low": 104.0,
+              "close": 105.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-10",
+              "open": 106.0,
+              "high": 107.0,
+              "low": 105.0,
+              "close": 106.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-11",
+              "open": 107.0,
+              "high": 108.0,
+              "low": 106.0,
+              "close": 107.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-12",
+              "open": 108.0,
+              "high": 109.0,
+              "low": 107.0,
+              "close": 108.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-13",
+              "open": 109.0,
+              "high": 110.0,
+              "low": 108.0,
+              "close": 109.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-16",
+              "open": 110.0,
+              "high": 111.0,
+              "low": 109.0,
+              "close": 110.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-17",
+              "open": 111.0,
+              "high": 112.0,
+              "low": 110.0,
+              "close": 111.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-18",
+              "open": 112.0,
+              "high": 113.0,
+              "low": 111.0,
+              "close": 112.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-19",
+              "open": 113.0,
+              "high": 114.0,
+              "low": 112.0,
+              "close": 113.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-20",
+              "open": 114.0,
+              "high": 115.0,
+              "low": 113.0,
+              "close": 114.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-23",
+              "open": 115.0,
+              "high": 116.0,
+              "low": 114.0,
+              "close": 115.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-24",
+              "open": 116.0,
+              "high": 117.0,
+              "low": 115.0,
+              "close": 116.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-25",
+              "open": 117.0,
+              "high": 118.0,
+              "low": 116.0,
+              "close": 117.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-26",
+              "open": 118.0,
+              "high": 119.0,
+              "low": 117.0,
+              "close": 118.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-27",
+              "open": 119.0,
+              "high": 120.0,
+              "low": 118.0,
+              "close": 119.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-30",
+              "open": 120.0,
+              "high": 122.0,
+              "low": 119.0,
+              "close": 121.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-07-01",
+              "open": 122.0,
+              "high": 124.0,
+              "low": 121.0,
+              "close": 123.0,
+              "volume": 10000.0
+            }
+          ],
+          "sha256": "5805808d53dfcd1a03e877e03818d447bb89c42cef20169085f66faa40be0371"
+        },
+        "data_hash": "5805808d53dfcd1a03e877e03818d447bb89c42cef20169085f66faa40be0371"
+      }
+    },
+    {
+      "name": "no_orders",
+      "request": {
+        "stock_code": "600519",
+        "start_date": "2025-06-30",
+        "end_date": "2025-07-01",
+        "parameters": {
+          "ma_short_period": 5,
+          "ma_long_period": 20,
+          "initial_cash": 100000.0,
+          "transaction_cost": 0.001,
+          "slippage": 0.0
+        }
+      },
+      "core_result": {
+        "strategy_name": "ma_long_only",
+        "start_date": "2025-06-30",
+        "end_date": "2025-07-01",
+        "initial_cash": 100000.0,
+        "final_equity": 100000.0,
+        "total_return": 0.0,
+        "annual_return": 0.0,
+        "max_drawdown": 0.0,
+        "sharpe_ratio": null,
+        "win_rate": null,
+        "trade_count": 0,
+        "order_count": 0,
+        "benchmark_return": 0.0,
+        "current_position": 0,
+        "parameters": {
+          "contract_status": "provisional",
+          "short_ma": 5,
+          "long_ma": 20,
+          "initial_cash": 100000.0,
+          "transaction_cost": 0.001,
+          "slippage": 0.0,
+          "allow_fractional_shares": true,
+          "risk_free_rate": 0.0,
+          "annualization_days": 252,
+          "benchmark_method": "first_open_to_last_close_no_cost",
+          "effective_trading_days": 2
+        },
+        "equity_curve": [
+          {
+            "trade_date": "2025-06-30",
+            "equity": 100000.0
+          },
+          {
+            "trade_date": "2025-07-01",
+            "equity": 100000.0
+          }
+        ],
+        "benchmark_curve": [
+          {
+            "trade_date": "2025-06-30",
+            "benchmark_equity": 100000.0
+          },
+          {
+            "trade_date": "2025-07-01",
+            "benchmark_equity": 100000.0
+          }
+        ],
+        "drawdown_curve": [
+          {
+            "trade_date": "2025-06-30",
+            "drawdown": 0.0
+          },
+          {
+            "trade_date": "2025-07-01",
+            "drawdown": 0.0
+          }
+        ],
+        "trades": [],
+        "stock_code": "600519",
+        "semantics_version": "v2_windowed",
+        "algorithm_version": "ma_long_only_v2.0.0",
+        "requested_start_date": "2025-06-30",
+        "requested_end_date": "2025-07-01",
+        "effective_parameters": {
+          "contract_status": "provisional",
+          "frequency": "daily",
+          "adjust": "qfq",
+          "ma_short_period": 5,
+          "ma_medium_period": 10,
+          "ma_long_period": 20,
+          "ma_trend_period": 60,
+          "macd_fast_period": 12,
+          "macd_slow_period": 26,
+          "macd_signal_period": 9,
+          "macd_hist_multiplier": 2.0,
+          "rsi_period": 14,
+          "boll_period": 20,
+          "boll_std_multiplier": 2.0,
+          "boll_std_ddof": 0,
+          "trend_max_score": 40,
+          "momentum_max_score": 25,
+          "volume_max_score": 20,
+          "risk_max_score": 15,
+          "rsi_strong_lower": 50.0,
+          "rsi_strong_upper": 70.0,
+          "rsi_neutral_lower": 40.0,
+          "rsi_neutral_upper": 80.0,
+          "macd_rising_periods": 3,
+          "volume_ma_period": 20,
+          "volume_high_ratio": 1.2,
+          "volume_normal_ratio": 0.8,
+          "flat_price_change_threshold": 0.005,
+          "volatility_lookback": 60,
+          "volatility_std_ddof": 1,
+          "low_volatility_threshold": 0.2,
+          "medium_volatility_threshold": 0.35,
+          "drawdown_lookback": 120,
+          "low_drawdown_threshold": -0.1,
+          "medium_drawdown_threshold": -0.2,
+          "strategy_name": "ma_long_only",
+          "initial_cash": 100000.0,
+          "transaction_cost": 0.001,
+          "slippage": 0.0,
+          "allow_fractional_shares": true,
+          "risk_free_rate": 0.0,
+          "annualization_days": 252,
+          "benchmark_method": "first_open_to_last_close_no_cost"
+        },
+        "warmup": {
+          "start_date": "2025-06-02",
+          "end_date": "2025-06-27",
+          "required_rows": 20,
+          "used_rows": 20
+        },
+        "initial_equity": {
+          "trade_date": "2025-06-30",
+          "equity": 100000.0,
+          "valuation": "before_open"
+        },
+        "execution_assumptions": {
+          "model": "research_fractional_v1",
+          "signal": "previous_observation_close",
+          "execution": "next_observation_open",
+          "first_day_signal": "last_warmup_close",
+          "transaction_cost": "proportional_on_each_buy_and_sell",
+          "slippage": "buy_price_increased_sell_price_decreased",
+          "fractional_shares": true,
+          "forced_final_sale": false,
+          "benchmark_includes_costs": false,
+          "exchange_execution_constraints": "not_modelled",
+          "price_basis": "qfq"
+        },
+        "input_snapshot": {
+          "schema_version": "quant_input_v1",
+          "stock_code": "600519",
+          "frequency": "daily",
+          "adjust": "qfq",
+          "data_mode": "synthetic_frontend_contract",
+          "columns": [
+            "stock_code",
+            "trade_date",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume"
+          ],
+          "rows": [
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-02",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-03",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-04",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-05",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-06",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-09",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-10",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-11",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-12",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-13",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-16",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-17",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-18",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-19",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-20",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-23",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-24",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-25",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-26",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-27",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-30",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-07-01",
+              "open": 100.0,
+              "high": 101.0,
+              "low": 99.0,
+              "close": 100.0,
+              "volume": 10000.0
+            }
+          ],
+          "sha256": "c9ffedb95771ca7fb44efa181d4a53c958b93814482d446202554fd958efeed2"
+        },
+        "data_hash": "c9ffedb95771ca7fb44efa181d4a53c958b93814482d446202554fd958efeed2"
+      }
+    },
+    {
+      "name": "completed_round_trip_with_costs",
+      "request": {
+        "stock_code": "600519",
+        "start_date": "2025-06-05",
+        "end_date": "2025-06-06",
+        "parameters": {
+          "ma_short_period": 2,
+          "ma_long_period": 3,
+          "initial_cash": 1020.1,
+          "transaction_cost": 0.01,
+          "slippage": 0.01
+        }
+      },
+      "core_result": {
+        "strategy_name": "ma_long_only",
+        "start_date": "2025-06-05",
+        "end_date": "2025-06-06",
+        "initial_cash": 1020.1,
+        "final_equity": 1960.2,
+        "total_return": 0.9215763160474464,
+        "annual_return": 5.506330804692944e+35,
+        "max_drawdown": -0.5098519752965396,
+        "sharpe_ratio": 7.8881477696914555,
+        "win_rate": 1.0,
+        "trade_count": 1,
+        "order_count": 2,
+        "benchmark_return": 1.0,
+        "current_position": 0,
+        "parameters": {
+          "contract_status": "provisional",
+          "short_ma": 2,
+          "long_ma": 3,
+          "initial_cash": 1020.1,
+          "transaction_cost": 0.01,
+          "slippage": 0.01,
+          "allow_fractional_shares": true,
+          "risk_free_rate": 0.0,
+          "annualization_days": 252,
+          "benchmark_method": "first_open_to_last_close_no_cost",
+          "effective_trading_days": 2
+        },
+        "equity_curve": [
+          {
+            "trade_date": "2025-06-05",
+            "equity": 500.0
+          },
+          {
+            "trade_date": "2025-06-06",
+            "equity": 1960.2
+          }
+        ],
+        "benchmark_curve": [
+          {
+            "trade_date": "2025-06-05",
+            "benchmark_equity": 510.05
+          },
+          {
+            "trade_date": "2025-06-06",
+            "benchmark_equity": 2040.2
+          }
+        ],
+        "drawdown_curve": [
+          {
+            "trade_date": "2025-06-05",
+            "drawdown": -0.5098519752965396
+          },
+          {
+            "trade_date": "2025-06-06",
+            "drawdown": 0.0
+          }
+        ],
+        "trades": [
+          {
+            "order_id": 1,
+            "signal_date": "2025-06-04",
+            "execution_date": "2025-06-05",
+            "side": "buy",
+            "execution_price": 10.1,
+            "shares": 100.0,
+            "gross_amount": 1010.0,
+            "fee": 10.1,
+            "cash_after": 0.0,
+            "position_after": 1,
+            "round_trip_pnl": null,
+            "round_trip_return": null
+          },
+          {
+            "order_id": 2,
+            "signal_date": "2025-06-05",
+            "execution_date": "2025-06-06",
+            "side": "sell",
+            "execution_price": 19.8,
+            "shares": 100.0,
+            "gross_amount": 1980.0,
+            "fee": 19.8,
+            "cash_after": 1960.2,
+            "position_after": 0,
+            "round_trip_pnl": 940.1,
+            "round_trip_return": 0.9215763160474463
+          }
+        ],
+        "stock_code": "600519",
+        "semantics_version": "v2_windowed",
+        "algorithm_version": "ma_long_only_v2.0.0",
+        "requested_start_date": "2025-06-05",
+        "requested_end_date": "2025-06-06",
+        "effective_parameters": {
+          "contract_status": "provisional",
+          "frequency": "daily",
+          "adjust": "qfq",
+          "ma_short_period": 2,
+          "ma_medium_period": 10,
+          "ma_long_period": 3,
+          "ma_trend_period": 60,
+          "macd_fast_period": 12,
+          "macd_slow_period": 26,
+          "macd_signal_period": 9,
+          "macd_hist_multiplier": 2.0,
+          "rsi_period": 14,
+          "boll_period": 20,
+          "boll_std_multiplier": 2.0,
+          "boll_std_ddof": 0,
+          "trend_max_score": 40,
+          "momentum_max_score": 25,
+          "volume_max_score": 20,
+          "risk_max_score": 15,
+          "rsi_strong_lower": 50.0,
+          "rsi_strong_upper": 70.0,
+          "rsi_neutral_lower": 40.0,
+          "rsi_neutral_upper": 80.0,
+          "macd_rising_periods": 3,
+          "volume_ma_period": 20,
+          "volume_high_ratio": 1.2,
+          "volume_normal_ratio": 0.8,
+          "flat_price_change_threshold": 0.005,
+          "volatility_lookback": 60,
+          "volatility_std_ddof": 1,
+          "low_volatility_threshold": 0.2,
+          "medium_volatility_threshold": 0.35,
+          "drawdown_lookback": 120,
+          "low_drawdown_threshold": -0.1,
+          "medium_drawdown_threshold": -0.2,
+          "strategy_name": "ma_long_only",
+          "initial_cash": 1020.1,
+          "transaction_cost": 0.01,
+          "slippage": 0.01,
+          "allow_fractional_shares": true,
+          "risk_free_rate": 0.0,
+          "annualization_days": 252,
+          "benchmark_method": "first_open_to_last_close_no_cost"
+        },
+        "warmup": {
+          "start_date": "2025-06-02",
+          "end_date": "2025-06-04",
+          "required_rows": 3,
+          "used_rows": 3
+        },
+        "initial_equity": {
+          "trade_date": "2025-06-05",
+          "equity": 1020.1,
+          "valuation": "before_open"
+        },
+        "execution_assumptions": {
+          "model": "research_fractional_v1",
+          "signal": "previous_observation_close",
+          "execution": "next_observation_open",
+          "first_day_signal": "last_warmup_close",
+          "transaction_cost": "proportional_on_each_buy_and_sell",
+          "slippage": "buy_price_increased_sell_price_decreased",
+          "fractional_shares": true,
+          "forced_final_sale": false,
+          "benchmark_includes_costs": false,
+          "exchange_execution_constraints": "not_modelled",
+          "price_basis": "qfq"
+        },
+        "input_snapshot": {
+          "schema_version": "quant_input_v1",
+          "stock_code": "600519",
+          "frequency": "daily",
+          "adjust": "qfq",
+          "data_mode": "synthetic_frontend_contract",
+          "columns": [
+            "stock_code",
+            "trade_date",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume"
+          ],
+          "rows": [
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-02",
+              "open": 10.0,
+              "high": 11.0,
+              "low": 9.0,
+              "close": 10.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-03",
+              "open": 11.0,
+              "high": 12.0,
+              "low": 10.0,
+              "close": 11.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-04",
+              "open": 12.0,
+              "high": 13.0,
+              "low": 11.0,
+              "close": 12.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-05",
+              "open": 10.0,
+              "high": 11.0,
+              "low": 4.0,
+              "close": 5.0,
+              "volume": 10000.0
+            },
+            {
+              "stock_code": "600519",
+              "trade_date": "2025-06-06",
+              "open": 20.0,
+              "high": 21.0,
+              "low": 19.0,
+              "close": 20.0,
+              "volume": 10000.0
+            }
+          ],
+          "sha256": "e88c5b61c73f7ac37b8b8e95f7d30b9beef1bec1ad84d8898dd73b93928418d4"
+        },
+        "data_hash": "e88c5b61c73f7ac37b8b8e95f7d30b9beef1bec1ad84d8898dd73b93928418d4"
+      }
+    }
+  ],
+  "rejected_parameter_examples": [
+    {
+      "parameters": {
+        "commission": 0.001
+      },
+      "error": "unknown backtest parameters: ['commission']"
+    },
+    {
+      "parameters": {
+        "ma_short_period": "5"
+      },
+      "error": "ma_short_period must be an integer, not bool"
+    },
+    {
+      "parameters": {
+        "initial_cash": true
+      },
+      "error": "initial_cash must be an int or float, not bool"
+    },
+    {
+      "parameters": null,
+      "error": "parameters must be an object; null is not allowed"
+    }
+  ]
+}

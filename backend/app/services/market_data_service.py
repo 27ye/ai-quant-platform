@@ -17,15 +17,19 @@ stable business error instead of a raw driver exception.
 from __future__ import annotations
 
 import math
-from datetime import date, timedelta
-from typing import Callable, List, Optional, Protocol, Sequence
+import threading
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta, timezone
+from typing import Callable, ClassVar, List, Optional, Protocol, Sequence
 
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from backend.app.core.errors import DatabaseOperationError, InsufficientStockDataError
 from backend.app.models.stock_basic import StockBasic
 from backend.app.models.stock_daily import StockDaily
+from backend.app.models.stock_daily_sync import StockDailySync
 from backend.app.schemas.stock import DailyKlineSchema, StockBasicSchema
 from backend.app.services.stock_service import DEFAULT_MIN_KLINE_ROWS, StockService
 
@@ -48,6 +52,36 @@ DEFAULT_MAX_GAP_DAYS = 15
 PRICE_NDIGITS = 4
 AMOUNT_NDIGITS = 2
 PERCENT_NDIGITS = 6
+
+
+@dataclass(frozen=True)
+class DailySyncState:
+    """Recorded provenance of the last refresh attempt for one stock (V2 B2)."""
+
+    stock_code: str
+    mode: str
+    source: Optional[str]
+    row_count: int
+    first_trade_date: Optional[date]
+    last_trade_date: Optional[date]
+    last_success_at: Optional[datetime]
+    last_attempt_at: Optional[datetime]
+    last_error: Optional[str]
+
+
+@dataclass(frozen=True)
+class DailyWindow:
+    """Aggregates over the stored bars themselves, independent of metadata."""
+
+    row_count: int
+    first_trade_date: Optional[date]
+    last_trade_date: Optional[date]
+    last_updated_at: Optional[datetime]
+
+
+def _utc_now() -> datetime:
+    """Naive UTC, matching the plain DATETIME columns used across the schema."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def _round_value(value: Optional[float], ndigits: int) -> Optional[float]:
@@ -126,6 +160,14 @@ class MarketDataSource(Protocol):
     ) -> List[DailyKlineSchema]:
         """Fetch + clean + widen via ``StockService``, then upsert into MySQL.
         Returns the same rounded rows that are written to the DB.
+        """
+        ...
+
+    def get_query_provenance(self, stock_code: str) -> dict[str, str]:
+        """Return ``source_mode``/``provider`` for the last query of a stock.
+
+        Persisted into AI report snapshots, so a source that cannot attest its
+        own provenance must fail loudly instead of silently omitting it.
         """
         ...
 
@@ -224,6 +266,115 @@ class MarketDataRepository:
             self._session.rollback()
             raise DatabaseOperationError() from exc
 
+    def refresh_snapshot(self) -> None:
+        """End the current read-only transaction so the next query starts a
+        fresh snapshot. On MySQL (REPEATABLE READ) a session keeps serving the
+        snapshot established by its first read, so a cache re-check after
+        waiting on the per-stock sync lock would not see another request's
+        just-committed rows without this. Repository methods always commit or
+        roll back their own writes, so no pending changes are ever discarded.
+        """
+        self._session.rollback()
+
+    # -- refresh provenance (V2 B2) -----------------------------------------
+
+    def upsert_daily_sync(
+        self,
+        *,
+        stock_code: str,
+        mode: str,
+        source: Optional[str],
+        row_count: int,
+        first_trade_date: Optional[date],
+        last_trade_date: Optional[date],
+        at: datetime,
+    ) -> None:
+        """Record a *successful* refresh (only called after the bars are stored)."""
+        try:
+            record = self._session.get(StockDailySync, stock_code)
+            if record is None:
+                record = StockDailySync(
+                    stock_code=stock_code, mode=mode, last_attempt_at=at
+                )
+                self._session.add(record)
+            record.mode = mode
+            record.source = source
+            record.row_count = row_count
+            record.first_trade_date = first_trade_date
+            record.last_trade_date = last_trade_date
+            record.last_success_at = at
+            record.last_attempt_at = at
+            record.last_error = None
+            self._session.commit()
+        except SQLAlchemyError as exc:
+            self._session.rollback()
+            raise DatabaseOperationError() from exc
+
+    def mark_daily_sync_failure(
+        self, *, stock_code: str, error: str, at: datetime
+    ) -> None:
+        """Record a failed refresh without touching the previous success time."""
+        try:
+            record = self._session.get(StockDailySync, stock_code)
+            if record is None:
+                record = StockDailySync(
+                    stock_code=stock_code, mode="unknown", last_attempt_at=at
+                )
+                self._session.add(record)
+            record.last_attempt_at = at
+            record.last_error = error[:500]
+            self._session.commit()
+        except SQLAlchemyError as exc:
+            self._session.rollback()
+            raise DatabaseOperationError() from exc
+
+    def get_daily_sync(self, stock_code: str) -> Optional[DailySyncState]:
+        try:
+            record = self._session.get(StockDailySync, stock_code)
+        except SQLAlchemyError as exc:
+            raise DatabaseOperationError() from exc
+        if record is None:
+            return None
+        return DailySyncState(
+            stock_code=record.stock_code,
+            mode=record.mode,
+            source=record.source,
+            row_count=int(record.row_count or 0),
+            first_trade_date=record.first_trade_date,
+            last_trade_date=record.last_trade_date,
+            last_success_at=record.last_success_at,
+            last_attempt_at=record.last_attempt_at,
+            last_error=record.last_error,
+        )
+
+    def daily_window(self, stock_code: str) -> DailyWindow:
+        """Row count / first / last trade date / last write time from the bars."""
+        try:
+            row = self._session.execute(
+                select(
+                    func.count(StockDaily.id),
+                    func.min(StockDaily.trade_date),
+                    func.max(StockDaily.trade_date),
+                    func.max(StockDaily.updated_at),
+                ).where(StockDaily.stock_code == stock_code)
+            ).one()
+        except SQLAlchemyError as exc:
+            raise DatabaseOperationError() from exc
+        row_count = int(row[0] or 0)
+        if row_count == 0:
+            return DailyWindow(
+                row_count=0,
+                first_trade_date=None,
+                last_trade_date=None,
+                last_updated_at=None,
+            )
+        return DailyWindow(
+            row_count=row_count,
+            first_trade_date=row[1],
+            last_trade_date=row[2],
+            last_updated_at=row[3],
+        )
+
     @staticmethod
     def _rounded_daily_fields(row: DailyKlineSchema) -> dict:
         return _round_daily(row).model_dump()
@@ -268,6 +419,24 @@ class MarketDataService:
         self._stock = stock_service or StockService()
         self._repository = repository
         self._trading_days = trading_days
+        self._query_source_modes: dict[str, str] = {}
+
+    #: Per-stock sync locks, shared across instances: ``get_market_data_source``
+    #: builds a fresh service per request, so instance-level locks would not
+    #: exclude concurrent first-load syncs of the same stock.
+    _sync_locks: ClassVar[dict[str, threading.Lock]] = {}
+    _sync_locks_guard: ClassVar[threading.Lock] = threading.Lock()
+
+    @classmethod
+    def _sync_lock_for(cls, stock_code: str) -> threading.Lock:
+        """Return the class-shared lock serializing cache-miss syncs of one stock.
+
+        Two concurrent cold-start queries for the same stock otherwise both
+        fetch and race the non-atomic ``upsert_daily``; the loser fails with a
+        duplicate-key IntegrityError (the cold-start blank K-line card).
+        """
+        with cls._sync_locks_guard:
+            return cls._sync_locks.setdefault(stock_code, threading.Lock())
 
     def sync_daily(
         self,
@@ -283,20 +452,59 @@ class MarketDataService:
         from a later cache hit. Rows that C's quant would reject (non-positive
         price, null volume, illegal OHLC) are dropped using the same rule as the
         cache validity check; if fewer than ``min_rows`` remain, 40003 is raised.
+
+        On success the refresh provenance (mode/source/rows/window/time) is
+        recorded in ``stock_daily_sync`` so ``data-status`` can report where the
+        stored bars came from; a failed attempt records only the error and keeps
+        the previous success time.
         """
-        fetched = self._stock.get_daily_kline(
-            stock_code, start_date, end_date, min_rows=min_rows
-        )
+        try:
+            fetched = self._stock.get_daily_kline(
+                stock_code, start_date, end_date, min_rows=min_rows
+            )
+        except Exception as exc:  # noqa: BLE001 - re-raised below
+            self._record_sync_failure(stock_code, exc)
+            raise
         rows = [_round_daily(row) for row in fetched]
         rows = [row for row in rows if _is_valid_bar(row)]
         if len(rows) < min_rows:
+            self._record_sync_failure(
+                stock_code,
+                InsufficientStockDataError(
+                    f"stock {stock_code} has {len(rows)} valid rows after the "
+                    f"consistency filter; at least {min_rows} required"
+                ),
+            )
             raise InsufficientStockDataError(
                 f"stock {stock_code} has {len(rows)} valid rows after the "
                 f"consistency filter; at least {min_rows} required"
             )
         if self._repository is not None:
             self._repository.upsert_daily(rows)
+            self._repository.upsert_daily_sync(
+                stock_code=stock_code,
+                mode="live",
+                source=self._stock.last_kline_source,
+                row_count=len(rows),
+                first_trade_date=rows[0].trade_date,
+                last_trade_date=rows[-1].trade_date,
+                at=_utc_now(),
+            )
+        self._query_source_modes[stock_code] = "live"
         return rows
+
+    def _record_sync_failure(self, stock_code: str, exc: Exception) -> None:
+        """Best-effort failure note: never mask the original error."""
+        if self._repository is None:
+            return
+        try:
+            self._repository.mark_daily_sync_failure(
+                stock_code=stock_code,
+                error=f"{type(exc).__name__}: {exc}",
+                at=_utc_now(),
+            )
+        except DatabaseOperationError:
+            pass
 
     def query_daily(
         self,
@@ -325,17 +533,68 @@ class MarketDataService:
         the window to guarantee ``min_rows`` valid rows) and upserts the result.
         Raises ``InsufficientStockDataError`` (40003) when even the widest fetch
         cannot produce ``min_rows`` valid rows.
+
+        Concurrent first-load queries for the same stock are serialized on a
+        class-level per-stock lock: the waiter re-checks the cache on a fresh
+        snapshot and serves the rows the winner just synced, instead of
+        re-fetching and racing the non-atomic upsert.
         """
         end_date = end_date or date.today()
         start_date = start_date or (end_date - timedelta(days=366))
         trading_days = trading_days if trading_days is not None else self._trading_days
-        if self._repository is not None:
-            cached = self._repository.list_daily(stock_code, start_date, end_date)
-            if self._is_cache_complete(
-                cached, start_date, end_date, min_rows, max_stale_days, max_gap_days, trading_days
-            ):
+        cached = self._complete_cache(
+            stock_code, start_date, end_date, min_rows, max_stale_days, max_gap_days, trading_days
+        )
+        if cached is not None:
+            return cached
+        with self._sync_lock_for(stock_code):
+            # A concurrent request may have finished the sync while we waited
+            # on the lock; re-check on a fresh snapshot before fetching again
+            # (MySQL REPEATABLE READ would otherwise keep serving the stale
+            # snapshot established by the fast-path read above).
+            if self._repository is not None:
+                self._repository.refresh_snapshot()
+            cached = self._complete_cache(
+                stock_code, start_date, end_date, min_rows, max_stale_days, max_gap_days, trading_days
+            )
+            if cached is not None:
                 return cached
-        return self.sync_daily(stock_code, start_date, end_date, min_rows=min_rows)
+            return self.sync_daily(stock_code, start_date, end_date, min_rows=min_rows)
+
+    def _complete_cache(
+        self,
+        stock_code: str,
+        start_date: date,
+        end_date: date,
+        min_rows: int,
+        max_stale_days: int,
+        max_gap_days: int,
+        trading_days: Optional[Callable[[date, date], Optional[int]]],
+    ) -> Optional[List[DailyKlineSchema]]:
+        """Return the cached window when it is a verified complete hit, else ``None``."""
+        if self._repository is None:
+            return None
+        cached = self._repository.list_daily(stock_code, start_date, end_date)
+        if self._is_cache_complete(
+            cached, start_date, end_date, min_rows, max_stale_days, max_gap_days, trading_days
+        ):
+            self._query_source_modes[stock_code] = "cache"
+            return cached
+        return None
+
+    def get_query_provenance(self, stock_code: str) -> dict[str, str]:
+        mode = self._query_source_modes.get(stock_code, "unknown")
+        if mode == "live":
+            provider = self._stock.last_kline_source or self._stock.provider_name
+        elif mode == "cache" and self._repository is not None:
+            sync = self._repository.get_daily_sync(stock_code)
+            provider = sync.source if sync and sync.source else "unknown"
+        else:
+            provider = "unknown"
+        return {
+            "source_mode": mode,
+            "provider": provider,
+        }
 
     @staticmethod
     def _gaps_valid(cached: Sequence[DailyKlineSchema], max_gap_days: int) -> bool:

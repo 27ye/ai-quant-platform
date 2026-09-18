@@ -1,0 +1,243 @@
+{
+ "batch": "20260917",
+ "status": "ok",
+ "generated_at_utc": "2026-09-17T00:55:26.466684+00:00",
+ "code_sha": "b7cb06a39f56142e51cbf6c8054b03785a9881a4",
+ "requested_window": [
+  "2024-12-01",
+  "2026-09-16"
+ ],
+ "last_complete_trading_day": "2026-09-16",
+ "aborted_reason": null,
+ "canonical_precision": {
+  "price_ndigits": 4,
+  "amount_ndigits": 2,
+  "percent_ndigits": 6
+ },
+ "market_data_source": "tencent",
+ "source_note": "tencent web.ifzq.gtimg.cn /appstock/app/fqkline/get (qfq) - DELIVERY FALLBACK ONLY, the app's runtime provider is unchanged. Independent of eastmoney, not a substitute for it: over the 436 shared days OHLC differs on 378/209/327 rows (600519/000001/300750) with max |diff| ~0.004 CNY - identical volume, and identical only after rounding to 2 decimals, so delivery-precision (4dp) values and input hashes differ. This endpoint publishes no amount/turnover_rate (left null - C marks both optional); change_pct is DERIVED from consecutive qfq closes, not vendor-reported.",
+ "note": "raw and normalized are derived from ONE frozen provider response per stock; readback is an independent repository read in a new session",
+ "stocks": [
+  {
+   "stock_code": "600519",
+   "requested_window": [
+    "2024-12-01",
+    "2026-09-16"
+   ],
+   "last_complete_trading_day": "2026-09-16",
+   "source": "tencent web.ifzq.gtimg.cn /appstock/app/fqkline/get (qfq) - DELIVERY FALLBACK ONLY, the app's runtime provider is unchanged. Independent of eastmoney, not a substitute for it: over the 436 shared days OHLC differs on 378/209/327 rows (600519/000001/300750) with max |diff| ~0.004 CNY - identical volume, and identical only after rounding to 2 decimals, so delivery-precision (4dp) values and input hashes differ. This endpoint publishes no amount/turnover_rate (left null - C marks both optional); change_pct is DERIVED from consecutive qfq closes, not vendor-reported.",
+   "required_fields": [
+    "stock_code",
+    "trade_date",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume"
+   ],
+   "extra_fields": [
+    "amount",
+    "turnover_rate",
+    "change_pct"
+   ],
+   "database": "ai_quant",
+   "raw": {
+    "path": "D:\\WebProject\\ai-quant-platform\\docs\\evidence\\c-delivery-20260917\\600519_qfq_raw_20241201_20260916.json",
+    "rows": 437,
+    "sha256": "07f9f3af59b564f36ae40d0eef340414b4716712ef1205d1a937186b18709416",
+    "captured_at_utc": "2026-09-17T00:55:23.911173+00:00",
+    "actual_window": [
+     "2024-12-02",
+     "2026-09-16"
+    ],
+    "representation": "provider-native values (no 4/2/6 rounding)"
+   },
+   "normalized": {
+    "path": "D:\\WebProject\\ai-quant-platform\\docs\\evidence\\c-delivery-20260917\\600519_qfq_normalized_20241201_20260916.json",
+    "rows": 437,
+    "sha256": "280eed0f779440425bf79c5c368eebc07e1abc906dba7b2ad44afdd41f95cd27",
+    "captured_at_utc": "2026-09-17T00:55:23.913176+00:00",
+    "actual_window": [
+     "2024-12-02",
+     "2026-09-16"
+    ],
+    "representation": "canonical 4/2/6 rounding; this is what B passes to C"
+   },
+   "fetched_at_utc": "2026-09-17T00:55:23.032060+00:00",
+   "actual_window": [
+    "2024-12-02",
+    "2026-09-16"
+   ],
+   "rows": 437,
+   "rounding_problems": [],
+   "rows_beyond_settled_day": [],
+   "rows_written": 437,
+   "readback": {
+    "ok": true,
+    "rows": 437,
+    "window": [
+     "2024-12-02",
+     "2026-09-16"
+    ],
+    "problems": []
+   },
+   "status": "ok"
+  },
+  {
+   "stock_code": "000001",
+   "requested_window": [
+    "2024-12-01",
+    "2026-09-16"
+   ],
+   "last_complete_trading_day": "2026-09-16",
+   "source": "tencent web.ifzq.gtimg.cn /appstock/app/fqkline/get (qfq) - DELIVERY FALLBACK ONLY, the app's runtime provider is unchanged. Independent of eastmoney, not a substitute for it: over the 436 shared days OHLC differs on 378/209/327 rows (600519/000001/300750) with max |diff| ~0.004 CNY - identical volume, and identical only after rounding to 2 decimals, so delivery-precision (4dp) values and input hashes differ. This endpoint publishes no amount/turnover_rate (left null - C marks both optional); change_pct is DERIVED from consecutive qfq closes, not vendor-reported.",
+   "required_fields": [
+    "stock_code",
+    "trade_date",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume"
+   ],
+   "extra_fields": [
+    "amount",
+    "turnover_rate",
+    "change_pct"
+   ],
+   "database": "ai_quant",
+   "raw": {
+    "path": "D:\\WebProject\\ai-quant-platform\\docs\\evidence\\c-delivery-20260917\\000001_qfq_raw_20241201_20260916.json",
+    "rows": 437,
+    "sha256": "993fa95241c78962583f97aa06c54e5a7636196ecb222547a5ee43c8cefc207c",
+    "captured_at_utc": "2026-09-17T00:55:24.859806+00:00",
+    "actual_window": [
+     "2024-12-02",
+     "2026-09-16"
+    ],
+    "representation": "provider-native values (no 4/2/6 rounding)"
+   },
+   "normalized": {
+    "path": "D:\\WebProject\\ai-quant-platform\\docs\\evidence\\c-delivery-20260917\\000001_qfq_normalized_20241201_20260916.json",
+    "rows": 437,
+    "sha256": "d4fc99555e4a5283ab36408ef6063873e2a05e55e5a350826c3c56a3ac95aa73",
+    "captured_at_utc": "2026-09-17T00:55:24.860807+00:00",
+    "actual_window": [
+     "2024-12-02",
+     "2026-09-16"
+    ],
+    "representation": "canonical 4/2/6 rounding; this is what B passes to C"
+   },
+   "fetched_at_utc": "2026-09-17T00:55:24.347104+00:00",
+   "actual_window": [
+    "2024-12-02",
+    "2026-09-16"
+   ],
+   "rows": 437,
+   "rounding_problems": [],
+   "rows_beyond_settled_day": [],
+   "rows_written": 437,
+   "readback": {
+    "ok": true,
+    "rows": 437,
+    "window": [
+     "2024-12-02",
+     "2026-09-16"
+    ],
+    "problems": []
+   },
+   "status": "ok"
+  },
+  {
+   "stock_code": "300750",
+   "requested_window": [
+    "2024-12-01",
+    "2026-09-16"
+   ],
+   "last_complete_trading_day": "2026-09-16",
+   "source": "tencent web.ifzq.gtimg.cn /appstock/app/fqkline/get (qfq) - DELIVERY FALLBACK ONLY, the app's runtime provider is unchanged. Independent of eastmoney, not a substitute for it: over the 436 shared days OHLC differs on 378/209/327 rows (600519/000001/300750) with max |diff| ~0.004 CNY - identical volume, and identical only after rounding to 2 decimals, so delivery-precision (4dp) values and input hashes differ. This endpoint publishes no amount/turnover_rate (left null - C marks both optional); change_pct is DERIVED from consecutive qfq closes, not vendor-reported.",
+   "required_fields": [
+    "stock_code",
+    "trade_date",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume"
+   ],
+   "extra_fields": [
+    "amount",
+    "turnover_rate",
+    "change_pct"
+   ],
+   "database": "ai_quant",
+   "raw": {
+    "path": "D:\\WebProject\\ai-quant-platform\\docs\\evidence\\c-delivery-20260917\\300750_qfq_raw_20241201_20260916.json",
+    "rows": 437,
+    "sha256": "780f51e0fadd7644aef83d5881917efe9f225d28baffbcde277c74ebf57d80d8",
+    "captured_at_utc": "2026-09-17T00:55:26.012122+00:00",
+    "actual_window": [
+     "2024-12-02",
+     "2026-09-16"
+    ],
+    "representation": "provider-native values (no 4/2/6 rounding)"
+   },
+   "normalized": {
+    "path": "D:\\WebProject\\ai-quant-platform\\docs\\evidence\\c-delivery-20260917\\300750_qfq_normalized_20241201_20260916.json",
+    "rows": 437,
+    "sha256": "b25d6e31442cdaeb37243d818b6171d69f2aad248e3f073e9500ebfcc1daf0df",
+    "captured_at_utc": "2026-09-17T00:55:26.014124+00:00",
+    "actual_window": [
+     "2024-12-02",
+     "2026-09-16"
+    ],
+    "representation": "canonical 4/2/6 rounding; this is what B passes to C"
+   },
+   "fetched_at_utc": "2026-09-17T00:55:25.318736+00:00",
+   "actual_window": [
+    "2024-12-02",
+    "2026-09-16"
+   ],
+   "rows": 437,
+   "rounding_problems": [],
+   "rows_beyond_settled_day": [],
+   "rows_written": 437,
+   "readback": {
+    "ok": true,
+    "rows": 437,
+    "window": [
+     "2024-12-02",
+     "2026-09-16"
+    ],
+    "problems": []
+   },
+   "status": "ok"
+  }
+ ],
+ "code_sha_meaning": "base HEAD at export time. NOTE: the --source tencent support in scripts/export_c_delivery.py was UNCOMMITTED then, so this value did NOT identify the generating code (C, comment 5706924063). See the provenance_* fields below.",
+ "provenance": {
+  "base_head_at_export": "b7cb06a39f56142e51cbf6c8054b03785a9881a4",
+  "working_tree_dirty_at_export": true,
+  "uncommitted_paths_at_export": [
+   "scripts/export_c_delivery.py"
+  ],
+  "uncommitted_change": "added --source tencent / TencentQfqSource (the fallback source)",
+  "generating_script": "scripts/export_c_delivery.py",
+  "generating_script_sha256": "5a05e51bbfe4c1f083aa1677f378f0c583346f229bf77606b76733bd65720d25",
+  "generating_script_sha256_note": "same bytes as the blob committed in package_commit: the file was not edited between the export and the commit",
+  "package_commit": "dedad60977511aae8237fc4bb84e7a5321490df1",
+  "package_commit_committed_at": "2026-09-17T08:58:23+08:00",
+  "export_started_at_utc": "2026-09-17T00:55:26Z",
+  "correction": "Added 2026-09-17 after C's review (5706924063, 5707096809). The 6 data files are unchanged and their published SHA-256 values still hold; only this metadata was corrected, and code_sha was left intact (relabelled, not rewritten) so the discrepancy stays visible. Follow-up: the three per-stock `source` strings still carried the original 'OHLCV and volume match the eastmoney rows exactly' claim; they are now synced to the same accurate text as source_note. The original wording is preserved here and in README.md, not silently dropped.",
+  "original_incorrect_wording": "... OHLCV and volume match the eastmoney rows exactly; this endpoint publishes no amount/turnover_rate ... (superseded - see README.md 'source fidelity' section)",
+  "reproduction_check": {
+   "performed_at_utc": "2026-09-17T01:20:00Z",
+   "from_commit": "dedad60977511aae8237fc4bb84e7a5321490df1",
+   "working_tree_clean": true,
+   "command": "python scripts/export_c_delivery.py --batch 20260917regen --source tencent --start-date 2024-12-01 --end-date 2026-09-16 --last-complete-trading-day 2026-09-16",
+   "data_files_byte_identical": 6,
+   "data_files_compared": 6,
+   "result": "all six raw/normalized JSON files regenerated byte-for-byte identically from the frozen code, so the published SHA-256 values are reproducible from package_commit"
+  }
+ }
+}

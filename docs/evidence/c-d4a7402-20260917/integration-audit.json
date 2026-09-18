@@ -1,0 +1,28 @@
+{
+  "D_SHA": "4a7402a35ec1a42a3a6964d9f351395d19315188",
+  "B_SHA": "540a00f604044bd046cd3935f4df9d018063b44b",
+  "missing_B_commits": [
+    "b7cb06a39f56142e51cbf6c8054b03785a9881a4",
+    "dedad60977511aae8237fc4bb84e7a5321490df1",
+    "5404c25c52f909ba603ed8be2513101fb5cb3419",
+    "74c74fb3370555aaf94d02bdbb0547c70ffe8b00",
+    "d63aaa051e7e3f2426ebb806c36e2942e8664d31",
+    "821f322b988e8c1b1e3b6408185a41403e8b2cf4",
+    "a7cfa916ddb57483c02dac9138561afd53192e2e",
+    "540a00f604044bd046cd3935f4df9d018063b44b"
+  ],
+  "common_B_ancestor": "e4ef00060aef7a937c3086617256f9bfceda425a",
+  "absent_paths_in_D": [
+    "docs/evidence/c-delivery-20260917/MANIFEST.json",
+    "docs/evidence/v1-migration-chain-20260917",
+    "scripts/verify_v1_migration_chain.py"
+  ],
+  "D_TencentQfqSource_present": false,
+  "D_filename_template_option_present": false,
+  "B_540a00f_change": "docs/backend_status.md only; cross-field validation and frame handoff wording corrected",
+  "remote_check_runs": 0,
+  "remote_commit_statuses": 0,
+  "remote_combined_status": "pending",
+  "CI_interpretation": "No published check evidence observed; not a passed CI result and not evidence a job is currently running.",
+  "A_PR13_SHA_at_read": "d7ba01c63eed07b23fff6939753d7ee591c140fb"
+}

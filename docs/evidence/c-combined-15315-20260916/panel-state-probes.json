@@ -1,0 +1,83 @@
+{
+  "combined_sha": "15315c6fbf9339694eceaab0172d3d3f05e7ec2e",
+  "scope": "Original SFC setup compiled in memory. Controlled deferred API promises; ref mocked, watcher sequence invoked explicitly. No browser, HTTP, DB, LLM or production edits.",
+  "source_sha256": "eabd260ac7e586b732c5ffa2467441bf333e129bde0ab7c6b68d9a75110e6b15",
+  "cases": [
+    {
+      "case": "normal_legacy_then_v2",
+      "passed": true,
+      "requests": [
+        {
+          "stock_code": "600519"
+        },
+        {
+          "stock_code": "600519",
+          "start_date": "2025-07-04",
+          "end_date": "2026-08-31",
+          "parameters": {
+            "ma_short_period": 5,
+            "ma_long_period": 20,
+            "initial_cash": 100000,
+            "transaction_cost": 0.001,
+            "slippage": 0
+          }
+        }
+      ],
+      "state": {
+        "loading": false,
+        "failed": false,
+        "submitting": false,
+        "result": {
+          "stock_code": "600519",
+          "semantics_version": "v2_windowed"
+        },
+        "visible_branch": "result"
+      }
+    },
+    {
+      "case": "stock_switch_during_v2",
+      "defect_reproduced": true,
+      "expected_submitting": false,
+      "state": {
+        "loading": false,
+        "failed": false,
+        "submitting": true,
+        "result": {
+          "stock_code": "000001",
+          "semantics_version": "v1_legacy"
+        },
+        "visible_branch": "result"
+      }
+    },
+    {
+      "case": "submit_v2_before_initial_load_finishes",
+      "defect_reproduced": true,
+      "expected_loading": false,
+      "state": {
+        "loading": true,
+        "failed": false,
+        "submitting": false,
+        "result": {
+          "stock_code": "600519",
+          "semantics_version": "v2_windowed"
+        },
+        "visible_branch": "skeleton"
+      }
+    },
+    {
+      "case": "successful_v2_after_initial_failure",
+      "defect_reproduced": true,
+      "expected_failed": false,
+      "state": {
+        "loading": false,
+        "failed": true,
+        "submitting": false,
+        "result": {
+          "stock_code": "600519",
+          "semantics_version": "v2_windowed"
+        },
+        "visible_branch": "failed"
+      }
+    }
+  ]
+}
