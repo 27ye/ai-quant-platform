@@ -1,0 +1,9 @@
+{
+  "source_SHA": "85b7617149fbff67189e52f6527c9921ff09d388",
+  "optional_amount_turnover_financial_backtest_equal": true,
+  "optional_amount_turnover_pipeline_equal": true,
+  "optional_amount_turnover_input_hash_changed": true,
+  "synthetic_volume_component_positive_change_1e_minus_6": 20,
+  "synthetic_volume_component_negative_change_1e_minus_6": 0,
+  "scope": "Fixed 600519 input with only optional values varied; synthetic component-level sign sensitivity. No new live source or complete new-provider acceptance tested."
+}
