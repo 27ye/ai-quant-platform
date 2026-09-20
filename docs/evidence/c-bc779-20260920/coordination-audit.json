@@ -1,0 +1,24 @@
+{
+  "checked_on": "2026-09-20",
+  "comment": "https://github.com/27ye/ai-quant-platform/issues/15#issuecomment-5748172869",
+  "b_sha": "c7790c218487646298a3754ab0169063ba85e69e",
+  "b_parent_shas": [
+    "a7cab6c5c1988e592773611ff282a9a26f98700f"
+  ],
+  "b_changed_files": [
+    "docs/V2_B_DATA_CONTRACT.md"
+  ],
+  "d_sha": "be35e5febe1acebce32ea9eb495affd6bd730875",
+  "pr10_draft": true,
+  "contract_file_sha256": {
+    "B": "05c5b64c29d524c4a735962747ccb5f85f96135a2dcd9f5e4409c7a7ffa1f4b4",
+    "D": "d9f7a379b4b70c6eda6e6ae3d15d9b2bcbcf19eb7840475b5590271fe29655f7"
+  },
+  "b_documentation_alignment_confirmed": true,
+  "d_contract_documentation_still_pending_sync": true,
+  "new_runtime_implementation_in_b_commit": false,
+  "runtime_gaps_fixed": false,
+  "tests_rerun_this_turn": false,
+  "C_quantitative_signoff_scope": "be35e5f + c-delivery-20260917; 2026-09-18 fixed-batch checks remain valid only in that scope",
+  "next_step": "D designates implementation owner; recommend B implements owned backend files, D integrates, C verifies new combined SHA"
+}
