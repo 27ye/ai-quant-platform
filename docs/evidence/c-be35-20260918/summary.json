@@ -1,0 +1,9 @@
+{
+  "sha": "be35e5febe1acebce32ea9eb495affd6bd730875",
+  "batch": "c-delivery-20260917",
+  "fixed_batch_decision": "PASS: direct/POST/recreated-connection MySQL GET, 9/9",
+  "runtime_contract_decision": "NOT PASSED: mixed-source cache, non-atomic bars/provenance, unfinished-day semantics",
+  "C_production_code_changed": false,
+  "A_hash_comment_followup_closed_on": "8615d86db38ed3281e9bff4b101a32f6b6e6bc1d",
+  "overall_V2_approved": false
+}

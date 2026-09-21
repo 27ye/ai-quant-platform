@@ -1,0 +1,9 @@
+{
+  "sha": "be35e5febe1acebce32ea9eb495affd6bd730875",
+  "python": "3.12.10",
+  "pytest_passed": 546,
+  "pytest_warnings": 1,
+  "warning": "Starlette testclient deprecated AnyIO alias",
+  "compileall_exit_code": 0,
+  "scope": "pytest tests -q; compileall backend scripts; no real market/LLM/browser claim"
+}

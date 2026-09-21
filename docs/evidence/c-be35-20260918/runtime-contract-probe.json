@@ -1,0 +1,52 @@
+{
+  "sha": "be35e5febe1acebce32ea9eb495affd6bd730875",
+  "mode": "offline synthetic + SQLite; network mocked",
+  "diagnostic_execution": "completed",
+  "results": {
+    "mixed_cache": {
+      "contract_met": false,
+      "returned_closes": [
+        100.0,
+        100.0,
+        101.0,
+        101.0
+      ],
+      "known_row_origins": [
+        "eastmoney-synthetic",
+        "eastmoney-synthetic",
+        "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get",
+        "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+      ],
+      "reported_provenance": {
+        "source_mode": "cache",
+        "provider": "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+      },
+      "cache_provider_calls": 0
+    },
+    "metadata_write_failure": {
+      "contract_met": false,
+      "fresh_session_close": 101.0,
+      "fresh_session_source": "eastmoney-synthetic",
+      "expected_previous_close": 100,
+      "successful_data_not_rolled_back": true
+    },
+    "intraday_complete_bar_policy": {
+      "contract_met": false,
+      "scenario": "synthetic 2026-09-18 intraday response; no real market claim",
+      "cache_through": "2026-09-17",
+      "refetch_calls": 1,
+      "returned_dates": [
+        "2026-09-17",
+        "2026-09-18"
+      ],
+      "unfinished_today_filtered": false
+    },
+    "change_pct_unit_and_crop": {
+      "contract_met": true,
+      "first_without_previous": null,
+      "100_to_101": 0.01,
+      "cropped_first": 0.01
+    }
+  },
+  "all_contracts_met": false
+}

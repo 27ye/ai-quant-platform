@@ -1,0 +1,25 @@
+{
+  "tested_SHA": "85b7617149fbff67189e52f6527c9921ff09d388",
+  "batch": "c-delivery-20260917",
+  "six_hashes": {
+    "600519_qfq_raw_20241201_20260916.json": "07f9f3af59b564f36ae40d0eef340414b4716712ef1205d1a937186b18709416",
+    "600519_qfq_normalized_20241201_20260916.json": "280eed0f779440425bf79c5c368eebc07e1abc906dba7b2ad44afdd41f95cd27",
+    "000001_qfq_raw_20241201_20260916.json": "993fa95241c78962583f97aa06c54e5a7636196ecb222547a5ee43c8cefc207c",
+    "000001_qfq_normalized_20241201_20260916.json": "d4fc99555e4a5283ab36408ef6063873e2a05e55e5a350826c3c56a3ac95aa73",
+    "300750_qfq_raw_20241201_20260916.json": "780f51e0fadd7644aef83d5881917efe9f225d28baffbcde277c74ebf57d80d8",
+    "300750_qfq_normalized_20241201_20260916.json": "b25d6e31442cdaeb37243d818b6171d69f2aad248e3f073e9500ebfcc1daf0df"
+  },
+  "manifest_sha256": "82c430da1d1e36cf4eec6efe3b4a042c549bbc07c6e98a8c71fd040476b8f7a5",
+  "required_paths_present": [
+    "backend/app/quant/windowed_backtest.py",
+    "backend/app/quant/backtest_config.py",
+    "scripts/verify_v1_migration_chain.py",
+    "scripts/validate_v2_c_acceptance.py"
+  ],
+  "C_filename_template_present": true,
+  "hash_label_lines": [
+    "// 数据元信息：frame_digest 与 c_data_hash 是两个不同的哈希，分开展示",
+    "// C 复核口径：该哈希语义是「C 输入快照」的 sha256，不是结果哈希",
+    "label: 'C 输入快照哈希',"
+  ]
+}
