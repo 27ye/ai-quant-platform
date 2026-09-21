@@ -291,10 +291,10 @@ def test_reliable_fixture_calendar_serves_explicit_window_from_cache(graph):
 
     assert graph.market_queries == 2
     assert graph.provider.events.count("market") == 1
-    # 3 calendar counts, not 2: the cold-miss path re-checks the cache under the
-    # per-stock sync lock (double-checked locking), so request 1 consults the
-    # calendar twice while request 2 hits the cache with a single check.
-    assert len(graph.calendar.calls) == 3
+    # Request 1 checks the cache twice under double-checked locking and then
+    # verifies the fetched replacement snapshot before publishing it. Request 2
+    # serves the verified cache with one count.
+    assert len(graph.calendar.calls) == 4
     with graph.factory() as db:
         assert db.query(AIAnalysis).count() == 0
         assert db.query(StockDaily).count() == 120

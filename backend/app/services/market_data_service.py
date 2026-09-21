@@ -27,6 +27,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from backend.app.core.errors import DatabaseOperationError, InsufficientStockDataError
+from backend.app.data.providers.base import StockDataProviderError
 from backend.app.models.stock_basic import StockBasic
 from backend.app.models.stock_daily import StockDaily
 from backend.app.models.stock_daily_sync import StockDailySync
@@ -291,24 +292,83 @@ class MarketDataRepository:
     ) -> None:
         """Record a *successful* refresh (only called after the bars are stored)."""
         try:
-            record = self._session.get(StockDailySync, stock_code)
-            if record is None:
-                record = StockDailySync(
-                    stock_code=stock_code, mode=mode, last_attempt_at=at
-                )
-                self._session.add(record)
-            record.mode = mode
-            record.source = source
-            record.row_count = row_count
-            record.first_trade_date = first_trade_date
-            record.last_trade_date = last_trade_date
-            record.last_success_at = at
-            record.last_attempt_at = at
-            record.last_error = None
+            self._apply_daily_sync(
+                stock_code=stock_code,
+                mode=mode,
+                source=source,
+                row_count=row_count,
+                first_trade_date=first_trade_date,
+                last_trade_date=last_trade_date,
+                at=at,
+            )
             self._session.commit()
         except SQLAlchemyError as exc:
             self._session.rollback()
             raise DatabaseOperationError() from exc
+
+    def replace_daily_snapshot(
+        self,
+        rows: Sequence[DailyKlineSchema],
+        *,
+        source: Optional[str],
+        at: datetime,
+    ) -> int:
+        """Atomically replace one stock's bars and successful provenance.
+
+        A qfq source switch or a provider rebase cannot leave an older prefix
+        in the table. The delete, full insert and sync metadata share one
+        transaction; any failure restores the previous data and source.
+        """
+        if not rows:
+            raise ValueError("daily snapshot cannot be empty")
+        stock_code = rows[0].stock_code
+        if any(row.stock_code != stock_code for row in rows):
+            raise ValueError("daily snapshot must contain exactly one stock")
+        try:
+            self._session.query(StockDaily).filter(
+                StockDaily.stock_code == stock_code
+            ).delete(synchronize_session=False)
+            self._session.add_all(
+                [StockDaily(**self._rounded_daily_fields(row)) for row in rows]
+            )
+            self._apply_daily_sync(
+                stock_code=stock_code,
+                mode="live",
+                source=source,
+                row_count=len(rows),
+                first_trade_date=rows[0].trade_date,
+                last_trade_date=rows[-1].trade_date,
+                at=at,
+            )
+            self._session.commit()
+            return len(rows)
+        except SQLAlchemyError as exc:
+            self._session.rollback()
+            raise DatabaseOperationError() from exc
+
+    def _apply_daily_sync(
+        self,
+        *,
+        stock_code: str,
+        mode: str,
+        source: Optional[str],
+        row_count: int,
+        first_trade_date: Optional[date],
+        last_trade_date: Optional[date],
+        at: datetime,
+    ) -> None:
+        record = self._session.get(StockDailySync, stock_code)
+        if record is None:
+            record = StockDailySync(stock_code=stock_code, mode=mode, last_attempt_at=at)
+            self._session.add(record)
+        record.mode = mode
+        record.source = source
+        record.row_count = row_count
+        record.first_trade_date = first_trade_date
+        record.last_trade_date = last_trade_date
+        record.last_success_at = at
+        record.last_attempt_at = at
+        record.last_error = None
 
     def mark_daily_sync_failure(
         self, *, stock_code: str, error: str, at: datetime
@@ -415,10 +475,12 @@ class MarketDataService:
         stock_service: Optional[StockService] = None,
         repository: Optional[MarketDataRepository] = None,
         trading_days: Optional[Callable[[date, date], Optional[int]]] = None,
+        completed_through: Optional[Callable[[], Optional[date]]] = None,
     ) -> None:
         self._stock = stock_service or StockService()
         self._repository = repository
         self._trading_days = trading_days
+        self._completed_through = completed_through
         self._query_source_modes: dict[str, str] = {}
 
     #: Per-stock sync locks, shared across instances: ``get_market_data_source``
@@ -444,8 +506,9 @@ class MarketDataService:
         start_date: date,
         end_date: date,
         min_rows: int = DEFAULT_MIN_KLINE_ROWS,
+        trading_days: Optional[Callable[[date, date], Optional[int]]] = None,
     ) -> List[DailyKlineSchema]:
-        """Fetch + clean + widen via StockService, then upsert into MySQL.
+        """Fetch one same-source snapshot and atomically publish it to MySQL.
 
         Returns the *same rounded* rows that are written to the DB, so a caller
         sees the identical numbers whether it reads fresh from the provider or
@@ -458,9 +521,16 @@ class MarketDataService:
         stored bars came from; a failed attempt records only the error and keeps
         the previous success time.
         """
+        fetch_start, fetch_end = start_date, end_date
+        if self._repository is not None:
+            existing = self._repository.daily_window(stock_code)
+            if existing.first_trade_date is not None:
+                fetch_start = min(fetch_start, existing.first_trade_date)
+            if existing.last_trade_date is not None:
+                fetch_end = max(fetch_end, existing.last_trade_date)
         try:
             fetched = self._stock.get_daily_kline(
-                stock_code, start_date, end_date, min_rows=min_rows
+                stock_code, fetch_start, fetch_end, min_rows=min_rows
             )
         except Exception as exc:  # noqa: BLE001 - re-raised below
             self._record_sync_failure(stock_code, exc)
@@ -479,17 +549,23 @@ class MarketDataService:
                 f"stock {stock_code} has {len(rows)} valid rows after the "
                 f"consistency filter; at least {min_rows} required"
             )
+        if trading_days is not None:
+            expected = trading_days(fetch_start, fetch_end)
+            covered = [row for row in rows if fetch_start <= row.trade_date <= fetch_end]
+            if expected is not None and len(covered) < expected:
+                error = StockDataProviderError(
+                    f"provider returned {len(covered)} completed rows for {stock_code}; "
+                    f"calendar requires {expected}"
+                )
+                self._record_sync_failure(stock_code, error)
+                raise error
         if self._repository is not None:
-            self._repository.upsert_daily(rows)
-            self._repository.upsert_daily_sync(
-                stock_code=stock_code,
-                mode="live",
-                source=self._stock.last_kline_source,
-                row_count=len(rows),
-                first_trade_date=rows[0].trade_date,
-                last_trade_date=rows[-1].trade_date,
-                at=_utc_now(),
-            )
+            source = self._stock.last_kline_source
+            try:
+                self._repository.replace_daily_snapshot(rows, source=source, at=_utc_now())
+            except DatabaseOperationError as exc:
+                self._record_sync_failure(stock_code, exc)
+                raise
         self._query_source_modes[stock_code] = "live"
         return rows
 
@@ -542,6 +618,14 @@ class MarketDataService:
         end_date = end_date or date.today()
         start_date = start_date or (end_date - timedelta(days=366))
         trading_days = trading_days if trading_days is not None else self._trading_days
+        if self._completed_through is not None:
+            completed_through = self._completed_through()
+            if completed_through is None:
+                raise StockDataProviderError(
+                    "trading calendar cannot determine the latest completed daily bar"
+                )
+            end_date = min(end_date, completed_through)
+            start_date = min(start_date, end_date)
         cached = self._complete_cache(
             stock_code, start_date, end_date, min_rows, max_stale_days, max_gap_days, trading_days
         )
@@ -559,7 +643,13 @@ class MarketDataService:
             )
             if cached is not None:
                 return cached
-            return self.sync_daily(stock_code, start_date, end_date, min_rows=min_rows)
+            return self.sync_daily(
+                stock_code,
+                start_date,
+                end_date,
+                min_rows=min_rows,
+                trading_days=trading_days,
+            )
 
     def _complete_cache(
         self,

@@ -19,8 +19,9 @@ can be injected instead of hitting AKShare.
 from __future__ import annotations
 
 import threading
-from datetime import date
+from datetime import date, datetime, time, timedelta
 from typing import Callable, ClassVar, List, Optional
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -37,6 +38,8 @@ class TradingCalendarProvider:
     #: class-level lock serializes that load so it happens exactly once.
     _shared_trade_dates: ClassVar[Optional[List[date]]] = None
     _shared_load_lock: ClassVar[threading.Lock] = threading.Lock()
+    _market_timezone: ClassVar[ZoneInfo] = ZoneInfo("Asia/Shanghai")
+    _daily_bar_ready_at: ClassVar[time] = time(18, 0)
 
     def __init__(
         self,
@@ -80,6 +83,28 @@ class TradingCalendarProvider:
         if dates[0] > start or dates[-1] < end:
             return None  # calendar does not bracket the window -> coverage unknown
         return sum(1 for day in dates if start <= day <= end)
+
+    def last_completed_trade_date(self, as_of: Optional[datetime] = None) -> Optional[date]:
+        """Return the latest daily bar that may be treated as complete.
+
+        A trading-day candle is eligible after 18:00 Asia/Shanghai, leaving a
+        conservative publication window after the exchange close. Unknown or
+        expired calendars return ``None`` so callers keep the failure path.
+        """
+        now = as_of or datetime.now(self._market_timezone)
+        if now.tzinfo is None:
+            raise ValueError("as_of must be timezone-aware")
+        local_now = now.astimezone(self._market_timezone)
+        dates = self.get_trade_dates()
+        today = local_now.date()
+        if not dates or dates[0] > today or dates[-1] < today:
+            return None
+        latest_eligible = (
+            today
+            if local_now.time() >= self._daily_bar_ready_at
+            else today - timedelta(days=1)
+        )
+        return next((day for day in reversed(dates) if day <= latest_eligible), None)
 
     def as_callable(self) -> Callable[[date, date], Optional[int]]:
         """Return ``(start, end) -> Optional[int]`` for injection as ``trading_days``."""

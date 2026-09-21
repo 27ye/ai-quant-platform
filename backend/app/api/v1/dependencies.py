@@ -77,6 +77,7 @@ def get_market_data_source(
         stock_service=stock_service,
         repository=MarketDataRepository(db),
         trading_days=count_trading_days,
+        completed_through=getattr(trading_calendar, "last_completed_trade_date", None),
     )
 
 

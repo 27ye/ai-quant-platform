@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from time import sleep
@@ -85,3 +85,27 @@ def test_default_calendar_cold_start_loads_once_across_instances(monkeypatch):
 
     assert results == [[date(2025, 1, 2)]] * 8
     assert calls == [1]
+
+
+def test_last_completed_trade_date_respects_publication_time_and_holidays():
+    provider = TradingCalendarProvider(
+        trade_dates=[date(2026, 9, 17), date(2026, 9, 18), date(2026, 9, 21)]
+    )
+
+    assert provider.last_completed_trade_date(
+        datetime(2026, 9, 18, 9, 0, tzinfo=timezone.utc)
+    ) == date(2026, 9, 17)  # 17:00 Asia/Shanghai
+    assert provider.last_completed_trade_date(
+        datetime(2026, 9, 18, 10, 0, tzinfo=timezone.utc)
+    ) == date(2026, 9, 18)  # 18:00 Asia/Shanghai
+    assert provider.last_completed_trade_date(
+        datetime(2026, 9, 20, 10, 0, tzinfo=timezone.utc)
+    ) == date(2026, 9, 18)  # Sunday
+
+
+def test_last_completed_trade_date_is_unknown_when_calendar_is_expired():
+    provider = TradingCalendarProvider(trade_dates=[date(2026, 9, 17)])
+
+    assert provider.last_completed_trade_date(
+        datetime(2026, 9, 18, 4, 0, tzinfo=timezone.utc)
+    ) is None

@@ -8,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from backend.app.core.errors import DatabaseOperationError, InsufficientStockDataError
+from backend.app.data.providers.base import StockDataProviderError
 from backend.app.db.migrations import apply_migrations
 from backend.app.quant.scoring import calculate_quant_score
 from backend.app.schemas.stock import DailyKlineSchema, StockBasicSchema
@@ -187,6 +188,181 @@ def test_query_provenance_preserves_actual_source_on_live_and_cache_hits():
             "source_mode": "cache",
             "provider": provider.last_kline_source,
         }
+
+
+def test_intraday_cache_requires_yesterday_but_not_unfinished_today():
+    with _session() as session:
+        repository = MarketDataRepository(session)
+        start = date(2026, 7, 20)
+        yesterday = date(2026, 9, 17)
+        today = date(2026, 9, 18)
+        row_count = (yesterday - start).days + 1
+        repository.upsert_daily(
+            [_bar(STOCK_CODE, start + timedelta(days=i)) for i in range(row_count)]
+        )
+
+        class FailingProvider:
+            def get_daily_kline(self, *args, **kwargs):
+                raise AssertionError("completed cache must not refetch unfinished today")
+
+        service = MarketDataService(
+            stock_service=StockService(provider=FailingProvider()),
+            repository=repository,
+            trading_days=lambda range_start, range_end: (range_end - range_start).days + 1,
+            completed_through=lambda: yesterday,
+        )
+        rows = service.query_daily(STOCK_CODE, start, today, min_rows=60)
+
+        assert len(rows) == row_count
+        assert rows[-1].trade_date == yesterday
+
+
+def test_intraday_cache_still_refetches_when_last_completed_day_is_missing():
+    with _session() as session:
+        repository = MarketDataRepository(session)
+        start = date(2026, 7, 20)
+        yesterday = date(2026, 9, 17)
+        today = date(2026, 9, 18)
+        expected = (yesterday - start).days + 1
+        repository.upsert_daily(
+            [_bar(STOCK_CODE, start + timedelta(days=i)) for i in range(expected - 1)]
+        )
+        provider = RecordingProvider(expected)
+        service = MarketDataService(
+            stock_service=StockService(provider=provider),
+            repository=repository,
+            trading_days=lambda range_start, range_end: (range_end - range_start).days + 1,
+            completed_through=lambda: yesterday,
+        )
+        rows = service.query_daily(STOCK_CODE, start, today, min_rows=60)
+
+        assert provider.calls[-1][2] == yesterday
+        assert rows[-1].trade_date == yesterday
+
+
+def test_unknown_completed_day_keeps_provider_failure_semantics():
+    with _session() as session:
+        service = MarketDataService(
+            stock_service=StockService(provider=RecordingProvider(60)),
+            repository=MarketDataRepository(session),
+            trading_days=lambda start, end: 60,
+            completed_through=lambda: None,
+        )
+
+        with pytest.raises(StockDataProviderError, match="latest completed daily bar"):
+            service.query_daily(STOCK_CODE, date(2026, 7, 20), date(2026, 9, 18))
+
+
+def test_source_refresh_replaces_the_entire_existing_window():
+    with _session() as session:
+        repository = MarketDataRepository(session)
+        start = date(2025, 1, 1)
+        repository.upsert_daily(
+            [_bar(STOCK_CODE, start + timedelta(days=i), close=100.0) for i in range(2)]
+        )
+        repository.upsert_daily_sync(
+            stock_code=STOCK_CODE,
+            mode="live",
+            source="eastmoney",
+            row_count=2,
+            first_trade_date=start,
+            last_trade_date=start + timedelta(days=1),
+            at=pd.Timestamp("2025-01-02", tz="UTC").to_pydatetime(),
+        )
+        provider = RecordingProvider(4)
+        provider.last_kline_source = "tencent"
+        service = MarketDataService(
+            stock_service=StockService(provider=provider), repository=repository
+        )
+
+        service.sync_daily(
+            STOCK_CODE,
+            start + timedelta(days=2),
+            start + timedelta(days=3),
+            min_rows=2,
+            trading_days=lambda range_start, range_end: 4,
+        )
+
+        stored = repository.list_daily(STOCK_CODE)
+        assert len(stored) == 4
+        assert all(row.close == 105.0 for row in stored)
+        assert provider.calls[-1][1:3] == (start, start + timedelta(days=3))
+        assert repository.get_daily_sync(STOCK_CODE).source == "tencent"
+
+
+def test_snapshot_publish_failure_restores_previous_rows_and_source(monkeypatch):
+    with _session() as session:
+        repository = MarketDataRepository(session)
+        start = date(2025, 1, 1)
+        original = [_bar(STOCK_CODE, start + timedelta(days=i), close=100.0) for i in range(2)]
+        repository.upsert_daily(original)
+        repository.upsert_daily_sync(
+            stock_code=STOCK_CODE,
+            mode="live",
+            source="eastmoney",
+            row_count=2,
+            first_trade_date=start,
+            last_trade_date=start + timedelta(days=1),
+            at=pd.Timestamp("2025-01-02", tz="UTC").to_pydatetime(),
+        )
+        provider = RecordingProvider(2)
+        provider.last_kline_source = "tencent"
+        service = MarketDataService(
+            stock_service=StockService(provider=provider), repository=repository
+        )
+
+        def fail_sync_metadata(**kwargs):
+            raise SQLAlchemyError("metadata write failed")
+
+        monkeypatch.setattr(repository, "_apply_daily_sync", fail_sync_metadata)
+        with pytest.raises(DatabaseOperationError):
+            service.sync_daily(
+                STOCK_CODE,
+                start,
+                start + timedelta(days=1),
+                min_rows=2,
+                trading_days=lambda range_start, range_end: 2,
+            )
+
+        stored = repository.list_daily(STOCK_CODE)
+        state = repository.get_daily_sync(STOCK_CODE)
+        assert [row.close for row in stored] == [100.0, 100.0]
+        assert state.source == "eastmoney"
+        assert "DatabaseOperationError" in state.last_error
+
+
+def test_incomplete_replacement_keeps_previous_snapshot():
+    with _session() as session:
+        repository = MarketDataRepository(session)
+        start = date(2025, 1, 1)
+        original = [_bar(STOCK_CODE, start + timedelta(days=i), close=100.0) for i in range(4)]
+        repository.upsert_daily(original)
+        repository.upsert_daily_sync(
+            stock_code=STOCK_CODE,
+            mode="live",
+            source="eastmoney",
+            row_count=4,
+            first_trade_date=start,
+            last_trade_date=start + timedelta(days=3),
+            at=pd.Timestamp("2025-01-04", tz="UTC").to_pydatetime(),
+        )
+        provider = RecordingProvider(3)
+        provider.last_kline_source = "tencent"
+        service = MarketDataService(
+            stock_service=StockService(provider=provider), repository=repository
+        )
+
+        with pytest.raises(StockDataProviderError, match="calendar requires 4"):
+            service.sync_daily(
+                STOCK_CODE,
+                start + timedelta(days=2),
+                start + timedelta(days=3),
+                min_rows=2,
+                trading_days=lambda range_start, range_end: 4,
+            )
+
+        assert [row.close for row in repository.list_daily(STOCK_CODE)] == [100.0] * 4
+        assert repository.get_daily_sync(STOCK_CODE).source == "eastmoney"
 
 
 def test_query_daily_refetches_when_cache_is_stale():
