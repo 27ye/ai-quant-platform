@@ -1,0 +1,15 @@
+{
+  "sha": "bcbd559acb67d3435fe7a840f34ad73bbe35bbad",
+  "batch": "c-delivery-20260917",
+  "fixed_batch": "PASS 9/9",
+  "C_reported_two_runtime_blockers": "CLOSED on this SHA",
+  "runtime_scenarios": "PASS 12/12 each SQLite and MySQL 8.0.31, synthetic Provider",
+  "history_no_LLM": "PASS actual ASGI/MySQL synthetic legacy fixture",
+  "B_cb2cfeb": "NOT an equivalent replacement: unknown-calendar middle/tail loss reproduced in SQLite",
+  "overall_V2_approved": false,
+  "not_verified": [
+    "real live Provider full flow",
+    "real LLM generation and two real reports after restart",
+    "browser with Mock disabled"
+  ]
+}

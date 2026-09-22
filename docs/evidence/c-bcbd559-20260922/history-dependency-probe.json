@@ -1,0 +1,18 @@
+{
+  "sha": "bcbd559acb67d3435fe7a840f34ad73bbe35bbad",
+  "status": "passed",
+  "mode": "actual ASGI routes and real MySQL 8.0.31; separately seeded complete synthetic legacy report in current isolated test database",
+  "LLM_configuration": "empty",
+  "history_list_http": 200,
+  "history_detail_http": 200,
+  "missing_http": 404,
+  "missing_code": 40006,
+  "legacy_snapshot_status": "legacy_missing",
+  "forbidden_generation_dependencies_called": [],
+  "generate_missing_config_code": 50005,
+  "generate_http": 500,
+  "all_AI_rows_unchanged_after_reconnect": true,
+  "real_LLM_called": false,
+  "not_verified": "real LLM generation, browser, current live Provider, two newly generated real reports",
+  "harness_note": "Initial sparse migration sentinel lacked required report body fields; used a separate complete synthetic legacy fixture for the API contract, leaving original sentinel unchanged."
+}

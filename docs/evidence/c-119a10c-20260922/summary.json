@@ -1,0 +1,11 @@
+{
+  "sha": "119a10c36c4b497ddfa0a3bb31666a6e6b803038",
+  "batch": "c-delivery-20260917",
+  "fixed_batch_decision": "PASS 9/9",
+  "runtime_decision": "NOT PASSED: unfinished legacy tail and unknown union calendar",
+  "runtime_scenarios_per_database": 10,
+  "runtime_scenarios_passing_per_database": 8,
+  "mysql_atomic_rollback": "PASS real MySQL 8.0.31, recreated engine",
+  "C_production_changed": false,
+  "overall_V2_approved": false
+}

@@ -1,0 +1,47 @@
+{
+  "status": "passed",
+  "scope": "offline PR10+C compatibility only",
+  "data": "synthetic; no real stock-price observations",
+  "database": "temporary SQLite, NOT MySQL",
+  "llm": "fake, NOT real LLM",
+  "checks": [
+    "default_C_projection_and_fresh_AI_context_unchanged_after_custom_V2",
+    "AI_default_pipeline_and_market_called_once_per_context",
+    "D_15_digit_and_negative_zero_normalization_only_changes_AI_copy",
+    "C_input_snapshot_hash_preserved_and_AI_context_hash_reproducible",
+    "SQLite_new_engine_and_session_history_matches_without_external_calls",
+    "legacy_missing_and_unknown_ID_do_not_recompute",
+    "tampered_AI_context_hash_rejected_without_recompute"
+  ],
+  "not_verified": [
+    "HTTP routes and HTTP error codes",
+    "Real MySQL storage precision, migrations, or server restart",
+    "Real LLM, live providers, or three-stock real-data acceptance",
+    "A frontend or B parameterized-backtest API/persistence integration",
+    "Final B+D+C combined Git SHA or overall V2 acceptance"
+  ],
+  "checkout_head": "f465ee3b0e96c7787c6d5102da4f51455b76905d",
+  "source_file_sha256": {
+    "backend\\app\\quant\\windowed_backtest.py": "33356eadcb7822be85e2c940e3cb1448c54a52050991585909a2c406a6867826",
+    "backend\\app\\quant\\backtest.py": "544583577b454912839823e88685a019ebf4a6c8e5acd31c5b4a7e945c42f11c",
+    "backend\\app\\services\\ai_context_adapter.py": "f3fb94cf782f13c5ee18e0ec90dc1c20a2e639d9d8dcbd663078aa2d65dc145c",
+    "backend\\app\\services\\ai_analysis.py": "d71ea0a1ef4ecf70226f8ce3625d94a3b2fb9546a3c8bb4c4f622d254721dfc4",
+    "scripts\\validate_c_ai_history_compatibility.py": "20b5de3b04aebd8cd3771ea73c2cd0d53fb1c6e146f72a105bb70342b51f17f8"
+  },
+  "synthetic_rows": 220,
+  "source_mode": "frozen",
+  "provider": "synthetic_c_ai_fixture",
+  "default_score": 82,
+  "events": {
+    "market": 3,
+    "quant": 3,
+    "llm": 1,
+    "context": 3
+  },
+  "history_forbidden_calls": [],
+  "data_hash": "4acf4d20602761ca862c35c21816a20868a2037158f6e7ff03780769a092c387",
+  "context_hash": "5fcf4658bd7ceae014867a168387e25a0c7c6f9cc2c636b3e103f6481d2deddb",
+  "default_c_result_sha256": "8f56b781dc0a88b27389b08daec2650c0e94bdbdb17dfb7543975caaaeba0a4c",
+  "custom_c_result_sha256": "1ac156ab7a7556e78bd089bb75378692ab964101da74b3a2ae70a42246eeb0a0",
+  "sqlite": "temporary file removed; engine and session recreated before readback"
+}

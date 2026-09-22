@@ -1,0 +1,145 @@
+{
+  "sha": "119a10c36c4b497ddfa0a3bb31666a6e6b803038",
+  "database_version": "SQLite",
+  "mode": "synthetic Provider through real StockService and MarketDataService; no live data",
+  "existing_databases_modified": false,
+  "diagnostics_completed": true,
+  "results": {
+    "whole_window_0": {
+      "contract_met": true,
+      "old_source": "eastmoney-synthetic",
+      "new_source": "tencent-synthetic",
+      "calls": [
+        [
+          "2025-01-06",
+          "2025-01-09"
+        ]
+      ],
+      "closes": [
+        101.0,
+        101.0,
+        101.0,
+        101.0
+      ]
+    },
+    "whole_window_1": {
+      "contract_met": true,
+      "old_source": "tencent-synthetic",
+      "new_source": "eastmoney-synthetic",
+      "calls": [
+        [
+          "2025-01-06",
+          "2025-01-09"
+        ]
+      ],
+      "closes": [
+        101.0,
+        101.0,
+        101.0,
+        101.0
+      ]
+    },
+    "whole_window_2": {
+      "contract_met": true,
+      "old_source": "tencent-synthetic",
+      "new_source": "tencent-synthetic",
+      "calls": [
+        [
+          "2025-01-06",
+          "2025-01-09"
+        ]
+      ],
+      "closes": [
+        101.0,
+        101.0,
+        101.0,
+        101.0
+      ]
+    },
+    "atomic_metadata_failure": {
+      "contract_met": true,
+      "recreated_engine": false,
+      "close": 100.0,
+      "successful_metadata_unchanged": true,
+      "failure_recorded": true
+    },
+    "intraday_complete_cache": {
+      "contract_met": true,
+      "provider_calls": []
+    },
+    "intraday_missing_completed_day": {
+      "contract_met": true,
+      "provider_calls": [
+        [
+          "2026-09-16",
+          "2026-09-17"
+        ]
+      ]
+    },
+    "legacy_unfinished_tail": {
+      "contract_met": false,
+      "provider_calls": [
+        [
+          "2026-09-16",
+          "2026-09-18"
+        ]
+      ],
+      "returned_dates": [
+        "2026-09-16",
+        "2026-09-17",
+        "2026-09-18"
+      ],
+      "completed_through": "2026-09-17"
+    },
+    "unknown_union_calendar": {
+      "contract_met": false,
+      "rejected": false,
+      "old_snapshot_preserved": false,
+      "provider_calls": [
+        [
+          "2025-01-06",
+          "2025-01-09"
+        ]
+      ],
+      "remaining_dates": [
+        "2025-01-08",
+        "2025-01-09"
+      ]
+    },
+    "missing_completed_upstream_rejected": {
+      "contract_met": true,
+      "rejected": true
+    },
+    "shanghai_1800_weekend_boundary": {
+      "contract_met": true,
+      "cases": [
+        {
+          "utc": "2026-09-18T9:00Z",
+          "completed": "2026-09-17",
+          "ok": true
+        },
+        {
+          "utc": "2026-09-18T10:00Z",
+          "completed": "2026-09-18",
+          "ok": true
+        },
+        {
+          "utc": "2026-09-19T12:00Z",
+          "completed": "2026-09-18",
+          "ok": true
+        },
+        {
+          "utc": "2026-09-21T9:00Z",
+          "completed": "2026-09-18",
+          "ok": true
+        },
+        {
+          "utc": "2026-09-21T10:00Z",
+          "completed": "2026-09-21",
+          "ok": true
+        }
+      ]
+    }
+  },
+  "all_contracts_met": false
+}
