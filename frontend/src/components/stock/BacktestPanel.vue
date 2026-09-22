@@ -1,17 +1,25 @@
 <script setup lang="ts">
-// A2：策略回测面板（工作台内，自包含数据逻辑）
-// 进入页面自动跑一次 v1_legacy 快速回测（省略 parameters）；
-// 展开「自定义参数」可提交 v2_windowed 参数化回测（C 定稿：显式传 parameters，
-// 白名单五字段，页面显示百分数、发送小数；50004 表示 V2 引擎未就绪，不产生记录）
-import { ref, watch } from 'vue'
+// A2/A3：策略回测面板（工作台内，自包含数据逻辑）
+// 进入页面自动跑一次 v1_legacy 快速回测（省略 parameters 与 strategy）；
+// 展开「自定义参数」可选策略（V3 F5 契约 §5.1：ma_cross 沿用 V2 白名单五字段；
+// macd 白名单 macd_fast/slow/signal_period 默认 12/26/9，约束 2≤fast<slow≤120、
+// 2≤signal≤120；显式传 parameters → v2_windowed；50004 表示引擎未就绪，不产生记录）
+import { computed, ref, watch } from 'vue'
 import { AxiosError } from 'axios'
 
 import { runBacktest } from '../../api/stocks'
-import type { BacktestData, BacktestParameters } from '../../types/api'
+import type {
+  BacktestData,
+  BacktestParameters,
+  BacktestStrategy,
+  MacdParameters,
+} from '../../types/api'
 import {
   BACKTEST_PARAM_DEFAULTS,
   BACKTEST_PARAM_LIMITS,
+  MACD_PARAM_DEFAULTS,
   toBacktestParameters,
+  toMacdParameters,
   validateBacktestForm,
   type BacktestFormValues,
 } from '../../utils/backtestParams'
@@ -30,22 +38,53 @@ const epoch = ref(0)
 
 // ---- 参数表单（成本/滑点页面显示百分数，提交时 /100 转小数）----
 const formOpen = ref(false)
+const strategy = ref<BacktestStrategy>('ma_cross')
 const dateRange = ref<[string, string] | null>(null)
 const initialCash = ref<number | null>(BACKTEST_PARAM_DEFAULTS.initial_cash)
 const shortWindow = ref<number | null>(BACKTEST_PARAM_DEFAULTS.ma_short_period)
 const longWindow = ref<number | null>(BACKTEST_PARAM_DEFAULTS.ma_long_period)
+const macdFast = ref<number | null>(MACD_PARAM_DEFAULTS.macd_fast_period)
+const macdSlow = ref<number | null>(MACD_PARAM_DEFAULTS.macd_slow_period)
+const macdSignal = ref<number | null>(MACD_PARAM_DEFAULTS.macd_signal_period)
 const transactionCostPct = ref<number | null>(BACKTEST_PARAM_DEFAULTS.transaction_cost * 100)
 const slippagePct = ref<number | null>(BACKTEST_PARAM_DEFAULTS.slippage * 100)
 const formErrors = ref<string[]>([])
 
-// 表单被修改但未重新运行时，提示当前展示的是旧参数结果
-const dirty = ref(false)
-watch([dateRange, initialCash, shortWindow, longWindow, transactionCostPct, slippagePct], () => {
-  dirty.value = true
+// 切换策略时重置该策略专有参数为默认值（避免残留另一策略的旧值）
+watch(strategy, () => {
+  if (strategy.value === 'ma_cross') {
+    shortWindow.value = BACKTEST_PARAM_DEFAULTS.ma_short_period
+    longWindow.value = BACKTEST_PARAM_DEFAULTS.ma_long_period
+  } else {
+    macdFast.value = MACD_PARAM_DEFAULTS.macd_fast_period
+    macdSlow.value = MACD_PARAM_DEFAULTS.macd_slow_period
+    macdSignal.value = MACD_PARAM_DEFAULTS.macd_signal_period
+  }
 })
 
+// 表单被修改但未重新运行时，提示当前展示的是旧参数结果
+const dirty = ref(false)
+watch(
+  [
+    dateRange,
+    initialCash,
+    shortWindow,
+    longWindow,
+    macdFast,
+    macdSlow,
+    macdSignal,
+    transactionCostPct,
+    slippagePct,
+    strategy,
+  ],
+  () => {
+    dirty.value = true
+  },
+)
+
 // 最近一次参数化运行的参数（用于结果标注）
-const lastRunParams = ref<BacktestParameters | null>(null)
+const lastRunParams = ref<BacktestParameters | MacdParameters | null>(null)
+const lastRunStrategy = ref<BacktestStrategy>('ma_cross')
 const lastRunRange = ref<[string, string] | null>(null)
 
 const METRICS = [
@@ -113,14 +152,18 @@ async function load() {
 
 watch(() => props.stockCode, load, { immediate: true })
 
-// 提交参数化回测（v2_windowed）
+// 提交参数化回测（v2_windowed；V3 F5：请求带 strategy，白名单随策略）
 async function submit() {
   const values: BacktestFormValues = {
+    strategy: strategy.value,
     start_date: dateRange.value?.[0] ?? '',
     end_date: dateRange.value?.[1] ?? '',
     initial_cash: initialCash.value,
     short_window: shortWindow.value,
     long_window: longWindow.value,
+    macd_fast: macdFast.value,
+    macd_slow: macdSlow.value,
+    macd_signal: macdSignal.value,
     transaction_cost:
       transactionCostPct.value == null ? null : transactionCostPct.value / 100,
     slippage: slippagePct.value == null ? null : slippagePct.value / 100,
@@ -138,13 +181,21 @@ async function submit() {
   try {
     const res = await runBacktest({
       stock_code: props.stockCode,
+      strategy: values.strategy,
       start_date: values.start_date,
       end_date: values.end_date,
-      parameters: toBacktestParameters(values),
+      parameters:
+        values.strategy === 'ma_cross'
+          ? toBacktestParameters(values)
+          : toMacdParameters(values),
     })
     if (epoch.value !== currentEpoch) return
     result.value = res.data
-    lastRunParams.value = toBacktestParameters(values)
+    lastRunStrategy.value = values.strategy
+    lastRunParams.value =
+      values.strategy === 'ma_cross'
+        ? toBacktestParameters(values)
+        : toMacdParameters(values)
     lastRunRange.value = [values.start_date, values.end_date]
     dirty.value = false
   } catch (error) {
@@ -159,11 +210,31 @@ async function submit() {
   }
 }
 
+// 结果上方的本次运行参数摘要（策略感知）
+const lastRunSummary = computed(() => {
+  const p = lastRunParams.value
+  if (!p || !lastRunRange.value) return ''
+  const cash = p.initial_cash.toLocaleString()
+  const cost = formatPct(p.transaction_cost)
+  const slip = formatPct(p.slippage)
+  if (lastRunStrategy.value === 'macd' && 'macd_fast_period' in p) {
+    return `${lastRunRange.value[0]} ~ ${lastRunRange.value[1]} · MACD ${p.macd_fast_period}/${p.macd_slow_period}/${p.macd_signal_period} · 初始资金 ${cash} · 成本 ${cost} · 滑点 ${slip}`
+  }
+  if ('ma_short_period' in p) {
+    return `${lastRunRange.value[0]} ~ ${lastRunRange.value[1]} · MA ${p.ma_short_period}/${p.ma_long_period} · 初始资金 ${cash} · 成本 ${cost} · 滑点 ${slip}`
+  }
+  return ''
+})
+
 function resetForm() {
   dateRange.value = null
+  strategy.value = 'ma_cross'
   initialCash.value = BACKTEST_PARAM_DEFAULTS.initial_cash
   shortWindow.value = BACKTEST_PARAM_DEFAULTS.ma_short_period
   longWindow.value = BACKTEST_PARAM_DEFAULTS.ma_long_period
+  macdFast.value = MACD_PARAM_DEFAULTS.macd_fast_period
+  macdSlow.value = MACD_PARAM_DEFAULTS.macd_slow_period
+  macdSignal.value = MACD_PARAM_DEFAULTS.macd_signal_period
   transactionCostPct.value = BACKTEST_PARAM_DEFAULTS.transaction_cost * 100
   slippagePct.value = BACKTEST_PARAM_DEFAULTS.slippage * 100
   formErrors.value = []
@@ -198,6 +269,13 @@ function resetForm() {
     <!-- 参数表单 -->
     <div v-if="formOpen" class="form">
       <div class="field field-full">
+        <label class="field-label">策略（V3：MACD 为新策略，请求带 strategy 字段）</label>
+        <el-radio-group v-model="strategy" size="small">
+          <el-radio-button value="ma_cross">双均线 MA</el-radio-button>
+          <el-radio-button value="macd">MACD</el-radio-button>
+        </el-radio-group>
+      </div>
+      <div class="field field-full">
         <label class="field-label">回测区间（最长 {{ BACKTEST_PARAM_LIMITS.maxRangeYears }} 个日历年）</label>
         <el-date-picker
           v-model="dateRange"
@@ -210,28 +288,67 @@ function resetForm() {
         />
       </div>
       <div class="form-grid">
-        <div class="field">
-          <label class="field-label">短均线（日）</label>
-          <el-input-number
-            v-model="shortWindow"
-            :min="BACKTEST_PARAM_LIMITS.shortWindowMin"
-            :max="BACKTEST_PARAM_LIMITS.longWindowMax"
-            :precision="0"
-            :controls="false"
-            class="num-input"
-          />
-        </div>
-        <div class="field">
-          <label class="field-label">长均线（日）</label>
-          <el-input-number
-            v-model="longWindow"
-            :min="BACKTEST_PARAM_LIMITS.shortWindowMin"
-            :max="BACKTEST_PARAM_LIMITS.longWindowMax"
-            :precision="0"
-            :controls="false"
-            class="num-input"
-          />
-        </div>
+        <!-- MA 专有参数 -->
+        <template v-if="strategy === 'ma_cross'">
+          <div class="field">
+            <label class="field-label">短均线（日）</label>
+            <el-input-number
+              v-model="shortWindow"
+              :min="BACKTEST_PARAM_LIMITS.shortWindowMin"
+              :max="BACKTEST_PARAM_LIMITS.longWindowMax"
+              :precision="0"
+              :controls="false"
+              class="num-input"
+            />
+          </div>
+          <div class="field">
+            <label class="field-label">长均线（日）</label>
+            <el-input-number
+              v-model="longWindow"
+              :min="BACKTEST_PARAM_LIMITS.shortWindowMin"
+              :max="BACKTEST_PARAM_LIMITS.longWindowMax"
+              :precision="0"
+              :controls="false"
+              class="num-input"
+            />
+          </div>
+        </template>
+        <!-- MACD 专有参数（契约：2 ≤ fast < slow ≤ 120、2 ≤ signal ≤ 120） -->
+        <template v-else>
+          <div class="field">
+            <label class="field-label">快线 EMA（日）</label>
+            <el-input-number
+              v-model="macdFast"
+              :min="BACKTEST_PARAM_LIMITS.macdPeriodMin"
+              :max="BACKTEST_PARAM_LIMITS.macdPeriodMax"
+              :precision="0"
+              :controls="false"
+              class="num-input"
+            />
+          </div>
+          <div class="field">
+            <label class="field-label">慢线 EMA（日）</label>
+            <el-input-number
+              v-model="macdSlow"
+              :min="BACKTEST_PARAM_LIMITS.macdPeriodMin"
+              :max="BACKTEST_PARAM_LIMITS.macdPeriodMax"
+              :precision="0"
+              :controls="false"
+              class="num-input"
+            />
+          </div>
+          <div class="field">
+            <label class="field-label">信号线 DEA（日）</label>
+            <el-input-number
+              v-model="macdSignal"
+              :min="BACKTEST_PARAM_LIMITS.macdPeriodMin"
+              :max="BACKTEST_PARAM_LIMITS.macdPeriodMax"
+              :precision="0"
+              :controls="false"
+              class="num-input"
+            />
+          </div>
+        </template>
         <div class="field">
           <label class="field-label">初始资金（元）</label>
           <el-input-number
@@ -295,13 +412,7 @@ function resetForm() {
     <!-- 结果 -->
     <template v-else-if="result">
       <p v-if="dirty" class="stale-hint">参数已修改，以下为上次运行结果</p>
-      <p v-if="lastRunParams && lastRunRange" class="params-line">
-        {{ lastRunRange[0] }} ~ {{ lastRunRange[1] }} · MA
-        {{ lastRunParams.ma_short_period }}/{{ lastRunParams.ma_long_period }} · 初始资金
-        {{ lastRunParams.initial_cash.toLocaleString() }} · 成本
-        {{ formatPct(lastRunParams.transaction_cost) }} · 滑点
-        {{ formatPct(lastRunParams.slippage) }}
-      </p>
+      <p v-if="lastRunSummary" class="params-line">{{ lastRunSummary }}</p>
 
       <div class="metrics">
         <div v-for="metric in METRICS" :key="metric.key" class="metric">

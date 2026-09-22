@@ -156,7 +156,9 @@ export function mockScore(stockCode: string): ApiResponse<ScoreData> {
 }
 
 export function mockBacktest(payload: BacktestRequest): ApiResponse<BacktestData> {
-  const kline = buildKline(180, 20260902, 1350)
+  // V3 F5：strategy=macd 用不同种子模拟另一策略的权益路径（后端接线前的契约演示）
+  const isMacd = payload.strategy === 'macd'
+  const kline = buildKline(180, isMacd ? 20260903 : 20260902, isMacd ? 1280 : 1350)
   const initialCash = payload.parameters?.initial_cash ?? 100000
   // 模拟简单策略：价格涨跌驱动权益，initial_cash 起步的绝对权益
   let equity = initialCash
@@ -185,7 +187,7 @@ export function mockBacktest(payload: BacktestRequest): ApiResponse<BacktestData
   if (payload.parameters) {
     const firstClose = kline[0].close
     let peak = -Infinity
-    data.backtest_id = 12
+    data.backtest_id = isMacd ? 13 : 12
     data.semantics_version = 'v2_windowed'
     data.benchmark_curve = kline.map((row) => ({
       trade_date: row.trade_date,

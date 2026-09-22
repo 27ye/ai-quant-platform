@@ -219,6 +219,9 @@ export interface BacktestData {
 
 // ============ V2 参数化回测（契约已定稿：C 于 Issue #11 确认）============
 
+/** V3 F5：回测请求的策略选择（§5.1 契约：省略 strategy 完整保留 V2 语义） */
+export type BacktestStrategy = 'ma_cross' | 'macd'
+
 /**
  * 回测参数白名单（POST /backtests 请求体 parameters 字段，V1 冻结演示不含此块）
  * C 定稿口径：页面内部可用 short/long/commission 变量，提交时映射为以下字段名；
@@ -238,12 +241,30 @@ export interface BacktestParameters {
   slippage: number
 }
 
+/**
+ * V3 F5 MACD 参数白名单（§5.1 契约：strategy=macd 时按此白名单校验）
+ * 默认 12/26/9；约束 2 ≤ fast < slow ≤ 120、2 ≤ signal ≤ 120；
+ * 非整数/布尔/字符串/NaN/Infinity/显式 null/未知字段/MA 专有字段均取数前 40001
+ */
+export interface MacdParameters {
+  macd_fast_period: number
+  macd_slow_period: number
+  macd_signal_period: number
+  /** 共同参数仅 initial_cash、transaction_cost、slippage，范围沿用现有约束 */
+  initial_cash: number
+  transaction_cost: number
+  slippage: number
+}
+
 /** 回测请求体：日期为顶层字段（YYYY-MM-DD，首尾包含，允许单日，最长五个日历年） */
 export interface BacktestRequest {
   stock_code: string
+  /** V3 F5：省略 = 完整保留 V2 语义；ma_cross 不改变旧行为；macd 要求明确起止日期 */
+  strategy?: BacktestStrategy
   start_date?: string
   end_date?: string
-  parameters?: BacktestParameters
+  /** 白名单随策略选择：ma_cross → BacktestParameters；macd → MacdParameters */
+  parameters?: BacktestParameters | MacdParameters
 }
 
 /** 成交记录（V2 响应 trades 数组元素；买入行 round_trip_* 为 null，卖出行含双边成本） */
@@ -396,10 +417,10 @@ export interface BacktestWarmup {
 export interface BacktestDetail extends BacktestSummary {
   /** 预热区间起点（v2_windowed；v1_legacy 为 null） */
   warmup_start_date: string | null
-  /** 请求参数（v2 只含白名单五字段） */
-  parameters: BacktestParameters | null
+  /** 请求参数（白名单随策略：MA 五字段 / MACD 六字段） */
+  parameters: BacktestParameters | MacdParameters | null
   /** 实际生效参数快照 */
-  effective_parameters: BacktestParameters | null
+  effective_parameters: BacktestParameters | MacdParameters | null
   /** equity 为账户绝对权益；累计收益率 = equity / initial_cash - 1 */
   equity_curve: Array<{ trade_date: string; equity: number }> | null
   benchmark_curve: BenchmarkCurvePoint[] | null

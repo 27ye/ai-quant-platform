@@ -82,17 +82,26 @@ function metricClass(value: number | null): string {
   return ''
 }
 
-// 生效参数（v2 只含白名单五字段）
+// 生效参数（白名单随策略：MA 五字段 / MACD 六字段，按存在字段展示）
 const paramRows = computed(() => {
-  const p = detail.value?.effective_parameters
+  const p = detail.value?.effective_parameters as Record<string, number> | null | undefined
   if (!p) return []
-  return [
-    { label: '短均线', value: `${p.ma_short_period} 日` },
-    { label: '长均线', value: `${p.ma_long_period} 日` },
-    { label: '初始资金', value: p.initial_cash.toLocaleString() },
-    { label: '交易成本', value: `${(p.transaction_cost * 100).toFixed(3)}%` },
-    { label: '滑点', value: `${(p.slippage * 100).toFixed(3)}%` },
-  ]
+  const rows: Array<{ label: string; value: string }> = []
+  if (p.ma_short_period != null) rows.push({ label: '短均线', value: `${p.ma_short_period} 日` })
+  if (p.ma_long_period != null) rows.push({ label: '长均线', value: `${p.ma_long_period} 日` })
+  if (p.macd_fast_period != null) {
+    rows.push({ label: 'MACD 快线', value: `${p.macd_fast_period} 日` })
+  }
+  if (p.macd_slow_period != null) {
+    rows.push({ label: 'MACD 慢线', value: `${p.macd_slow_period} 日` })
+  }
+  if (p.macd_signal_period != null) {
+    rows.push({ label: 'MACD 信号线', value: `${p.macd_signal_period} 日` })
+  }
+  rows.push({ label: '初始资金', value: p.initial_cash.toLocaleString() })
+  rows.push({ label: '交易成本', value: `${(p.transaction_cost * 100).toFixed(3)}%` })
+  rows.push({ label: '滑点', value: `${(p.slippage * 100).toFixed(3)}%` })
+  return rows
 })
 
 // 成交记录表
