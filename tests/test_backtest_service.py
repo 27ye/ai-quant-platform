@@ -4,6 +4,7 @@ from datetime import date, timedelta
 
 import pandas as pd
 import pytest
+from pydantic import ValidationError
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -49,6 +50,8 @@ C_DATA_HASH = "c" * 64
 _DEFAULT_C_ENTRY = object()
 #: Stands in for C's ``PARAMETERS_UNSET`` marker object.
 _PARAMETERS_UNSET = object()
+#: Mirrors C's V3 ``STRATEGY_UNSET`` (absent on a tree that predates strategies).
+_STRATEGY_UNSET = object()
 
 
 def _rows(count: int = 400, start: date = START) -> list:
@@ -170,6 +173,8 @@ class _FakeCWindowedEntry:
     parameters_unset = _PARAMETERS_UNSET
     parameter_errors = (_FakeBacktestParameterError,)
     data_errors = (_FakeInsufficientDataError,)
+    strategy_unset = _STRATEGY_UNSET
+    supports_strategy = True
 
     def __init__(
         self,
@@ -178,17 +183,25 @@ class _FakeCWindowedEntry:
         resolve_error=None,
         validate_error=None,
         run_error=None,
+        supports_strategy=None,
     ) -> None:
         self.required_warmup_rows = required_warmup_rows
         self.resolve_error = resolve_error
         self.validate_error = validate_error
         self.run_error = run_error
+        # ``None`` keeps the class default (V3-aware); pass ``False`` to stand in for a
+        # tree whose quant entry predates ``strategy``.
+        if supports_strategy is not None:
+            self.supports_strategy = supports_strategy
         self.resolve_calls: list = []
+        self.resolve_strategies: list = []
         self.validate_calls: list = []
         self.run_calls: list = []
+        self.run_strategies: list = []
 
-    def resolve(self, raw_parameters):
+    def resolve(self, raw_parameters, strategy=None):
         self.resolve_calls.append(dict(raw_parameters))
+        self.resolve_strategies.append(strategy)
         if self.resolve_error is not None:
             raise self.resolve_error
         required = self.required_warmup_rows
@@ -196,13 +209,66 @@ class _FakeCWindowedEntry:
             required = int(raw_parameters.get("ma_long_period", 20))
         return _FakeRequestConfig(required_warmup_rows=required)
 
+    def _macd_result(self, start_date, end_date, parameters):
+        """C's MACD envelope, mirroring ``C_V3_MACD_CONTRACT.md`` (结果与兼容)."""
+        day = start_date.isoformat()
+        effective = {
+            "macd_fast_period": 12,
+            "macd_slow_period": 26,
+            "macd_signal_period": 9,
+            "initial_cash": 100000.0,
+            "transaction_cost": 0.001,
+            "slippage": 0.0,
+        }
+        effective.update(parameters)
+        capital = float(effective["initial_cash"])
+        return {
+            "strategy_name": "macd_dif_above_dea_long_only",
+            "algorithm_version": "macd_dif_dea_long_only_v3.0.0",
+            "semantics_version": SEMANTICS_V2_WINDOWED,
+            "start_date": day,
+            "end_date": end_date.isoformat(),
+            "initial_cash": capital,
+            "final_equity": capital * 1.02,
+            "total_return": 0.02,
+            "annual_return": 0.03,
+            "max_drawdown": -0.04,
+            "sharpe_ratio": 1.1,
+            "win_rate": 0.6,
+            "trade_count": 1,
+            "order_count": 2,
+            "benchmark_return": 0.004,
+            # C's own envelopes. B must keep these instead of substituting its sparse
+            # request - that is exactly what the effective_parameters assertion checks.
+            "effective_parameters": effective,
+            "parameters": {**effective, "strategy_name": "macd_dif_above_dea_long_only"},
+            "indicator_spec": {"warmup_rows": 34, "hist_multiplier": 2},
+            "warmup": {"required_rows": 34, "used_rows": 34},
+            "initial_equity": {
+                "trade_date": day,
+                "equity": capital,
+                "valuation": "before_open",
+            },
+            "execution_assumptions": {
+                "model": "research_fractional_v1",
+                "benchmark_includes_costs": False,
+                "price_basis": "qfq",
+            },
+            "input_snapshot": {"schema_version": "quant_input_v1", "rows": []},
+            "data_hash": C_DATA_HASH,
+            "equity_curve": [{"trade_date": day, "equity": capital}],
+            "benchmark_curve": [{"trade_date": day, "benchmark_equity": capital}],
+            "drawdown_curve": [{"trade_date": day, "drawdown": 0.0}],
+            "trades": [],
+        }
+
     def validate_window(self, start_date, end_date):
         self.validate_calls.append((start_date, end_date))
         if self.validate_error is not None:
             raise self.validate_error
         return start_date, end_date
 
-    def run(self, frame, *, start_date, end_date, parameters):
+    def run(self, frame, *, start_date, end_date, parameters, strategy=None):
         self.run_calls.append(
             {
                 "frame_rows": len(frame),
@@ -211,8 +277,11 @@ class _FakeCWindowedEntry:
                 "parameters": dict(parameters),
             }
         )
+        self.run_strategies.append(strategy)
         if self.run_error is not None:
             raise self.run_error
+        if strategy == "macd":
+            return self._macd_result(start_date, end_date, parameters)
         initial_cash = float(parameters["initial_cash"])
         day = start_date.isoformat()
         return {
@@ -1011,4 +1080,232 @@ def test_api_reports_c_window_validation_as_json_40001():
 
     assert response.status_code == 400, response.text
     assert response.headers["content-type"].startswith("application/json")
+    assert response.json()["code"] == 40001
+
+
+# -- V3 F5: strategy (ma_cross / macd) --------------------------------------
+#
+# V3 plan 5.1 request matrix + C's adapter contract. The invariants asserted here:
+# only *omitting* strategy means "use the default"; a literal null is 40001; macd
+# forces v2_windowed; B forwards only what the caller sent for MACD (C owns the
+# defaults); and anything that cannot be honoured fails *before* any data fetch.
+
+_WINDOWED = dict(start_date=date(2025, 6, 1), end_date=date(2025, 12, 31))
+
+
+def test_strategy_omitted_is_never_sent_to_c():
+    market = _FakeMarketSource(_rows())
+    c_entry = _FakeCWindowedEntry()
+    with _session() as session:
+        result = _service(market, BacktestRepository(session), c_entry=c_entry).run(
+            stock_code=STOCK_CODE,
+            parameters=BacktestParametersSchema(ma_long_period=60),
+            parameters_provided=True,
+            **_WINDOWED,
+        )
+
+    assert result["semantics_version"] == SEMANTICS_V2_WINDOWED
+    # Omitted stays omitted: C's sentinel default decides, B must not send None.
+    assert c_entry.resolve_strategies == [None]
+    assert c_entry.run_strategies == [None]
+    # V2 behaviour is untouched: the five MA fields, B's defaults included.
+    assert set(c_entry.run_calls[0]["parameters"]) == set(ALLOWED_PARAMETER_FIELDS)
+
+
+def test_ma_cross_strategy_is_forwarded_to_c():
+    market = _FakeMarketSource(_rows())
+    c_entry = _FakeCWindowedEntry()
+    with _session() as session:
+        result = _service(market, BacktestRepository(session), c_entry=c_entry).run(
+            stock_code=STOCK_CODE,
+            parameters=BacktestParametersSchema(),
+            parameters_provided=True,
+            strategy="ma_cross",
+            strategy_provided=True,
+            **_WINDOWED,
+        )
+
+    assert result["semantics_version"] == SEMANTICS_V2_WINDOWED
+    assert c_entry.resolve_strategies == ["ma_cross"]
+    assert c_entry.run_strategies == ["ma_cross"]
+
+
+def test_ma_cross_without_parameters_keeps_v1_legacy():
+    """C's matrix: ``省略 / ma_cross`` + no parameters is still the V1 path."""
+    market = _FakeMarketSource(_rows())
+    c_entry = _FakeCWindowedEntry()
+    with _session() as session:
+        result = _service(market, BacktestRepository(session), c_entry=c_entry).run(
+            stock_code=STOCK_CODE,
+            strategy="ma_cross",
+            strategy_provided=True,
+        )
+
+    assert result["semantics_version"] == SEMANTICS_V1_LEGACY
+    assert c_entry.resolve_calls == []  # the V1 path never reaches C's entry points
+
+
+def test_macd_forces_windowed_semantics_without_parameters():
+    market = _FakeMarketSource(_rows())
+    c_entry = _FakeCWindowedEntry(required_warmup_rows=34)
+    with _session() as session:
+        repository = BacktestRepository(session)
+        result = _service(market, repository, c_entry=c_entry).run(
+            stock_code=STOCK_CODE,
+            strategy="macd",
+            strategy_provided=True,
+            **_WINDOWED,
+        )
+        stored = session.get(BacktestResult, result["backtest_id"])
+
+    assert result["semantics_version"] == SEMANTICS_V2_WINDOWED
+    assert c_entry.run_strategies == ["macd"]
+    # Nothing was sent for parameters, so C's documented defaults are what ran.
+    assert c_entry.run_calls[0]["parameters"] == {}
+    # C's required_warmup_rows wins over B's MA-derived warmup.
+    assert result["data_meta"]["warmup_required_days"] == 34
+    # C's own envelopes are kept, not replaced by B's sparse request.
+    assert set(result["effective_parameters"]) == {
+        "macd_fast_period",
+        "macd_slow_period",
+        "macd_signal_period",
+        "initial_cash",
+        "transaction_cost",
+        "slippage",
+    }
+    assert result["effective_parameters"]["macd_slow_period"] == 26
+    assert result["strategy_name"] == "macd_dif_above_dea_long_only"
+    assert stored.parameters["strategy_name"] == "macd_dif_above_dea_long_only"
+
+
+def test_macd_forwards_only_the_fields_the_caller_sent():
+    market = _FakeMarketSource(_rows())
+    c_entry = _FakeCWindowedEntry(required_warmup_rows=34)
+    with _session() as session:
+        _service(market, BacktestRepository(session), c_entry=c_entry).run(
+            stock_code=STOCK_CODE,
+            parameters=BacktestParametersSchema(
+                macd_fast_period=5, macd_slow_period=10, macd_signal_period=3
+            ),
+            parameters_provided=True,
+            strategy="macd",
+            strategy_provided=True,
+            **_WINDOWED,
+        )
+
+    # Only what the caller sent. Injecting B's own defaults would silently overwrite
+    # C's baseline the day the two drift apart - the failure mode C flagged for MA.
+    assert c_entry.run_calls[0]["parameters"] == {
+        "macd_fast_period": 5,
+        "macd_slow_period": 10,
+        "macd_signal_period": 3,
+    }
+
+
+def test_explicit_null_strategy_is_rejected_before_any_fetch():
+    market = _FakeMarketSource(_rows())
+    c_entry = _FakeCWindowedEntry()
+    with _session() as session:
+        service = _service(market, BacktestRepository(session), c_entry=c_entry)
+        with pytest.raises(InvalidParameterError, match="strategy must not be null"):
+            service.run(
+                stock_code=STOCK_CODE,
+                strategy=None,
+                strategy_provided=True,
+                **_WINDOWED,
+            )
+
+    assert market.calls == []
+    assert c_entry.resolve_calls == []
+
+
+def test_mixed_ma_parameters_with_macd_are_rejected_before_any_fetch():
+    market = _FakeMarketSource(_rows())
+    c_entry = _FakeCWindowedEntry(required_warmup_rows=34)
+    with _session() as session:
+        service = _service(market, BacktestRepository(session), c_entry=c_entry)
+        with pytest.raises(
+            InvalidParameterError, match="unsupported backtest parameters"
+        ):
+            service.run(
+                stock_code=STOCK_CODE,
+                parameters=BacktestParametersSchema(ma_long_period=60),
+                parameters_provided=True,
+                strategy="macd",
+                strategy_provided=True,
+                **_WINDOWED,
+            )
+
+    assert market.calls == []
+    assert c_entry.resolve_calls == []
+
+
+def test_macd_is_refused_and_persists_nothing_when_c_has_no_strategy_support():
+    """A tree without C's V3 entry must fail loudly, never run MA under a macd label."""
+    market = _FakeMarketSource(_rows())
+    c_entry = _FakeCWindowedEntry(supports_strategy=False)
+    with _session() as session:
+        service = _service(market, BacktestRepository(session), c_entry=c_entry)
+        with pytest.raises(BacktestError, match="macd backtest is unavailable"):
+            service.run(
+                stock_code=STOCK_CODE,
+                strategy="macd",
+                strategy_provided=True,
+                **_WINDOWED,
+            )
+        assert session.query(BacktestResult).count() == 0
+
+    assert market.calls == []
+    assert c_entry.resolve_calls == []
+
+
+def test_unknown_strategy_is_rejected_by_the_request_schema():
+    with pytest.raises(ValidationError):
+        BacktestRequestSchema(stock_code=STOCK_CODE, strategy="rsi")
+    with pytest.raises(ValidationError):
+        BacktestRequestSchema(stock_code=STOCK_CODE, strategy=123)
+    # A known strategy parses, and "omitted" stays distinguishable from null.
+    assert BacktestRequestSchema(stock_code=STOCK_CODE).strategy_provided is False
+    parsed = BacktestRequestSchema(stock_code=STOCK_CODE, strategy="macd")
+    assert parsed.strategy_provided is True and parsed.strategy == "macd"
+
+
+def test_api_maps_null_strategy_to_40001():
+    market = _FakeMarketSource(_rows())
+    with _session() as session:
+        repository = BacktestRepository(session)
+        service = _service(market, repository, c_entry=_FakeCWindowedEntry())
+        client = _api_client(repository, service)
+        try:
+            response = client.post(
+                "/api/v1/backtests",
+                json={
+                    "stock_code": STOCK_CODE,
+                    "start_date": "2025-06-01",
+                    "end_date": "2025-12-31",
+                    "strategy": None,
+                },
+            )
+        finally:
+            app.dependency_overrides.clear()
+
+    assert response.status_code == 400, response.text
+    assert response.json()["code"] == 40001
+
+
+def test_api_maps_unknown_strategy_to_40001():
+    market = _FakeMarketSource(_rows())
+    with _session() as session:
+        repository = BacktestRepository(session)
+        service = _service(market, repository, c_entry=_FakeCWindowedEntry())
+        client = _api_client(repository, service)
+        try:
+            response = client.post(
+                "/api/v1/backtests",
+                json={"stock_code": STOCK_CODE, "strategy": "rsi"},
+            )
+        finally:
+            app.dependency_overrides.clear()
+
+    assert response.status_code == 400, response.text
     assert response.json()["code"] == 40001
