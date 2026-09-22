@@ -1,5 +1,6 @@
 import json
 import math
+import re
 import threading
 import time
 from datetime import date, datetime, timedelta
@@ -71,6 +72,9 @@ class AKShareStockProvider(StockDataProvider):
     #: eastmoney hosts fail after retries (identical endpoints and field口径).
     delayed_base_url = "https://push2delay.eastmoney.com"
     tencent_kline_url = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+    #: Tencent realtime quote, last-resort fallback for stock info when both
+    #: eastmoney quote hosts are unreachable (carries name + caps, no industry).
+    tencent_quote_url = "https://qt.gtimg.cn/q"
     tencent_retry_attempts = 2
     #: Cap on concurrently-running (possibly hung) background AKShare calls, so
     #: repeated timeouts cannot accumulate unbounded daemon threads.
@@ -364,7 +368,12 @@ class AKShareStockProvider(StockDataProvider):
             raise
         except _TRANSIENT_ERRORS as exc:
             # Same-source delayed-quote host fallback (identical eastmoney fields).
-            return self._stock_info_from_delay_host(stock_code, exc)
+            try:
+                return self._stock_info_from_delay_host(stock_code, exc)
+            except StockDataProviderError as delay_exc:
+                # Both eastmoney hosts failed: cross-source Tencent quote is
+                # the last resort (name + market caps; industry unavailable).
+                return self._stock_info_from_tencent(stock_code, delay_exc)
         except Exception as exc:
             raise StockDataProviderError(
                 f"AKShare info request failed for {stock_code}: {exc}"
@@ -455,6 +464,81 @@ class AKShareStockProvider(StockDataProvider):
             "industry": self._cell_text(data.get("f127")),
             "total_market_cap": self._cell_float(data.get("f116")),
             "float_market_cap": self._cell_float(data.get("f117")),
+        }
+
+    def _stock_info_from_tencent(
+        self, stock_code: str, cause: Exception
+    ) -> Dict[str, Any]:
+        """Last-resort stock info from Tencent's realtime quote endpoint.
+
+        Only reached after the eastmoney primary host and the same-source
+        delayed host have both failed. The GBK quote string carries the name
+        (field 1), code (field 2) and total/float market caps in 100M CNY
+        (fields 44/45); caps are converted to CNY to match the eastmoney
+        f116/f117 口径. Tencent has no industry field, which is returned as
+        an empty string. HTTP status, envelope structure, field types and
+        stock identity are all validated; any anomaly maps to 50001.
+        """
+        import requests
+
+        def failure(reason: str) -> StockDataProviderError:
+            return StockDataProviderError(
+                f"AKShare info request failed for {stock_code}: {cause} "
+                f"(Tencent quote fallback also failed: {reason})"
+            )
+
+        if stock_code.startswith("6"):
+            symbol = f"sh{stock_code}"
+        elif stock_code.startswith(("0", "3")):
+            symbol = f"sz{stock_code}"
+        elif stock_code.startswith(("4", "8")):
+            symbol = f"bj{stock_code}"
+        else:
+            raise failure("unsupported stock market prefix")
+
+        try:
+            response = requests.get(
+                self.tencent_quote_url,
+                params={"q": symbol},
+                timeout=self.fallback_timeout_seconds,
+            )
+            if response.status_code != 200:
+                raise failure(f"HTTP {response.status_code}")
+            response.encoding = "gbk"
+            quote_text = response.text
+        except StockDataProviderError:
+            raise
+        except Exception as exc:
+            raise failure(f"{type(exc).__name__}: {exc}") from exc
+
+        match = re.search(r'="([^"]*)"', quote_text)
+        if not match:
+            raise failure("malformed quote envelope")
+        fields = match.group(1).split("~")
+        if len(fields) <= 45:
+            raise failure("quote has too few fields")
+        name = fields[1].strip()
+        code = fields[2].strip().zfill(6)
+        if not name or code != stock_code:
+            # Never return a different stock's identity.
+            raise failure(f"identity mismatch (requested {stock_code}, got {code})")
+
+        def cap_in_cny(index: int) -> Optional[float]:
+            try:
+                value_yi = float(fields[index])
+            except (TypeError, ValueError):
+                return None
+            if not math.isfinite(value_yi) or value_yi < 0:
+                return None
+            # Tencent quotes market caps in 100M CNY; eastmoney uses CNY.
+            return round(value_yi * 1e8, 2)
+
+        return {
+            "stock_code": code,
+            "stock_name": name,
+            "industry": "",
+            "total_market_cap": cap_in_cny(44),
+            "float_market_cap": cap_in_cny(45),
         }
 
     def _daily_kline_from_tencent(
