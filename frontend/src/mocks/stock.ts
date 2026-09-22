@@ -7,6 +7,7 @@ import type {
   KlineItem,
   ScoreData,
   StockBrief,
+  StockInfo,
 } from '../types/api'
 
 const STOCK_LIST: StockBrief[] = [
@@ -30,6 +31,28 @@ export function mockSearch(keyword: string): ApiResponse<StockBrief[]> {
       )
     : STOCK_LIST
   return { code: 0, message: 'success', data }
+}
+
+// GET /stocks/{code}：mock 仅冻结 600519 详情，其余按契约报不存在（由拦截器映射）
+export function mockStockInfo(stockCode: string): ApiResponse<StockInfo> {
+  const hit = STOCK_LIST.find((item) => item.stock_code === stockCode)
+  if (!hit || stockCode !== '600519') {
+    return {
+      code: 40002,
+      message: 'stock not found',
+      data: null,
+    } as unknown as ApiResponse<StockInfo>
+  }
+  return {
+    code: 0,
+    message: 'success',
+    data: {
+      ...hit,
+      industry: '白酒',
+      total_market_cap: 1567352311333.8,
+      float_market_cap: 1567352311333.8,
+    },
+  }
 }
 
 // 固定种子的伪随机数，保证每次刷新数据一致，方便演示和调试

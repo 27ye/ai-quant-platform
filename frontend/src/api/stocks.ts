@@ -1,6 +1,13 @@
 import { http } from './http'
 import { useMockFor } from './mockSwitch'
-import { mockBacktest, mockIndicators, mockKline, mockScore, mockSearch } from '../mocks/stock'
+import {
+  mockBacktest,
+  mockIndicators,
+  mockKline,
+  mockScore,
+  mockSearch,
+  mockStockInfo,
+} from '../mocks/stock'
 import { mockDataStatus } from '../mocks/dataStatus'
 import type { AxiosRequestConfig } from 'axios'
 import type {
@@ -12,6 +19,7 @@ import type {
   KlineItem,
   ScoreData,
   StockBrief,
+  StockInfo,
 } from '../types/api'
 
 export async function searchStocks(
@@ -24,6 +32,39 @@ export async function searchStocks(
     ...config,
   })
   return response.data
+}
+
+// 单只股票详情：走实时 provider（含腾讯/东财延迟主机回退），不依赖本地目录同步，
+// 因此目录未同步（搜索 50006）时工作台仍能拿到股票名称。
+// 实时源偶发短时抖动（502/50001），静默重试 2 次（调用方一般传 skipErrorHandler）
+const STOCK_INFO_MAX_ATTEMPTS = 3
+const STOCK_INFO_RETRY_BASE_MS = 900
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+export async function fetchStockInfo(
+  stockCode: string,
+  config?: AxiosRequestConfig,
+): Promise<ApiResponse<StockInfo>> {
+  if (useMockFor('STOCK_INFO')) return mockStockInfo(stockCode)
+  let lastError: unknown
+  for (let attempt = 0; attempt < STOCK_INFO_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await http.get<ApiResponse<StockInfo>>(
+        `/stocks/${stockCode}`,
+        config,
+      )
+      return response.data
+    } catch (error) {
+      lastError = error
+      if (attempt < STOCK_INFO_MAX_ATTEMPTS - 1) {
+        await delay(STOCK_INFO_RETRY_BASE_MS * (attempt + 1))
+      }
+    }
+  }
+  throw lastError
 }
 
 export async function fetchKline(

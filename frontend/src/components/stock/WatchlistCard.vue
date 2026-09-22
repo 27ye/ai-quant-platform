@@ -41,12 +41,15 @@ function notifyRemoved(code: string, name: string) {
 
 function toggleCurrent() {
   if (inWatchlist.value) {
-    const name = appContext.names[props.stockCode] ?? ''
+    const name = appContext.resolveStockName(props.stockCode)
     watchlist.remove(props.stockCode)
     notifyRemoved(props.stockCode, name)
     return
   }
-  const result = watchlist.add(props.stockCode, appContext.names[props.stockCode] ?? '')
+  const result = watchlist.add(
+    props.stockCode,
+    appContext.resolveStockName(props.stockCode),
+  )
   if (result.message) ElMessage.info(result.message)
   else ElMessage.success('已加入自选')
 }

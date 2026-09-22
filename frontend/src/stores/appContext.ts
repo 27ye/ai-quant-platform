@@ -6,6 +6,12 @@ import { computed, reactive } from 'vue'
 const STORAGE_KEY = 'lastStockCode'
 const NAMES_KEY = 'stockNames.v1'
 
+// 冻结验收模式后端唯一保证完整数据的股票：实时源不可用且本地无缓存时的最后名称兜底，
+// 其他股票宁可留空也不编造名称
+const FALLBACK_NAMES: Record<string, string> = {
+  '600519': '贵州茅台',
+}
+
 const state = reactive({
   stockCode: localStorage.getItem(STORAGE_KEY) || '600519',
 })
@@ -60,10 +66,16 @@ export function useAppContext() {
     if (changed) persistNames()
   }
 
+  // 解析股票名称：调用方已知名称 → 本地缓存 → 冻结兜底
+  function resolveStockName(code: string, known?: string) {
+    return known || names[code] || FALLBACK_NAMES[code] || ''
+  }
+
   return reactive({
     stockCode: computed(() => state.stockCode),
     names: computed(() => names),
     setStockCode,
     rememberStockNames,
+    resolveStockName,
   })
 }

@@ -16,6 +16,13 @@ export interface StockBrief {
   stock_name: string
 }
 
+// GET /stocks/{stock_code} 详情（实时 provider，不依赖本地目录同步）
+export interface StockInfo extends StockBrief {
+  industry: string | null
+  total_market_cap: number | null
+  float_market_cap: number | null
+}
+
 // GET /stocks/{stock_code}/kline（日期 YYYY-MM-DD，百分比用小数）
 export interface KlineItem {
   trade_date: string

@@ -2,7 +2,13 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { fetchDataStatus, fetchIndicators, fetchKline, fetchScore, searchStocks } from '../api/stocks'
+import {
+  fetchDataStatus,
+  fetchIndicators,
+  fetchKline,
+  fetchScore,
+  fetchStockInfo,
+} from '../api/stocks'
 import type {
   DataStatus,
   IndicatorsItem,
@@ -117,14 +123,22 @@ async function load() {
     })
     .catch(() => undefined)
 
-  // 股票名称：搜索接口按代码精确匹配，失败静默（仅展示增强，非关键路径）
-  searchStocks(stockCode.value, silent)
+  // 股票名称：本地缓存/冻结兜底立即显示，再用详情接口（实时 provider）补全；失败静默
+  stockName.value = appContext.resolveStockName(stockCode.value)
+  fetchStockInfo(stockCode.value, silent)
     .then((res) => {
       if (epoch.value !== currentEpoch) return
-      const hit = res.data.find((s) => s.stock_code === stockCode.value) ?? res.data[0]
-      stockName.value = hit?.stock_name ?? ''
+      stockName.value = res.data.stock_name
+      // 顺手登记 code→name，自选等功能零额外请求取名称
+      appContext.rememberStockNames([
+        { stock_code: res.data.stock_code, stock_name: res.data.stock_name },
+      ])
     })
-    .catch(() => undefined)
+    .catch(() => {
+      // 实时源持续不可用时退回缓存/兜底名称，页头不留空
+      if (epoch.value !== currentEpoch) return
+      stockName.value = appContext.resolveStockName(stockCode.value)
+    })
 }
 
 watch(stockCode, load, { immediate: true })
@@ -133,19 +147,25 @@ onMounted(() => health.refresh())
 
 <template>
   <main class="dashboard">
-    <!-- 股票信息条 -->
-    <div class="stock-bar">
-      <div class="stock-identity">
-        <span class="stock-code">{{ stockCode }}</span>
-        <span v-if="stockName" class="stock-name">{{ stockName }}</span>
-        <span v-if="dateRange" class="date-range">{{ dateRange }}</span>
-        <span v-if="health.acceptanceMode" class="mode-badge">{{ health.acceptanceMode }}</span>
-        <DataStatusBadge v-if="dataStatus" :status="dataStatus" />
+    <!-- 页头：与其他页面一致的标题结构 -->
+    <header class="page-header">
+      <div class="header-left">
+        <h1 class="page-title">工作台</h1>
+        <span class="stock-chip">
+          {{ stockCode }}<template v-if="stockName"> · {{ stockName }}</template>
+        </span>
       </div>
       <div v-if="latest" class="stock-quote">
         <span class="price">{{ latest.close.toFixed(2) }}</span>
         <span :class="['change', changeClass]">{{ changeText }}</span>
       </div>
+    </header>
+
+    <!-- 股票元信息条 -->
+    <div class="stock-bar">
+      <span v-if="dateRange" class="date-range">{{ dateRange }}</span>
+      <span v-if="health.acceptanceMode" class="mode-badge">{{ health.acceptanceMode }}</span>
+      <DataStatusBadge v-if="dataStatus" :status="dataStatus" />
     </div>
 
     <!-- 本地自选（V3 F1：紧凑条，位于股票信息条下方） -->
@@ -202,35 +222,45 @@ onMounted(() => health.refresh())
   padding: 16px 24px 48px;
 }
 
-/* 股票信息条 — 紧凑的水平条 */
-.stock-bar {
+/* 页头：与新闻/回测等页面同一结构 */
+.page-header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   padding-bottom: 14px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   border-bottom: 1px solid var(--border);
 }
 
-.stock-identity {
+.header-left {
   display: flex;
   align-items: baseline;
   gap: 12px;
+  min-width: 0;
 }
 
-.stock-code {
-  font-size: 20px;
+.page-title {
+  margin: 0;
+  font-size: 18px;
   font-weight: 700;
   color: var(--text-main);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
 }
 
-.stock-name {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-sub);
+.stock-chip {
+  font-size: 12px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 股票元信息条 — 页头下的一行小字 */
+.stock-bar {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
 .date-range {
@@ -338,8 +368,11 @@ onMounted(() => health.refresh())
     padding: 12px 12px 32px;
   }
 
+  .page-header {
+    flex-wrap: wrap;
+  }
+
   .stock-bar {
-    flex-direction: column;
     gap: 8px;
   }
 }
