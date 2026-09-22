@@ -1,0 +1,9 @@
+{
+  "sha": "119a10c36c4b497ddfa0a3bb31666a6e6b803038",
+  "python": "3.12.10",
+  "pytest_passed": 554,
+  "pytest_warnings": 1,
+  "warning": "existing Starlette AnyIO alias deprecation",
+  "compileall_exit_code": 0,
+  "scope": "project tests; not live Provider/real LLM/browser"
+}

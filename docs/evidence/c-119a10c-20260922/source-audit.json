@@ -1,0 +1,15 @@
+{
+  "sha": "119a10c36c4b497ddfa0a3bb31666a6e6b803038",
+  "clean_detached_checkout": true,
+  "C_core_files": 12,
+  "C_core_unchanged_from": "be35e5febe1acebce32ea9eb495affd6bd730875",
+  "six_package_sha256": {
+    "600519_qfq_raw_20241201_20260916.json": "07f9f3af59b564f36ae40d0eef340414b4716712ef1205d1a937186b18709416",
+    "600519_qfq_normalized_20241201_20260916.json": "280eed0f779440425bf79c5c368eebc07e1abc906dba7b2ad44afdd41f95cd27",
+    "000001_qfq_raw_20241201_20260916.json": "993fa95241c78962583f97aa06c54e5a7636196ecb222547a5ee43c8cefc207c",
+    "000001_qfq_normalized_20241201_20260916.json": "d4fc99555e4a5283ab36408ef6063873e2a05e55e5a350826c3c56a3ac95aa73",
+    "300750_qfq_raw_20241201_20260916.json": "780f51e0fadd7644aef83d5881917efe9f225d28baffbcde277c74ebf57d80d8",
+    "300750_qfq_normalized_20241201_20260916.json": "b25d6e31442cdaeb37243d818b6171d69f2aad248e3f073e9500ebfcc1daf0df"
+  },
+  "nine_direct_JSON_bytes_equal_to": "be35e5febe1acebce32ea9eb495affd6bd730875"
+}
