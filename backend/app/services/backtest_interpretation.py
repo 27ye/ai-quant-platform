@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import math
 from datetime import date, timezone
 
 from pydantic import ValidationError
@@ -123,6 +124,24 @@ class BacktestInterpretationContextProvider:
                 raise ValueError("non-numeric saved curve")
         if result["equity_curve"][-1]["equity"] != result["final_equity"]:
             raise ValueError("saved final equity mismatch")
+        # Saved summary metrics must agree with the curves/orders they summarize.
+        # The engine derives them from the same doubles, so a genuine result matches
+        # bit-for-bit; the tolerance only guards serializer noise, never corruption.
+        # Rel 1e-12 on a metric of magnitude ~1 allows ~1e-12 absolute drift.
+        _rel_tol = 1e-12
+        expected_return = result["final_equity"] / result["initial_cash"] - 1.0
+        if not math.isclose(result["total_return"], expected_return, rel_tol=_rel_tol):
+            raise ValueError("saved total return contradicts equity")
+        # Windowed metrics anchor at the dropped pre-open initial_cash point (0.0),
+        # so the summary is the minimum of that anchor and the stored curve.
+        curve_min = min(point["drawdown"] for point in result["drawdown_curve"])
+        expected_drawdown = min(0.0, curve_min)
+        if not math.isclose(result["max_drawdown"], expected_drawdown, rel_tol=_rel_tol):
+            raise ValueError("saved max drawdown contradicts drawdown curve")
+        # Each sell completes exactly one round trip in this long-only engine.
+        sell_count = sum(1 for trade in result["trades"] if trade["side"] == "sell")
+        if result["trade_count"] != sell_count:
+            raise ValueError("saved trade count contradicts orders")
         warmup_dates = [item for item in dates if item < start]
         warmup = result["warmup"]
         if not warmup_dates or len(warmup_dates) != warmup["used_rows"] or warmup_dates[0].isoformat() != warmup["start_date"] or warmup_dates[-1].isoformat() != warmup["end_date"] or dates[-1] != end:

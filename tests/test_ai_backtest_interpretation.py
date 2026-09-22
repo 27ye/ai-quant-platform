@@ -159,7 +159,10 @@ def test_unsupported_saved_backtests_fail_before_llm(custom_graph, mutation):
     assert llm.calls == []
 
 
-@pytest.mark.parametrize("mutation", ["text", "hash", "row", "metric", "curve", "warmup", "snapshot", "assumptions", "final_equity"])
+@pytest.mark.parametrize("mutation", [
+    "text", "hash", "row", "metric", "curve", "warmup", "snapshot", "assumptions", "final_equity",
+    "total_return", "max_drawdown", "trade_count",
+])
 def test_corrupt_exact_backtests_are_database_errors(custom_graph, mutation):
     _, engine, backtest_id, llm = custom_graph
     with Session(engine) as db:
@@ -182,6 +185,14 @@ def test_corrupt_exact_backtests_are_database_errors(custom_graph, mutation):
                 result["final_equity"] += 1
             elif mutation == "warmup":
                 result["warmup"]["used_rows"] = 1
+            # Summary metrics that stay type-valid but contradict the saved curves
+            # or orders (C review probes): must fail before the LLM, like corruption.
+            elif mutation == "total_return":
+                result["total_return"] = result["total_return"] + 0.5
+            elif mutation == "max_drawdown":
+                result["max_drawdown"] = result["max_drawdown"] - 0.25
+            elif mutation == "trade_count":
+                result["trade_count"] = result["trade_count"] + 1
             else:
                 row.input_snapshot = None
             row.c_result_text = json.dumps(result)
