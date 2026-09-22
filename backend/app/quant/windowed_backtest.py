@@ -14,11 +14,12 @@ import pandas as pd
 from backend.app.quant.backtest import _run_ma_backtest, run_backtest
 from backend.app.quant.backtest_config import (
     PARAMETERS_UNSET,
+    STRATEGY_UNSET,
     BacktestParameterError,
     resolve_backtest_request,
 )
 from backend.app.quant.serialization import dataframe_records, to_json_safe
-from backend.app.quant.strategy import generate_ma_target_signals
+from backend.app.quant.strategy import generate_ma_target_signals, generate_macd_target_signals
 from backend.app.quant.validators import (
     OPTIONAL_NUMERIC_COLUMNS,
     REQUIRED_COLUMNS,
@@ -33,6 +34,7 @@ ALGORITHM_VERSIONS = {
 }
 INPUT_SNAPSHOT_VERSION = "quant_input_v1"
 WINDOWED_BENCHMARK = "first_open_to_last_close_no_cost"
+MACD_ALGORITHM_VERSION = "macd_dif_dea_long_only_v3.0.0"
 
 
 def run_backtest_request(
@@ -41,6 +43,7 @@ def run_backtest_request(
     start_date: Any = None,
     end_date: Any = None,
     parameters: Any = PARAMETERS_UNSET,
+    strategy: Any = STRATEGY_UNSET,
 ) -> Dict[str, Any]:
     """Run legacy or windowed semantics without changing the existing V1 API.
 
@@ -51,7 +54,7 @@ def run_backtest_request(
     The previous observation's close signal may execute at the first window open.
     """
 
-    request = resolve_backtest_request(parameters)
+    request = resolve_backtest_request(parameters, strategy=strategy)
     start = _parse_date(start_date, "start_date")
     end = _parse_date(end_date, "end_date")
     if start is not None and end is not None and start > end:
@@ -88,10 +91,17 @@ def run_backtest_request(
         }
         settings = replace(
             settings,
-            strategy_name="ma_long_only",
+            strategy_name=(
+                "macd_dif_above_dea_long_only" if request.strategy == "macd" else "ma_long_only"
+            ),
             benchmark_method=WINDOWED_BENCHMARK,
         )
-        signals = generate_ma_target_signals(calculation_data, settings)
+        signals = (
+            generate_macd_target_signals(calculation_data, request.parameters)
+            if request.strategy == "macd"
+            else generate_ma_target_signals(calculation_data, settings)
+        )
+        # Both strategies share the existing money/order ledger unchanged.
         result = _run_ma_backtest(
             signals, settings, first_trading_index=len(prior), windowed=True
         )
@@ -131,6 +141,25 @@ def run_backtest_request(
         input_snapshot=snapshot,
         data_hash=snapshot["sha256"],
     )
+    if request.strategy == "macd":
+        result["algorithm_version"] = MACD_ALGORITHM_VERSION
+        result["effective_parameters"] = request.parameters.to_parameters()
+        result["parameters"].pop("short_ma")
+        result["parameters"].pop("long_ma")
+        for name in ("macd_fast_period", "macd_slow_period", "macd_signal_period"):
+            result["parameters"][name] = getattr(request.parameters, name)
+        result["indicator_spec"] = {
+            "ema_adjust": False,
+            "ema_min_periods": 0,
+            "ema_ignore_na": False,
+            "ema_seed": "first_consumed_close",
+            "dea_seed": "first_dif_zero",
+            "histogram_multiplier": 2.0,
+            "warmup_policy": "last_slow_plus_signal_minus_one_before_start",
+            "required_warmup_rows": request.required_warmup_rows,
+            "first_valid_signal_index": request.required_warmup_rows - 1,
+            "target_rule": "dif_gt_dea_else_flat",
+        }
     # Do not silently turn an overflowing financial result into a successful null.
     json.dumps(result, ensure_ascii=False, allow_nan=False)
     return result
