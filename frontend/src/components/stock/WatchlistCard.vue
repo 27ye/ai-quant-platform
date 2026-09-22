@@ -204,7 +204,8 @@ function removeItem(code: string) {
   font-size: 13px;
   line-height: 1;
   cursor: pointer;
-  opacity: 0;
+  /* 常显低透明度（触屏无 hover 也可点），hover 提亮 */
+  opacity: 0.45;
   transition:
     color 0.15s ease,
     opacity 0.15s ease;
