@@ -267,14 +267,15 @@ GET /api/v1/stocks/{stock_code}/score
 POST /api/v1/backtests
 ```
 
-请求体（`BacktestRequestSchema`，V2 起新增可选 `parameters`）：
+请求体（`BacktestRequestSchema`，V2 起新增可选 `parameters`，V3 起新增可选 `strategy`）：
 
 ```json
 {
   "stock_code": "600519",
   "start_date": "2025-01-01",
   "end_date": "2026-08-31",
-  "parameters": { "ma_short_period": 5, "ma_long_period": 60, "initial_cash": 100000 }
+  "parameters": { "ma_short_period": 5, "ma_long_period": 60, "initial_cash": 100000 },
+  "strategy": "ma_cross"
 }
 ```
 
@@ -286,6 +287,23 @@ POST /api/v1/backtests
 | 显式 `parameters: {}` | `v2_windowed` | 默认金融参数；`start_date` 前数据仅作预热 |
 | 显式非空 `parameters` | `v2_windowed` | 白名单字段覆盖，其余取默认 |
 | `parameters: null` 或含未知字段 | — | **取数前**返回 `40001`，不产生记录 |
+
+**请求语义矩阵（V3 F5：`strategy`）**：
+
+| `strategy` | `parameters` | `semantics_version` | 行为 |
+|---|---|---|---|
+| 省略 | 省略 / `{}` / 对象 | 同 V2 | 与 V2 **完全一致**（即现有 MA 实现） |
+| `ma_cross` | 省略 | `v1_legacy` | 同上；C 的口径：`ma_cross` 就是现有 MA 实现 |
+| `ma_cross` | `{}` / 对象 | `v2_windowed` | 同上 |
+| `macd` | 省略 / `{}` / MACD 对象 | `v2_windowed` | **必须给出明确起止日期**；B 只转发调用方真正给出的字段，MACD 六字段的默认值由 C 决定 |
+| `null` / 未知值 / 非字符串 | 任意 | — | **取数前** `40001`，不产生记录 |
+| 合法 `strategy` | `null` / 未知字段 / 串用另一策略的字段 | — | **取数前** `40001`，不产生记录 |
+
+- **MACD 参数白名单与 MA 分开**：`macd_fast_period`、`macd_slow_period`、`macd_signal_period`、`initial_cash`、`transaction_cost`、`slippage`。**数值范围与 `fast < slow` 由 C 的 `resolve_backtest_request` 校验**（仍在取数前执行）；B 只做类型校验，不重复实现范围规则，避免两套规则漂移。
+- **MACD 预热**取 C 的 `request.required_warmup_rows`（默认参数下为 `slow + signal − 1 = 34`），**不用** MA 的 `ma_long_period` 推导值。
+- **省略与 `null` 是两种陈述**：只有**省略** `strategy` 才表示"用默认"；显式 `null` 一律 `40001`。同理，省略时 B **不向 C 传该关键字**（传 `None` 会被 C 拒绝）。
+- **C 的量化入口尚不接受 `strategy` 时，`macd` 返回 `50004` 且不产生记录**（请求本身合法，属部署缺口，故不用 `40001`）；B **不会**退回 MA 运行再标成 MACD。`ma_cross` 与省略路径不受影响。
+- **算法版本**：详情**默认**从 C 快照投影 `c_algorithm_version`（MACD 为 `macd_dif_dea_long_only_v3.0.0`，28 字符）。`strategy_version` 是 V2 的 `VARCHAR(20)` 列，B **超长时写 NULL 而不是截断**——截断在 SQLite 静默、在 MySQL 严格模式会以 1406 使整条保存失败；精确值始终可从快照读到。
 
 - 白名单（V2 B3）：`ma_short_period`、`ma_long_period`、`initial_cash`、`transaction_cost`、`slippage`；周期为整数且 `2 ≤ period ≤ 120`、`short < long`，资金为正，成本/滑点在 `[0,1)`。**只有这五个字段会转发给 C 的 `resolve_backtest_request` / `run_backtest_request`**（C 会拒绝非白名单字段）；其余算法配置归 C 所有，B 的默认值不得覆盖 C 的口径（例如基准 `first_open_to_last_close_no_cost`）。
 - 参数为**严格类型**（C 契约）：拒绝数字字符串（如 `"5"`）、布尔值（`true` 不得当作 1 / 1.0）、浮点周期、`NaN`/`Infinity`、未知字段，一律 `40001` 且在**取数前**拒绝。
