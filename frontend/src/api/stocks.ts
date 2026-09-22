@@ -2,6 +2,7 @@ import { http } from './http'
 import { useMockFor } from './mockSwitch'
 import { mockBacktest, mockIndicators, mockKline, mockScore, mockSearch } from '../mocks/stock'
 import { mockDataStatus } from '../mocks/dataStatus'
+import type { AxiosRequestConfig } from 'axios'
 import type {
   ApiResponse,
   BacktestData,
@@ -13,10 +14,14 @@ import type {
   StockBrief,
 } from '../types/api'
 
-export async function searchStocks(keyword: string): Promise<ApiResponse<StockBrief[]>> {
+export async function searchStocks(
+  keyword: string,
+  config?: AxiosRequestConfig,
+): Promise<ApiResponse<StockBrief[]>> {
   if (useMockFor('SEARCH')) return mockSearch(keyword)
   const response = await http.get<ApiResponse<StockBrief[]>>('/stocks/search', {
     params: { keyword },
+    ...config,
   })
   return response.data
 }
@@ -35,17 +40,25 @@ export async function fetchKline(
 
 export async function fetchIndicators(
   stockCode: string,
+  config?: AxiosRequestConfig,
 ): Promise<ApiResponse<IndicatorsItem[]>> {
   if (useMockFor('INDICATORS')) return mockIndicators()
   const response = await http.get<ApiResponse<IndicatorsItem[]>>(
     `/stocks/${stockCode}/indicators`,
+    config,
   )
   return response.data
 }
 
-export async function fetchScore(stockCode: string): Promise<ApiResponse<ScoreData>> {
+export async function fetchScore(
+  stockCode: string,
+  config?: AxiosRequestConfig,
+): Promise<ApiResponse<ScoreData>> {
   if (useMockFor('SCORE')) return mockScore(stockCode)
-  const response = await http.get<ApiResponse<ScoreData>>(`/stocks/${stockCode}/score`)
+  const response = await http.get<ApiResponse<ScoreData>>(
+    `/stocks/${stockCode}/score`,
+    config,
+  )
   return response.data
 }
 
@@ -58,10 +71,14 @@ export async function runBacktest(payload: BacktestRequest): Promise<ApiResponse
 }
 
 // V2 A1：数据状态（GET /stocks/{code}/data-status），驱动工作台数据徽标
-export async function fetchDataStatus(stockCode: string): Promise<ApiResponse<DataStatus>> {
+export async function fetchDataStatus(
+  stockCode: string,
+  config?: AxiosRequestConfig,
+): Promise<ApiResponse<DataStatus>> {
   if (useMockFor('DATA_STATUS')) return mockDataStatus(stockCode)
   const response = await http.get<ApiResponse<DataStatus>>(
     `/stocks/${stockCode}/data-status`,
+    config,
   )
   return response.data
 }

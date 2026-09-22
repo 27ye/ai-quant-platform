@@ -1,24 +1,41 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 
 import { analyzeStock } from '../../api/ai'
 import type { AIAnalysisData } from '../../types/api'
 import AIReportBody from './AIReportBody.vue'
+
+// 后端 AI 请求超时 120s（api/ai.ts），文案需与之保持一致
+const TIMEOUT_SECONDS = 120
 
 const props = defineProps<{ stockCode: string }>()
 
 const report = ref<AIAnalysisData | null>(null)
 const loading = ref(false)
 const failed = ref(false)
+const elapsedSeconds = ref(0)
+let elapsedTimer: ReturnType<typeof setInterval> | null = null
 
 // Epoch 机制：切换股票时递增，使在途的 AI 请求过期被丢弃
 const epoch = ref(0)
+
+function stopElapsedTimer() {
+  if (elapsedTimer) {
+    clearInterval(elapsedTimer)
+    elapsedTimer = null
+  }
+}
 
 async function run() {
   const currentEpoch = ++epoch.value
   loading.value = true
   failed.value = false
   report.value = null
+  elapsedSeconds.value = 0
+  stopElapsedTimer()
+  elapsedTimer = setInterval(() => {
+    if (epoch.value === currentEpoch) elapsedSeconds.value += 1
+  }, 1000)
   try {
     const res = await analyzeStock(props.stockCode)
     if (epoch.value !== currentEpoch) return
@@ -27,7 +44,10 @@ async function run() {
     if (epoch.value !== currentEpoch) return
     failed.value = true
   } finally {
-    if (epoch.value === currentEpoch) loading.value = false
+    if (epoch.value === currentEpoch) {
+      loading.value = false
+      stopElapsedTimer()
+    }
   }
 }
 
@@ -40,6 +60,8 @@ watch(
     failed.value = false
   },
 )
+
+onBeforeUnmount(stopElapsedTimer)
 </script>
 
 <template>
@@ -66,8 +88,8 @@ watch(
     <!-- 初始态 -->
     <div v-if="!loading && !report && !failed" class="idle">
       <p>
-        基于真实行情、技术指标、量化评分与新闻数据，由大模型生成综合投研分析。过程约需
-        10~30 秒。
+        基于真实行情、技术指标、量化评分与新闻数据，由大模型生成综合投研分析。过程通常在
+        {{ TIMEOUT_SECONDS }} 秒内完成，超时可手动重试。
       </p>
       <!-- 圆形渐变 CTA：参照 stock-dashboard 尾盘选股的开始分析按钮（渐变圆盘 + 闪电图标 + 双层光晕） -->
       <button type="button" class="analyze-orb" @click="run">
@@ -79,9 +101,11 @@ watch(
     </div>
 
     <!-- 加载态 -->
-    <div v-else-if="loading">
+    <div v-else-if="loading" aria-live="polite">
       <el-skeleton :rows="6" animated />
-      <p class="loading-hint">大模型正在读取数据并生成分析，请稍候…</p>
+      <p class="loading-hint">
+        大模型正在读取数据并生成分析，已等待 {{ elapsedSeconds }}s（上限 {{ TIMEOUT_SECONDS }}s）…
+      </p>
     </div>
 
     <!-- 失败态 -->

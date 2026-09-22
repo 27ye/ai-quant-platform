@@ -33,7 +33,9 @@ const dataStatus = ref<DataStatus | null>(null)
 const stockName = ref('')
 const loading = ref(false)
 const loaded = ref(false)
+const klineFailed = ref(false)
 const scoreLoading = ref(true)
+const scoreFailed = ref(false)
 
 // Epoch 机制：切换股票时递增，过期响应直接丢弃
 const epoch = ref(0)
@@ -65,18 +67,24 @@ async function load() {
   appContext.setStockCode(stockCode.value)
   loading.value = true
   loaded.value = false
+  klineFailed.value = false
   kline.value = []
   indicators.value = []
   score.value = null
   dataStatus.value = null
   scoreLoading.value = true
+  scoreFailed.value = false
+  stockName.value = ''
+
+  // 非关键请求统一跳过拦截器弹窗，错误由各区域自行展示（避免一次进页面连弹多条 toast）
+  const silent = { skipErrorHandler: true }
 
   try {
     const klineRes = await fetchKline(stockCode.value)
     if (epoch.value !== currentEpoch) return
     kline.value = klineRes.data
     loaded.value = true
-    fetchIndicators(stockCode.value)
+    fetchIndicators(stockCode.value, silent)
       .then((res) => {
         if (epoch.value !== currentEpoch) return
         indicators.value = res.data
@@ -84,21 +92,25 @@ async function load() {
       .catch(() => undefined)
   } catch {
     if (epoch.value !== currentEpoch) return
+    klineFailed.value = true
   } finally {
     if (epoch.value === currentEpoch) loading.value = false
   }
 
-  fetchScore(stockCode.value)
+  fetchScore(stockCode.value, silent)
     .then((res) => {
       if (epoch.value !== currentEpoch) return
       score.value = res.data
     })
-    .catch(() => undefined)
+    .catch(() => {
+      if (epoch.value !== currentEpoch) return
+      scoreFailed.value = true
+    })
     .finally(() => {
       if (epoch.value === currentEpoch) scoreLoading.value = false
     })
   // 数据状态徽标：非关键路径，失败静默不展示
-  fetchDataStatus(stockCode.value)
+  fetchDataStatus(stockCode.value, silent)
     .then((res) => {
       if (epoch.value !== currentEpoch) return
       dataStatus.value = res.data
@@ -106,8 +118,7 @@ async function load() {
     .catch(() => undefined)
 
   // 股票名称：搜索接口按代码精确匹配，失败静默（仅展示增强，非关键路径）
-  stockName.value = ''
-  searchStocks(stockCode.value)
+  searchStocks(stockCode.value, silent)
     .then((res) => {
       if (epoch.value !== currentEpoch) return
       const hit = res.data.find((s) => s.stock_code === stockCode.value) ?? res.data[0]
@@ -150,11 +161,27 @@ onMounted(() => health.refresh())
             :indicators="indicators"
           />
           <el-empty v-else-if="loaded" description="暂无 K 线数据" />
+          <div v-else-if="klineFailed" class="region-error">
+            <el-result icon="warning" title="K 线加载失败" sub-title="数据源暂时不可用，请稍后重试">
+              <template #extra>
+                <el-button type="primary" @click="load">重试</el-button>
+              </template>
+            </el-result>
+          </div>
         </el-card>
 
         <ScoreCard v-if="score" :data="score" />
         <el-card v-else-if="scoreLoading" shadow="never" class="skeleton-card">
           <el-skeleton :rows="4" animated />
+        </el-card>
+        <el-card v-else-if="scoreFailed" shadow="never" class="skeleton-card">
+          <div class="region-error">
+            <el-result icon="warning" title="评分加载失败" sub-title="数据源暂时不可用，请稍后重试">
+              <template #extra>
+                <el-button type="primary" @click="load">重试</el-button>
+              </template>
+            </el-result>
+          </div>
         </el-card>
       </div>
 
@@ -276,6 +303,24 @@ onMounted(() => health.refresh())
   padding: 12px;
   height: 100%;
   box-sizing: border-box;
+}
+
+/* 区域级失败态：压缩 el-result 默认留白，避免撑高卡片 */
+.region-error :deep(.el-result) {
+  padding: 24px 12px;
+}
+
+.region-error :deep(.el-result__icon svg) {
+  width: 40px;
+  height: 40px;
+}
+
+.region-error :deep(.el-result__title p) {
+  font-size: 14px;
+}
+
+.region-error :deep(.el-result__subtitle p) {
+  font-size: 12px;
 }
 
 .ai-section {
