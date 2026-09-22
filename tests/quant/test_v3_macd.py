@@ -244,6 +244,12 @@ def test_request_isolation_under_interleaved_calls(synthetic_daily_data):
 
 def test_all_pre_v3_results_equal_captured_main_baseline():
     """Full JSON baseline captured before edits at main 26f422a (not same-code oracle)."""
+    # Capture environment: Windows x64, Python 3.12.10, pandas 2.3.3, NumPy 2.5.3.
+    # Recorded in docs/evidence/c-v3-macd-20260922/manifest.json.
+    # This is an exact-byte guard, not a cross-environment float tolerance test.
+    # Reproduce the capture environment before diagnosing a digest mismatch;
+    # never replace this digest solely because another environment differs.
+    # Setup and the D/B same-environment comparison: docs/C_V3_BASELINE_ENVIRONMENT.md.
     root = Path(__file__).resolve().parents[2] / "docs/evidence/c-delivery-20260917"
     results = {}
     for code in ("600519", "000001", "300750"):
