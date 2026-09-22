@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""V1 -> v8 upgrade chain on real MySQL, starting from the *genuine* V1 schema.
+"""V1 -> v9 upgrade chain on real MySQL, starting from the *genuine* V1 schema.
 
 D's real-environment acceptance asks for "在独立 MySQL 8 数据库执行 V1→当前版本迁移和
 中断恢复场景". B's earlier MySQL evidence was **v7 -> v8 only** (the incremental
@@ -13,6 +13,7 @@ registered on a throwaway declarative Base, so the baseline has V1's real column
 (no ``c_result``, no ``c_result_text``, no ``semantics_version``, ...). It then walks:
 
     V1 baseline -> steps 1..7 -> simulated interrupted v8 -> documented entry point
+                 -> v9 (V3: ``analysis_mode`` + ``backtest_id`` on ``ai_analysis``)
 
 and asserts at each stage. Own probe database only; ``ai_quant`` / ``ai_quant_test``
 are never touched.
@@ -389,8 +390,10 @@ def main() -> int:
     print("=" * 78)
     print("5. Re-run the documented entry point - it must resume, not skip")
     print("=" * 78)
-    check("apply_migrations returns 8", apply_migrations(engine) == 8)
-    check("version recorded as 8", get_schema_version(engine) == 8)
+    check("apply_migrations returns the current revision",
+          apply_migrations(engine) == migrations.SCHEMA_VERSION)
+    check("version recorded as the current revision",
+          get_schema_version(engine) == migrations.SCHEMA_VERSION)
     check("c_result_text is LONGTEXT", columns_of(engine, "backtest_result").get("c_result_text") == "longtext",
           columns_of(engine, "backtest_result").get("c_result_text"))
 
@@ -401,6 +404,31 @@ def main() -> int:
     check("legacy row backfilled", backfilled is not None)
     check("backfilled text parses as JSON", isinstance(json.loads(backfilled), dict),
           str(backfilled)[:60])
+
+    print()
+    print("=" * 78)
+    print("5b. V3 v9 rode along: analysis_mode + backtest_id on ai_analysis")
+    print("=" * 78)
+    ai_after_v9 = columns_of(engine, "ai_analysis")
+    check(
+        "analysis_mode exists with the frozen type",
+        ai_after_v9.get("analysis_mode") == "varchar(16)",
+        ai_after_v9.get("analysis_mode"),
+    )
+    check(
+        "backtest_id exists with the frozen type",
+        ai_after_v9.get("backtest_id") == "bigint",
+        ai_after_v9.get("backtest_id"),
+    )
+    with engine.connect() as connection:
+        legacy_ai = connection.execute(
+            text("SELECT analysis_mode, backtest_id FROM ai_analysis WHERE id = 1")
+        ).one()
+    check(
+        "pre-v9 report is NOT backfilled (both columns stay NULL)",
+        legacy_ai[0] is None and legacy_ai[1] is None,
+        f"analysis_mode={legacy_ai[0]!r} backtest_id={legacy_ai[1]!r}",
+    )
 
     print()
     print("=" * 78)
@@ -467,14 +495,15 @@ def main() -> int:
         versions_before == versions_after,
         f"{len(versions_before)} version rows compared",
     )
-    check("version still 8", get_schema_version(engine) == 8)
+    check("version still the current revision",
+          get_schema_version(engine) == migrations.SCHEMA_VERSION)
 
     print()
     print("=" * 78)
     if FAILURES:
         print(f"RESULT: {len(FAILURES)} FAILED -> {FAILURES}")
         return 1
-    print("RESULT: ALL CHECKS PASSED (real MySQL, V1 -> v8)")
+    print(f"RESULT: ALL CHECKS PASSED (real MySQL, V1 -> v{migrations.SCHEMA_VERSION})")
     print(f"  probe database : {args.database}")
     print(f"  V1 source tag  : {args.tag}")
     return 0

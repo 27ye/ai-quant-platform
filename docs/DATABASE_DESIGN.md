@@ -161,6 +161,8 @@ CREATE TABLE ai_analysis (
     prompt_version VARCHAR(32) NULL,
     context_schema_version VARCHAR(32) NULL,
     output_schema_version VARCHAR(32) NULL,
+    analysis_mode VARCHAR(16) NULL,     -- V3（v9）standard / custom_backtest；旧记录为 NULL 并按 standard 读取
+    backtest_id BIGINT NULL,            -- V3（v9）关联的回测记录；无关联为 NULL，不建外键/索引
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_ai_stock (stock_code),
     INDEX idx_ai_created_at (created_at)
@@ -168,6 +170,8 @@ CREATE TABLE ai_analysis (
 ```
 
 V2 新增字段全部允许 `NULL`，以兼容 V1 历史记录。`context_snapshot` 与报告正文在同一事务写入；V1 旧记录读取时返回 `snapshot_status=legacy_missing`。V2 保留 `idx_ai_stock` 和 `idx_ai_created_at`，首版不增加复合索引。
+
+**V3（v9）** 再加 `analysis_mode` 与 `backtest_id`，同样允许 `NULL`：v9 之前的报告**两列都保持 `NULL`，由服务层按 `standard` 读取**，迁移**不回溯填充**——不对旧报告断言它是怎么产生的，也不重算其上下文。本轮**不**按 `backtest_id` 查报告列表，因此不建该列索引、不建外键，关联由应用层校验。
 
 ## 8. ORM 与 Schema
 
