@@ -25,6 +25,7 @@ than running the old core and labelling its output ``v2_windowed``.
 
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Tuple
 
@@ -45,24 +46,61 @@ class CWindowedEntry:
     """
 
     parameters_unset: Any
-    resolve_backtest_request: Callable[[Any], Any]
+    resolve_backtest_request: Callable[..., Any]
     validate_backtest_window: Callable[[Any, Any], Any]
     run_backtest_request: Callable[..., Any]
     #: C's "your request violates the parameter contract" errors -> ``40001``.
     parameter_errors: Tuple[type, ...] = field(default_factory=tuple)
     #: C's "the requested window cannot be satisfied" errors -> ``40003``.
     data_errors: Tuple[type, ...] = field(default_factory=tuple)
+    #: C's ``STRATEGY_UNSET`` sentinel (V3 F5); ``None`` on a tree that predates it.
+    strategy_unset: Any = None
+    #: True when C's entry points accept ``strategy=`` (V3 F5).
+    supports_strategy: bool = False
 
-    def resolve(self, raw_parameters: Any) -> Any:
-        return self.resolve_backtest_request(raw_parameters)
+    def resolve(self, raw_parameters: Any, strategy: Optional[str] = None) -> Any:
+        """C's parameter/strategy resolution - always **before** any data is fetched.
+
+        The ``strategy`` keyword is sent only when the caller actually chose one:
+        an omitted strategy must stay omitted (C's sentinel default) and never
+        become ``None``, because C rejects a literal ``null`` where only *absence*
+        means "use the default".
+        """
+        if strategy is None or not self.supports_strategy:
+            return self.resolve_backtest_request(raw_parameters)
+        return self.resolve_backtest_request(raw_parameters, strategy=strategy)
 
     def validate_window(self, start_date, end_date):
         return self.validate_backtest_window(start_date, end_date)
 
-    def run(self, frame, *, start_date, end_date, parameters) -> Any:
+    def run(
+        self,
+        frame,
+        *,
+        start_date,
+        end_date,
+        parameters,
+        strategy: Optional[str] = None,
+    ) -> Any:
+        if strategy is None or not self.supports_strategy:
+            return self.run_backtest_request(
+                frame, start_date=start_date, end_date=end_date, parameters=parameters
+            )
         return self.run_backtest_request(
-            frame, start_date=start_date, end_date=end_date, parameters=parameters
+            frame,
+            start_date=start_date,
+            end_date=end_date,
+            parameters=parameters,
+            strategy=strategy,
         )
+
+
+def _accepts_strategy(func: Callable[..., Any]) -> bool:
+    """True when C's callable takes a ``strategy`` keyword (V3 F5)."""
+    try:
+        return "strategy" in inspect.signature(func).parameters
+    except (TypeError, ValueError):  # pragma: no cover - exotic callables
+        return False
 
 
 def load_c_windowed_entry() -> Optional[CWindowedEntry]:
@@ -77,6 +115,14 @@ def load_c_windowed_entry() -> Optional[CWindowedEntry]:
         )
     except ImportError:
         return None
+
+    strategy_unset = None
+    try:  # V3 sentinel; absent until C's MACD contract lands in this tree.
+        from backend.app.quant import STRATEGY_UNSET  # noqa: PLC0415
+    except ImportError:
+        pass
+    else:
+        strategy_unset = STRATEGY_UNSET
 
     parameter_errors: Tuple[type, ...] = (BacktestParameterError,)
     data_errors: Tuple[type, ...] = ()
@@ -96,6 +142,14 @@ def load_c_windowed_entry() -> Optional[CWindowedEntry]:
         run_backtest_request=run_backtest_request,
         parameter_errors=parameter_errors,
         data_errors=data_errors,
+        strategy_unset=strategy_unset,
+        # Both entry points must accept it: passing ``strategy=`` to only one of them
+        # would fail on the *second* call, after data had already been fetched.
+        supports_strategy=(
+            strategy_unset is not None
+            and _accepts_strategy(resolve_backtest_request)
+            and _accepts_strategy(run_backtest_request)
+        ),
     )
 
 

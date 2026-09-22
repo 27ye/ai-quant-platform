@@ -37,7 +37,7 @@ from backend.app.core.errors import (
 from backend.app.models.backtest_result import BacktestResult
 from backend.app.quant.config import QuantConfig, resolve_config
 from backend.app.quant.serialization import to_json_safe
-from backend.app.schemas.backtest import BacktestParametersSchema
+from backend.app.schemas.backtest import STRATEGY_MACD, BacktestParametersSchema
 from backend.app.schemas.stock import DailyKlineSchema
 from backend.app.services.c_quant_entry import (
     WINDOW_OWNER_C,
@@ -57,10 +57,22 @@ SEMANTICS_V2_WINDOWED = "v2_windowed"
 SNAPSHOT_COMPLETE = "complete"
 SNAPSHOT_MISSING = "missing"
 
-#: C1 whitelist: the only fields a V2 request may override.
+#: C1 whitelist: the only fields a V2 MA request may override.
 ALLOWED_PARAMETER_FIELDS = (
     "ma_short_period",
     "ma_long_period",
+    "initial_cash",
+    "transaction_cost",
+    "slippage",
+)
+
+#: V3 F5 MACD whitelist (C's contract): the three periods plus the shared financial
+#: inputs. The *ranges* and the ``fast < slow`` cross-field rule stay with C's
+#: ``resolve_backtest_request`` so there is only ever one set of rules.
+ALLOWED_MACD_PARAMETER_FIELDS = (
+    "macd_fast_period",
+    "macd_slow_period",
+    "macd_signal_period",
     "initial_cash",
     "transaction_cost",
     "slippage",
@@ -115,9 +127,22 @@ def snapshot_status_expression(dialect_name: str):
     return case((complete, SNAPSHOT_COMPLETE), else_=SNAPSHOT_MISSING)
 
 
-def resolve_effective_parameters(overrides: Mapping[str, Any]) -> QuantConfig:
+def allowed_parameter_fields(strategy: Optional[str] = None) -> Tuple[str, ...]:
+    """The request-overridable fields for a strategy (V3 F5).
+
+    MA and MACD have separate whitelists, so a request that mixes them is rejected
+    here (``40001``) before C or any provider is reached.
+    """
+    if strategy == STRATEGY_MACD:
+        return ALLOWED_MACD_PARAMETER_FIELDS
+    return ALLOWED_PARAMETER_FIELDS
+
+
+def resolve_effective_parameters(
+    overrides: Mapping[str, Any], strategy: Optional[str] = None
+) -> QuantConfig:
     """C's defaults plus the whitelisted overrides, validated by C's own rules."""
-    unknown = sorted(set(overrides) - set(ALLOWED_PARAMETER_FIELDS))
+    unknown = sorted(set(overrides) - set(allowed_parameter_fields(strategy)))
     if unknown:
         raise InvalidParameterError(f"unsupported backtest parameters: {unknown}")
     merged = QuantConfig().to_parameters()
@@ -157,6 +182,26 @@ def whitelisted_parameters(config: QuantConfig) -> Dict[str, Any]:
     """
     parameters = config.to_parameters()
     return {name: parameters[name] for name in ALLOWED_PARAMETER_FIELDS}
+
+
+def forwarded_parameters(
+    config: QuantConfig, overrides: Mapping[str, Any], strategy: Optional[str] = None
+) -> Dict[str, Any]:
+    """Exactly what B hands to C for this request (V3 F5).
+
+    MA keeps V2 behaviour: all five whitelisted fields, B's defaults included.
+    MACD forwards **only what the caller actually sent**, because C documents its own
+    defaults for the six fields (``12/26/9``, ``100000.0``, ``0.001``, ``0.0``) and
+    sending B's defaults instead would silently overwrite C's baseline the day the two
+    drift apart - the same failure mode C flagged for the MA whitelist.
+    """
+    if strategy == STRATEGY_MACD:
+        return {
+            name: value
+            for name, value in overrides.items()
+            if value is not None and name in ALLOWED_MACD_PARAMETER_FIELDS
+        }
+    return whitelisted_parameters(config)
 
 
 def _utc_now() -> datetime:
@@ -483,8 +528,17 @@ class BacktestService:
         end_date: Optional[date] = None,
         parameters: Optional[BacktestParametersSchema] = None,
         parameters_provided: bool = False,
+        strategy: Optional[str] = None,
+        strategy_provided: bool = False,
     ) -> Dict[str, Any]:
-        # 1) Parameters are validated before any data access.
+        # 1) Parameters and strategy are validated before any data access.
+        if strategy_provided and strategy is None:
+            # V3 plan 5.1: only *omitting* the field means "use the default". A literal
+            # null is not a shape C accepts, and treating it as "omitted" would run MA
+            # while the caller asked for something else.
+            raise InvalidParameterError(
+                "strategy must not be null; omit it for the existing MA behaviour"
+            )
         if parameters_provided and parameters is None:
             # The three request shapes stay distinct (V2 plan matrix):
             # omitted -> v1_legacy, explicit {} -> v2_windowed, explicit null -> 40001.
@@ -502,11 +556,15 @@ class BacktestService:
                     "backtest parameters must not be null: "
                     f"{explicit_nulls}; omit a field to use its default value"
                 )
-        effective = resolve_effective_parameters(
-            parameters.provided_overrides() if parameters is not None else {}
-        )
+        overrides = parameters.provided_overrides() if parameters is not None else {}
+        effective = resolve_effective_parameters(overrides, strategy=strategy)
+        # V3 plan 5.1: ``macd`` is inherently a windowed request, so it selects
+        # ``v2_windowed`` even when ``parameters`` was omitted. ``ma_cross`` behaves
+        # exactly like omitting ``strategy`` (C's matrix), so it does not.
         semantics = (
-            SEMANTICS_V2_WINDOWED if parameters_provided else SEMANTICS_V1_LEGACY
+            SEMANTICS_V2_WINDOWED
+            if parameters_provided or strategy == STRATEGY_MACD
+            else SEMANTICS_V1_LEGACY
         )
 
         if start_date is not None and end_date is not None and start_date > end_date:
@@ -516,7 +574,13 @@ class BacktestService:
             return self._run_legacy(stock_code, start_date, end_date, effective)
 
         return self._run_windowed(
-            stock_code, start_date, end_date, effective, parameters is not None
+            stock_code,
+            start_date,
+            end_date,
+            effective,
+            parameters is not None,
+            forwarded_parameters(effective, overrides, strategy),
+            strategy,
         )
 
     # -- v1_legacy ----------------------------------------------------------
@@ -560,6 +624,8 @@ class BacktestService:
         end_date: Optional[date],
         effective: QuantConfig,
         explicitly_provided: bool,
+        raw_parameters: Optional[Dict[str, Any]] = None,
+        strategy: Optional[str] = None,
     ) -> Dict[str, Any]:
         end = end_date or self._today()
         start = start_date or (end - timedelta(days=DEFAULT_WINDOW_DAYS))
@@ -576,10 +642,22 @@ class BacktestService:
                 "is not importable; omit `parameters` to use the V1 path"
             )
 
-        # C owns parameter and window validation. Both run BEFORE any data is
-        # fetched, and their errors are reported (40001), never swallowed.
-        raw_parameters = whitelisted_parameters(effective)
-        request_config = self._call_c(c_entry, c_entry.resolve, raw_parameters)
+        if strategy == STRATEGY_MACD and not c_entry.supports_strategy:
+            # Asking for MACD on a tree whose quant entry has no strategy support is a
+            # deployment gap, not a bad request: report it as a backtest error (50004)
+            # and persist nothing, instead of silently running MA and mislabelling it.
+            raise BacktestError(
+                "macd backtest is unavailable: C's quant entry does not accept "
+                "`strategy` yet"
+            )
+
+        # C owns parameter, strategy and window validation. All of it runs BEFORE any
+        # data is fetched, and their errors are reported (40001), never swallowed.
+        if raw_parameters is None:
+            raw_parameters = forwarded_parameters(effective, {}, strategy)
+        request_config = self._call_c(
+            c_entry, c_entry.resolve, raw_parameters, strategy
+        )
 
         required = warmup_required_days(effective)
         required = int(
@@ -609,6 +687,7 @@ class BacktestService:
                 start_date=start,
                 end_date=end,
                 parameters=raw_parameters,
+                strategy=strategy,
             )
         )
         if not isinstance(c_result, Mapping):
@@ -639,13 +718,22 @@ class BacktestService:
             "data_source": "MarketDataSource.query_daily (warmup window)",
             "window_owner": WINDOW_OWNER_C,
         }
+        if strategy == STRATEGY_MACD:
+            # C documents ``effective_parameters`` as the MACD six fields and returns
+            # its own ``parameters`` envelope; keep C's values and use B's sparse
+            # request only as a fallback, so saved history states what C actually ran
+            # rather than what B happened to forward.
+            result.setdefault("effective_parameters", raw_parameters)
+            stored_parameters = result.get("parameters") or raw_parameters
+        else:
+            # C owns everything outside the whitelist, so only those five are stored as
+            # "effective parameters": B's QuantConfig defaults for the rest must not
+            # masquerade as C's algorithm configuration.
+            result["effective_parameters"] = raw_parameters
+            stored_parameters = raw_parameters
         result.update(
             {
                 "semantics_version": SEMANTICS_V2_WINDOWED,
-                # C owns everything outside the whitelist, so only those five are
-                # stored as "effective parameters": B's QuantConfig defaults for
-                # the rest must not masquerade as C's algorithm configuration.
-                "effective_parameters": raw_parameters,
                 "warmup_start_date": fetch_start.isoformat(),
                 "warmup_rows": warmup_rows,
                 "data_meta": data_meta,
@@ -661,7 +749,7 @@ class BacktestService:
         return self._persist_and_return(
             stock_code,
             result,
-            stored_parameters=raw_parameters,
+            stored_parameters=stored_parameters,
             warmup_start_date=fetch_start,
             data_meta=data_meta,
             input_snapshot=input_snapshot,

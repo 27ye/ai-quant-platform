@@ -56,6 +56,11 @@ def run_stock_backtest(
     ``parameters`` presence selects the semantics: omitted keeps V1 behaviour
     (``v1_legacy``), present (even ``{}``) means ``v2_windowed``. Invalid or
     unknown parameters are rejected before any data is fetched (``40001``).
+
+    V3 F5 adds ``strategy``: omitted keeps every V1/V2 behaviour intact,
+    ``ma_cross`` is the existing MA implementation, and ``macd`` selects C's MACD
+    strategy (which forces ``v2_windowed`` even when ``parameters`` is omitted).
+    An explicit ``strategy=null`` or an unknown name is a ``40001`` before fetch.
     """
     try:
         data = service.run(
@@ -64,6 +69,8 @@ def run_stock_backtest(
             end_date=request.end_date,
             parameters=request.parameters,
             parameters_provided=request.parameters_provided,
+            strategy=request.strategy,
+            strategy_provided=request.strategy_provided,
         )
     except InvalidStockCodeError as exc:
         raise InvalidParameterError(str(exc)) from exc

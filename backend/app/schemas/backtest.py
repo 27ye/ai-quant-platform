@@ -19,6 +19,14 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 MIN_MA_PERIOD = 2
 MAX_MA_PERIOD = 120
 
+#: V3 F5 strategy selectors. ``ma_cross`` maps onto the existing MA implementation
+#: (C's matrix treats it exactly like omitting ``strategy``); ``macd`` selects C's
+#: new MACD strategy. Any other value - and an explicit ``null`` - is a ``40001``,
+#: and it must fail *before* any data is fetched.
+STRATEGY_MA_CROSS = "ma_cross"
+STRATEGY_MACD = "macd"
+ALLOWED_STRATEGIES = (STRATEGY_MA_CROSS, STRATEGY_MACD)
+
 
 class BacktestParametersSchema(BaseModel):
     """Optional V2 parameter overrides; omitted fields keep C's defaults.
@@ -42,7 +50,22 @@ class BacktestParametersSchema(BaseModel):
     transaction_cost: Optional[float] = Field(default=None, ge=0, lt=1)
     slippage: Optional[float] = Field(default=None, ge=0, lt=1)
 
-    @field_validator("ma_short_period", "ma_long_period", mode="before")
+    #: V3 F5 MACD periods. Typed but deliberately **not** range-checked here: C's
+    #: ``resolve_backtest_request`` owns ``2 <= fast < slow <= 120`` and
+    #: ``2 <= signal <= 120`` and runs before any fetch. Duplicating the ranges in B
+    #: would create a second rule set free to drift away from C's.
+    macd_fast_period: Optional[int] = None
+    macd_slow_period: Optional[int] = None
+    macd_signal_period: Optional[int] = None
+
+    @field_validator(
+        "ma_short_period",
+        "ma_long_period",
+        "macd_fast_period",
+        "macd_slow_period",
+        "macd_signal_period",
+        mode="before",
+    )
     @classmethod
     def _reject_bool_periods(cls, value: Any) -> Any:
         # ``bool`` is an ``int`` subclass; ``true`` must not mean period 1.
@@ -85,8 +108,29 @@ class BacktestRequestSchema(BaseModel):
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     parameters: Optional[BacktestParametersSchema] = None
+    strategy: Optional[str] = None
+
+    @field_validator("strategy", mode="before")
+    @classmethod
+    def _reject_unknown_strategy(cls, value: Any) -> Any:
+        """Shape only: reject anything that is not a known strategy name.
+
+        An explicit ``null`` is *presence*, not shape, so it passes here and is
+        rejected by the service (``40001``) - that keeps "omitted" and "sent as
+        null" distinguishable, exactly like ``parameters``.
+        """
+        if value is None:
+            return value
+        if not isinstance(value, str) or value not in ALLOWED_STRATEGIES:
+            raise ValueError(f"strategy must be one of {list(ALLOWED_STRATEGIES)}")
+        return value
 
     @property
     def parameters_provided(self) -> bool:
         """True when the caller explicitly sent ``parameters`` (even as null)."""
         return "parameters" in self.model_fields_set
+
+    @property
+    def strategy_provided(self) -> bool:
+        """True when the caller explicitly sent ``strategy`` (even as null)."""
+        return "strategy" in self.model_fields_set
