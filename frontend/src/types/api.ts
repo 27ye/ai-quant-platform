@@ -89,10 +89,18 @@ export interface AIAnalysisData {
 export type SourceMode = 'live' | 'cache' | 'frozen' | 'unknown'
 export type SnapshotStatus = 'complete' | 'legacy_missing'
 
+// ============ V3 F4 最小契约（V3_DEVELOPMENT_PLAN §5.2，A 提前给 D）============
+// 列表与详情兼容新增两字段；旧记录两列均为 NULL 时后端读取为 standard，不回填
+export type AIAnalysisMode = 'standard' | 'custom_backtest'
+
 // GET /ai/reports 列表项（仅摘要，不含完整上下文）
 export interface AIReportSummary {
   report_id: number
   stock_code: string
+  /** V3：报告模式；旧记录映射为 standard */
+  analysis_mode: AIAnalysisMode
+  /** V3：custom_backtest 模式关联的回测 ID，standard 为 null */
+  backtest_id: number | null
   quant_score: number | null
   trend: TrendValue
   summary: string
@@ -173,6 +181,10 @@ export interface AIReportDetail extends AIAnalysisData {
   report_id: number
   created_at: string
   data_as_of: string | null
+  /** V3：报告模式；旧记录映射为 standard */
+  analysis_mode: AIAnalysisMode
+  /** V3：custom_backtest 模式关联的回测 ID，standard 为 null */
+  backtest_id: number | null
   source_mode: SourceMode
   prompt_version: string | null
   context_schema_version: string | null

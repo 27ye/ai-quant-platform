@@ -48,6 +48,8 @@ const MOCK_REPORT_SUMMARIES: AIReportSummary[] = [
   {
     report_id: 101,
     stock_code: '600519',
+    analysis_mode: 'standard',
+    backtest_id: null,
     quant_score: 82,
     trend: 'bullish',
     summary:
@@ -61,6 +63,8 @@ const MOCK_REPORT_SUMMARIES: AIReportSummary[] = [
   {
     report_id: 100,
     stock_code: '600519',
+    analysis_mode: 'standard',
+    backtest_id: null,
     quant_score: 33,
     trend: 'bearish',
     summary: '早期冻结演示报告：趋势偏弱，成交低迷，评分处于较弱区间，建议观望。',
@@ -109,6 +113,8 @@ export function mockAIReportDetail(reportId: number): ApiResponse<AIReportDetail
         report_id: 100,
         created_at: '2026-09-10T02:12:00Z',
         data_as_of: null,
+        analysis_mode: 'standard',
+        backtest_id: null,
         source_mode: 'unknown',
         prompt_version: null,
         context_schema_version: null,
@@ -138,6 +144,8 @@ export function mockAIReportDetail(reportId: number): ApiResponse<AIReportDetail
       report_id: reportId,
       created_at: '2026-09-15T08:30:00Z',
       data_as_of: '2026-09-14T15:00:00Z',
+      analysis_mode: 'standard',
+      backtest_id: null,
       source_mode: 'live',
       prompt_version: 'v2.0',
       context_schema_version: 'v2.0',
