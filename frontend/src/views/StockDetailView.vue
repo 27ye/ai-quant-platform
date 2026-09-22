@@ -14,6 +14,7 @@ import AIReportCard from '../components/ai/AIReportCard.vue'
 import ScoreCard from '../components/stock/ScoreCard.vue'
 import BacktestPanel from '../components/stock/BacktestPanel.vue'
 import DataStatusBadge from '../components/stock/DataStatusBadge.vue'
+import WatchlistCard from '../components/stock/WatchlistCard.vue'
 import { useAppContext } from '../stores/appContext'
 import { useHealthStore } from '../stores/health'
 
@@ -123,6 +124,9 @@ onMounted(() => health.refresh())
         <span :class="['change', changeClass]">{{ changeText }}</span>
       </div>
     </div>
+
+    <!-- 本地自选（V3 F1：紧凑条，位于股票信息条下方） -->
+    <WatchlistCard :stock-code="stockCode" />
 
     <!-- 主区域：左图表+评分 + 右AI分析 -->
     <div class="main-grid">

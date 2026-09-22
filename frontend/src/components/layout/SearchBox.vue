@@ -5,10 +5,12 @@ import { useRouter } from 'vue-router'
 
 import { searchStocks } from '../../api/stocks'
 import type { StockBrief } from '../../types/api'
+import { useAppContext } from '../../stores/appContext'
 import { useHealthStore } from '../../stores/health'
 
 const router = useRouter()
 const health = useHealthStore()
+const appContext = useAppContext()
 
 const keyword = ref('')
 const results = ref<StockBrief[]>([])
@@ -30,6 +32,8 @@ async function onSearch() {
   try {
     const res = await searchStocks(kw)
     results.value = res.data
+    // V3 F1：搜索结果顺手登记 code→name（零额外请求），供自选等功能取名称
+    appContext.rememberStockNames(res.data)
     searched.value = true
     // 空结果也展开下拉，由提示文案说明冻结演示范围
     showDropdown.value = true
