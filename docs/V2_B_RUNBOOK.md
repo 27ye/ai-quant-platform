@@ -157,3 +157,48 @@ B 曾在本机做集成预演（`feature/v2-b-market-data` + D 分支）。当�
 | 相关测试 | `tests/test_db_migrations.py`（AI 列现在是第 5 步）、`tests/test_ai_api.py`（报告不存在断言改为 `40006`） |
 
 建议合并次序：**先合 B 的迁移与数据服务，再让 D 的分支 rebase/合并**，由 D 按上表调整三处即可全绿。
+
+## 8. V3 变化：strategy 接线（B3）
+
+基线 `main 26f422a6`（V3 计划 PR #17 合并后）。B 只在既有文件上接线，不改 C 的算法。
+
+### 8.1 请求矩阵（V3 计划 §5.1）
+
+| `strategy` | `parameters` | 语义 | 结果 |
+|---|---|---|---|
+| 省略 | 省略 | `v1_legacy` | 与 V1/V2 完全一致 |
+| 省略 | `{}` 或对象 | `v2_windowed` | 与 V2 完全一致（B 仍转发五个 MA 字段） |
+| `ma_cross` | 省略 | `v1_legacy` | 同上（C 的口径：`ma_cross` 即现有 MA 实现） |
+| `ma_cross` | `{}` 或对象 | `v2_windowed` | 同上 |
+| `macd` | 省略 / `{}` / MACD 对象 | `v2_windowed` | 必须给出明确起止日期；B **只转发调用方真正给出的字段**，MACD 六字段的默认值由 C 决定 |
+| `null` / 未知值 / 非字符串 | 任意 | — | `400 / 40001`，**取数前**失败 |
+| 合法 strategy | `null` / 未知字段 / 串用另一策略的字段 | — | `400 / 40001`，**取数前**失败 |
+
+### 8.2 B 的具体做法
+
+- `schemas/backtest.py`：新增可选 `strategy`，保留「省略 vs 显式 null」的区分（`strategy_provided`）。未知值/非字符串由 schema 拒绝，显式 `null` 由服务层拒绝。
+- `services/c_quant_entry.py`：`resolve`/`run` 透传 `strategy`，但**只有调用方真的选了策略才传该关键字**——省略必须保持省略（C 的 sentinel 默认才代表"用默认"，传 `None` 是另一种含义）。是否支持由 feature-detect 判断。
+- `services/backtest_service.py`：MA 与 MACD 各用一份白名单；MACD 的**数值范围与 `fast < slow` 交叉规则不在 B 重复实现**，交给 C 的 `resolve`（取数前执行），避免两套规则漂移。MACD 的结果参数取 C 返回的 `effective_parameters` / `parameters`，B 不用自己的稀疏请求覆盖。
+- `api/v1/quant.py`：透传 `strategy` / `strategy_provided`。
+
+### 8.3 C 的 V3 入口尚未进入 `main` 时的行为（重要）
+
+- `macd`：**明确拒绝**，按「C 入口不可用」口径返回 `50004`，**不**按 MA 跑、不写库。请求本身合法，这是部署缺口而非参数错误，所以不用 `40001`。
+- `ma_cross` / 省略：与 V2 一致（`ma_cross` 就是现有 MA 实现，不需要 C 的新参数）。
+- 判据来自运行期探测而非写死：`load_c_windowed_entry().supports_strategy` 与 C 的实际签名一致（由 `tests/test_strategy_entry_integration.py` 断言）。
+
+### 8.4 验证命令与当前结果
+
+```powershell
+./.venv/Scripts/python.exe -m pytest tests -q                       # 580 passed
+./.venv/Scripts/python.exe -m compileall -q backend scripts tests    # exit 0
+git diff upstream/main --check                                       # 0 findings
+```
+
+- 策略矩阵单测在 `tests/test_backtest_service.py`：省略不传 sentinel、`ma_cross` 透传、`macd` 强制 `v2_windowed`、MACD 只转发显式字段、显式 `null` / 混用参数 / C 无 strategy 支持均在取数前失败、API 层 `null` 与未知值映射 `40001`。
+- 真实 C 入口集成在 `tests/test_strategy_entry_integration.py`：当前 `main` 实测 `supports_strategy=False`，真实 MA 路径仍可用（`strategy_name=ma_long_only`、`total_return=0.18438710355268406`），`macd` 被拒且不落库；C 合入后同一文件会断言支持位翻转，拒绝用例自动 skip。
+
+### 8.5 未完成 / 依赖他人
+
+- **MACD 端到端未验证**：C 的 `quant/**` 尚未进入 `main`，B 只能在真实 V2 入口上验证 MA 与拒绝路径；C 合入后按 §9 复跑 MACD 真实请求（B 侧无需改代码）。
+- `40007`（历史回测合法但不满足解读条件）属 AI 链路，等 D 给出精确片段后再由 B 落到 `core/errors.py`。
