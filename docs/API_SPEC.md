@@ -453,9 +453,10 @@ GET /api/v1/ai/reports/101
 40001    invalid parameter
 40002    stock not found
 40003    insufficient stock data
-40004    invalid strategy
+40004    reserved (unused; an illegal strategy returns 40001)
 40005    backtest not found
 40006    report not found
+50000    internal error (generic fallback)
 50001    data provider error
 50002    database error
 50003    quant calculation error
@@ -469,6 +470,16 @@ GET /api/v1/ai/reports/101
 > - `50004 backtest error` 用于**回测引擎无法服务该请求**：典型是 `v2_windowed` 请求到达但 C 的
 >   `run_backtest_request` 不可导入。此时接口明确失败并且**不写入任何回测记录**，绝不回退到旧
 >   `run_backtest` 再把结果标成 `v2_windowed`。省略 `parameters` 的 `v1_legacy` 路径不受影响。
+>
+> **V3 错误码核验（B，2026-09-22，复核 D22 head `fedeb09d` / 生产 `6c9ca524`）**：
+> - **`40007 = backtest is not eligible for AI interpretation`（HTTP 422，D，随 PR #22 落地）**；
+>   核验结论：与既有 11 个码**无重复**，D22 仅新增这一个码，全仓仅有一处定义、无其他硬编码引用。
+> - **`40004` 改标为「保留未使用」**：全仓（`backend/`、`tests/`、`frontend/`）除本表这一行外
+>   **没有任何引用**；而 V3 `strategy` 契约规定非法策略名 / 显式 `null` 一律返回 **`40001`**
+>   （见 §8 请求语义矩阵）。保留编号以免与历史文档冲突，但**它不是本轮实现的错误码**。
+> - **新增 `50000 internal error`**：`ApplicationError` 基类的通用兜底（HTTP 500），此前未列入本表。
+> - `50005 ai service error` 由 `backend/app/ai/errors.py` 的 `AIServiceError` 体系承载（不在
+>   `core/errors.py` 中），HTTP 映射见 `core/exception_handlers.py`；前端 `src/api/http.ts` 已有文案。
 
 ## 11. 修改规则
 
