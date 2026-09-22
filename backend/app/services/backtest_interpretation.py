@@ -129,7 +129,10 @@ class BacktestInterpretationContextProvider:
         # bit-for-bit; the tolerance only guards serializer noise, never corruption.
         # Rel 1e-12 on a metric of magnitude ~1 allows ~1e-12 absolute drift.
         _rel_tol = 1e-12
-        expected_return = result["final_equity"] / result["initial_cash"] - 1.0
+        initial_cash = result["initial_cash"]
+        if isinstance(initial_cash, bool) or not isinstance(initial_cash, (int, float)) or not math.isfinite(initial_cash) or initial_cash <= 0:
+            raise ValueError("invalid saved initial cash")
+        expected_return = result["final_equity"] / initial_cash - 1.0
         if not math.isclose(result["total_return"], expected_return, rel_tol=_rel_tol):
             raise ValueError("saved total return contradicts equity")
         # Windowed metrics anchor at the dropped pre-open initial_cash point (0.0),

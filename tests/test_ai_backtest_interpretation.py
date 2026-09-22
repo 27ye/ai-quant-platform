@@ -161,7 +161,7 @@ def test_unsupported_saved_backtests_fail_before_llm(custom_graph, mutation):
 
 @pytest.mark.parametrize("mutation", [
     "text", "hash", "row", "metric", "curve", "warmup", "snapshot", "assumptions", "final_equity",
-    "total_return", "max_drawdown", "trade_count",
+    "total_return", "max_drawdown", "trade_count", "initial_cash",
 ])
 def test_corrupt_exact_backtests_are_database_errors(custom_graph, mutation):
     _, engine, backtest_id, llm = custom_graph
@@ -193,6 +193,8 @@ def test_corrupt_exact_backtests_are_database_errors(custom_graph, mutation):
                 result["max_drawdown"] = result["max_drawdown"] - 0.25
             elif mutation == "trade_count":
                 result["trade_count"] = result["trade_count"] + 1
+            elif mutation == "initial_cash":
+                result["initial_cash"] = 0.0
             else:
                 row.input_snapshot = None
             row.c_result_text = json.dumps(result)
