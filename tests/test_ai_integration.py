@@ -114,7 +114,7 @@ def graph(monkeypatch):
         provider=SyntheticProvider(), requests=[], responses=[],
         llm_status=200, llm_timeout=False, fail_report=False,
         fail_read=False, rollbacks=0, market_queries=0, sessions=[],
-        market_query_calls=[], calendar_mode="unknown",
+        market_query_calls=[], calendar_mode="reliable",
     )
     state.calendar = SyntheticCalendar(state)
 
@@ -272,7 +272,7 @@ def test_next_request_gets_new_market_and_reuses_fresh_news_cache(graph):
     assert analyze(graph).status_code == 200
     assert analyze(graph).status_code == 200
     assert graph.market_queries == 2
-    assert graph.provider.events.count("market") == 2  # no trusted calendar injected
+    assert graph.provider.events.count("market") == 2  # fixture data is stale versus today's request
     assert graph.provider.events.count("news") == 1
     assert len(graph.sessions) == 2
     assert graph.sessions[0] is not graph.sessions[1]
@@ -513,15 +513,18 @@ def test_full_quant_results_match_normalized_first_query_and_cache(graph):
 
 
 @pytest.mark.parametrize("missing_indices", [range(40, 45), range(5, 105, 5)])
-def test_unknown_cache_completeness_refetches_middle_holes(graph, missing_indices):
+def test_unknown_cache_completeness_preserves_snapshot(graph, missing_indices):
     assert analyze(graph).status_code == 200
     dates = graph.provider.frame.trade_date.iloc[list(missing_indices)].tolist()
     with graph.factory() as db:
         # Deletes only records in this test's fresh in-memory SQLite database.
         db.query(StockDaily).filter(StockDaily.trade_date.in_(dates)).delete(synchronize_session=False)
         db.commit()
-    assert analyze(graph).status_code == 200
-    assert graph.provider.events.count("market") == 2
+    graph.calendar_mode = "unknown"
+    response = analyze(graph)
+    assert response.status_code == 502
+    assert response.json()["code"] == 50001
+    assert graph.provider.events.count("market") == 1
     with graph.factory() as db:
-        assert db.query(StockDaily).count() == 120
-    assert context_of(graph, 0)["backtest_metrics"] == context_of(graph, 1)["backtest_metrics"]
+        assert db.query(StockDaily).count() == 120 - len(list(missing_indices))
+        assert db.query(AIAnalysis).count() == 1

@@ -240,6 +240,76 @@ def test_intraday_cache_still_refetches_when_last_completed_day_is_missing():
         assert rows[-1].trade_date == yesterday
 
 
+def test_intraday_refresh_removes_legacy_unfinished_tail():
+    with _session() as session:
+        repository = MarketDataRepository(session)
+        completed = date(2026, 9, 17)
+        unfinished = date(2026, 9, 18)
+        repository.upsert_daily(
+            [_bar(STOCK_CODE, date(2026, 9, 16)), _bar(STOCK_CODE, unfinished)]
+        )
+
+        class RangeProvider:
+            last_kline_source = "tencent"
+
+            def __init__(self):
+                self.calls = []
+
+            def get_daily_kline(self, stock_code, start_date, end_date, adjust="qfq"):
+                self.calls.append((stock_code, start_date, end_date, adjust))
+                days = [date(2026, 9, 16), completed, unfinished]
+                return pd.DataFrame(
+                    [
+                        _bar(stock_code, day, close=101.0).model_dump()
+                        for day in days
+                        if start_date <= day <= end_date
+                    ]
+                )
+
+        provider = RangeProvider()
+        service = MarketDataService(
+            stock_service=StockService(provider=provider),
+            repository=repository,
+            trading_days=lambda start, end: (end - start).days + 1,
+            completed_through=lambda: completed,
+        )
+
+        rows = service.query_daily(
+            STOCK_CODE, date(2026, 9, 16), unfinished, min_rows=2
+        )
+
+        assert provider.calls[-1][2] == completed
+        assert [row.trade_date for row in rows] == [date(2026, 9, 16), completed]
+        assert [row.trade_date for row in repository.list_daily(STOCK_CODE)] == [
+            date(2026, 9, 16),
+            completed,
+        ]
+
+
+def test_unknown_union_calendar_rejects_refresh_and_preserves_snapshot():
+    with _session() as session:
+        repository = MarketDataRepository(session)
+        original_dates = [date(2025, 1, day) for day in (6, 7, 8)]
+        repository.upsert_daily([_bar(STOCK_CODE, day, close=100.0) for day in original_dates])
+        provider = RecordingProvider(2)
+        service = MarketDataService(
+            stock_service=StockService(provider=provider),
+            repository=repository,
+            trading_days=lambda start, end: None,
+            completed_through=lambda: date(2025, 1, 9),
+        )
+
+        with pytest.raises(StockDataProviderError, match="cannot verify the replacement window"):
+            service.query_daily(
+                STOCK_CODE, date(2025, 1, 8), date(2025, 1, 9), min_rows=2
+            )
+
+        assert provider.calls == []
+        stored = repository.list_daily(STOCK_CODE)
+        assert [row.trade_date for row in stored] == original_dates
+        assert [row.close for row in stored] == [100.0, 100.0, 100.0]
+
+
 def test_unknown_completed_day_keeps_provider_failure_semantics():
     with _session() as session:
         service = MarketDataService(
@@ -711,7 +781,7 @@ def test_query_daily_refetches_when_cache_has_fewer_bars_than_expected_trading_d
         assert len(rows_out) >= 60
 
 
-def test_query_daily_refetches_when_calendar_coverage_unknown():
+def test_query_daily_rejects_refresh_when_calendar_coverage_unknown():
     with _session() as session:
         repository = MarketDataRepository(session)
         start = date(2025, 1, 1)
@@ -723,13 +793,19 @@ def test_query_daily_refetches_when_calendar_coverage_unknown():
             stock_service=StockService(provider=provider), repository=repository
         )
 
-        rows_out = service.query_daily(
-            STOCK_CODE, start, start + timedelta(days=59),
-            min_rows=60, trading_days=lambda s, e: None,
-        )
+        with pytest.raises(
+            StockDataProviderError, match="cannot verify the replacement window"
+        ):
+            service.query_daily(
+                STOCK_CODE,
+                start,
+                start + timedelta(days=59),
+                min_rows=60,
+                trading_days=lambda s, e: None,
+            )
 
-        assert len(provider.calls) == 1  # unknown coverage -> conservative refetch
-        assert len(rows_out) >= 60
+        assert provider.calls == []
+        assert len(repository.list_daily(STOCK_CODE)) == 60
 
 
 def test_query_daily_uses_constructor_trading_days():

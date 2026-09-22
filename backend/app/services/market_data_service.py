@@ -507,6 +507,7 @@ class MarketDataService:
         end_date: date,
         min_rows: int = DEFAULT_MIN_KLINE_ROWS,
         trading_days: Optional[Callable[[date, date], Optional[int]]] = None,
+        completed_through: Optional[date] = None,
     ) -> List[DailyKlineSchema]:
         """Fetch one same-source snapshot and atomically publish it to MySQL.
 
@@ -528,6 +529,25 @@ class MarketDataService:
                 fetch_start = min(fetch_start, existing.first_trade_date)
             if existing.last_trade_date is not None:
                 fetch_end = max(fetch_end, existing.last_trade_date)
+        if completed_through is None and self._completed_through is not None:
+            completed_through = self._completed_through()
+            if completed_through is None:
+                error = StockDataProviderError(
+                    "trading calendar cannot determine the latest completed daily bar"
+                )
+                self._record_sync_failure(stock_code, error)
+                raise error
+        if completed_through is not None:
+            fetch_end = min(fetch_end, completed_through)
+        expected = None
+        if trading_days is not None:
+            expected = trading_days(fetch_start, fetch_end)
+            if expected is None:
+                error = StockDataProviderError(
+                    f"trading calendar cannot verify the replacement window for {stock_code}"
+                )
+                self._record_sync_failure(stock_code, error)
+                raise error
         try:
             fetched = self._stock.get_daily_kline(
                 stock_code, fetch_start, fetch_end, min_rows=min_rows
@@ -535,7 +555,7 @@ class MarketDataService:
         except Exception as exc:  # noqa: BLE001 - re-raised below
             self._record_sync_failure(stock_code, exc)
             raise
-        rows = [_round_daily(row) for row in fetched]
+        rows = [_round_daily(row) for row in fetched if row.trade_date <= fetch_end]
         rows = [row for row in rows if _is_valid_bar(row)]
         if len(rows) < min_rows:
             self._record_sync_failure(
@@ -549,10 +569,9 @@ class MarketDataService:
                 f"stock {stock_code} has {len(rows)} valid rows after the "
                 f"consistency filter; at least {min_rows} required"
             )
-        if trading_days is not None:
-            expected = trading_days(fetch_start, fetch_end)
+        if expected is not None:
             covered = [row for row in rows if fetch_start <= row.trade_date <= fetch_end]
-            if expected is not None and len(covered) < expected:
+            if len(covered) < expected:
                 error = StockDataProviderError(
                     f"provider returned {len(covered)} completed rows for {stock_code}; "
                     f"calendar requires {expected}"
@@ -618,6 +637,7 @@ class MarketDataService:
         end_date = end_date or date.today()
         start_date = start_date or (end_date - timedelta(days=366))
         trading_days = trading_days if trading_days is not None else self._trading_days
+        completed_through = None
         if self._completed_through is not None:
             completed_through = self._completed_through()
             if completed_through is None:
@@ -649,6 +669,7 @@ class MarketDataService:
                 end_date,
                 min_rows=min_rows,
                 trading_days=trading_days,
+                completed_through=completed_through,
             )
 
     def _complete_cache(
