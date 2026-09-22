@@ -36,6 +36,7 @@ from backend.app.services.backtest_service import (
     DELIVERY_WARMUP_MIN_BARS,
     frame_digest,
     resolve_effective_parameters,
+    storable_strategy_version,
     warmup_required_days,
     whitelisted_parameters,
 )
@@ -184,11 +185,15 @@ class _FakeCWindowedEntry:
         validate_error=None,
         run_error=None,
         supports_strategy=None,
+        strategy_version=None,
     ) -> None:
         self.required_warmup_rows = required_warmup_rows
         self.resolve_error = resolve_error
         self.validate_error = validate_error
         self.run_error = run_error
+        #: Injected into the result envelope so tests can exercise what happens when C's
+        #: ``strategy_version`` does not fit the V2 ``VARCHAR(20)`` column.
+        self.strategy_version = strategy_version
         # ``None`` keeps the class default (V3-aware); pass ``False`` to stand in for a
         # tree whose quant entry predates ``strategy``.
         if supports_strategy is not None:
@@ -222,7 +227,7 @@ class _FakeCWindowedEntry:
         }
         effective.update(parameters)
         capital = float(effective["initial_cash"])
-        return {
+        payload = {
             "strategy_name": "macd_dif_above_dea_long_only",
             "algorithm_version": "macd_dif_dea_long_only_v3.0.0",
             "semantics_version": SEMANTICS_V2_WINDOWED,
@@ -261,6 +266,9 @@ class _FakeCWindowedEntry:
             "drawdown_curve": [{"trade_date": day, "drawdown": 0.0}],
             "trades": [],
         }
+        if self.strategy_version is not None:
+            payload["strategy_version"] = self.strategy_version
+        return payload
 
     def validate_window(self, start_date, end_date):
         self.validate_calls.append((start_date, end_date))
@@ -1309,3 +1317,54 @@ def test_api_maps_unknown_strategy_to_40001():
 
     assert response.status_code == 400, response.text
     assert response.json()["code"] == 40001
+
+
+# -- V3 F5: C's exact algorithm version vs the V2 column --------------------
+
+
+def test_storable_strategy_version_never_truncates():
+    """C (PR #19 review): project the exact version, never squeeze it into VARCHAR(20)."""
+    long_version = "macd_dif_dea_long_only_v3.0.0"  # 28 characters
+    assert storable_strategy_version(long_version) is None
+    assert storable_strategy_version("v3.0.0") == "v3.0.0"
+    assert storable_strategy_version("x" * 20) == "x" * 20  # exactly fits
+    assert storable_strategy_version(None) is None
+
+
+def test_long_strategy_version_keeps_the_exact_value_in_the_c_snapshot():
+    market = _FakeMarketSource(_rows())
+    long_version = "macd_dif_dea_long_only_v3.0.0"
+    c_entry = _FakeCWindowedEntry(required_warmup_rows=34, strategy_version=long_version)
+    with _session() as session:
+        repository = BacktestRepository(session)
+        result = _service(market, repository, c_entry=c_entry).run(
+            stock_code=STOCK_CODE,
+            strategy="macd",
+            strategy_provided=True,
+            **_WINDOWED,
+        )
+        stored = session.get(BacktestResult, result["backtest_id"])
+        detail = repository.get(result["backtest_id"])
+
+    # The V2 column stays NULL instead of holding a truncated version (which SQLite
+    # would keep silently and MySQL strict mode would reject with 1406)...
+    assert stored.strategy_version is None
+    # ...and the exact string is still exposed, projected from C's saved snapshot.
+    assert detail["c_algorithm_version"] == long_version
+    assert detail["strategy_version"] is None
+
+
+def test_short_strategy_version_is_stored_as_is():
+    market = _FakeMarketSource(_rows())
+    c_entry = _FakeCWindowedEntry(required_warmup_rows=34, strategy_version="v3.0.0")
+    with _session() as session:
+        repository = BacktestRepository(session)
+        result = _service(market, repository, c_entry=c_entry).run(
+            stock_code=STOCK_CODE,
+            strategy="macd",
+            strategy_provided=True,
+            **_WINDOWED,
+        )
+        stored = session.get(BacktestResult, result["backtest_id"])
+
+    assert stored.strategy_version == "v3.0.0"

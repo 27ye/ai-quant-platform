@@ -204,6 +204,28 @@ def forwarded_parameters(
     return whitelisted_parameters(config)
 
 
+#: ``strategy_version`` is a V2 ``VARCHAR(20)`` column, but C's exact algorithm versions
+#: can be longer (MACD's ``macd_dif_dea_long_only_v3.0.0`` is 28 characters). C (PR #19
+#: review, 2026-09-22) asked for the exact version to be **projected from the saved C
+#: snapshot** (``c_algorithm_version``) rather than squeezed into this column. Truncating
+#: is the worst option: SQLite stores it silently while MySQL in strict mode fails the
+#: whole save with error 1406, so the row would not exist at all.
+STRATEGY_VERSION_MAX = 20
+
+
+def storable_strategy_version(value: Any) -> Optional[str]:
+    """Return ``value`` only when it fits the V2 column; otherwise ``None``.
+
+    B never stores a shortened version and never presents a truncated value as the real
+    one. When it does not fit, the exact string stays readable through the C snapshot
+    projection (``c_algorithm_version``).
+    """
+    if value is None:
+        return None
+    text = str(value)
+    return text if len(text) <= STRATEGY_VERSION_MAX else None
+
+
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -285,7 +307,7 @@ class BacktestRepository:
                 benchmark_return=_decimal(result.get("benchmark_return")),
                 parameters=dict(effective_parameters),
                 semantics_version=semantics_version,
-                strategy_version=strategy_version,
+                strategy_version=storable_strategy_version(strategy_version),
                 final_equity=_decimal(result.get("final_equity")),
                 order_count=result.get("order_count"),
                 warmup_start_date=warmup_start_date,
