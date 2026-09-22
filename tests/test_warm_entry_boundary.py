@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import datetime as dt
 import importlib.util
-import inspect
 import sys
 from pathlib import Path
 
@@ -71,17 +70,24 @@ class _FakeSession:
         pass
 
 
-def _install_fakes(monkeypatch, module, service_cls):
+def _install_fakes(monkeypatch, module, service_cls, calendar_cls=None):
     """Replace everything ``main()`` touches except argument parsing and the wiring itself."""
     _FakeCalendar.boundary_reads = 0  # class-level counter: never leak state between tests
     monkeypatch.setattr(module, "apply_migrations", lambda engine: None)
     monkeypatch.setattr(module, "SessionLocal", _FakeSession)
     monkeypatch.setattr(module, "MarketDataRepository", _FakeRepository)
     monkeypatch.setattr(module, "StockService", lambda *a, **k: object())
-    monkeypatch.setattr(module, "TradingCalendarProvider", _FakeCalendar)
+    monkeypatch.setattr(
+        module, "TradingCalendarProvider", calendar_cls or _FakeCalendar
+    )
     monkeypatch.setattr(module, "MarketDataService", service_cls)
     monkeypatch.setattr(module.time, "sleep", lambda seconds: None)
     monkeypatch.setattr(sys, "argv", ["warm_market_data.py", "--stock-code", "600519", "--rounds", "1"])
+
+
+#: Default for the recording service below: distinguishes "keyword not passed" from
+#: "keyword passed as None", which are different statements about the boundary.
+_NOT_PASSED = object()
 
 
 def _make_service_cls(record: dict, *, with_boundary: bool):
@@ -94,9 +100,12 @@ def _make_service_cls(record: dict, *, with_boundary: bool):
                 stock_service=None,
                 repository=None,
                 trading_days=None,
-                completed_through=None,
+                completed_through=_NOT_PASSED,
             ) -> None:
-                record["completed_through"] = completed_through
+                record["boundary_passed"] = completed_through is not _NOT_PASSED
+                record["completed_through"] = (
+                    None if completed_through is _NOT_PASSED else completed_through
+                )
                 record["trading_days"] = trading_days
 
             def query_daily(self, stock_code, start_date, end_date, min_rows=None):
@@ -127,19 +136,47 @@ def test_warm_entry_injects_completed_day_boundary(monkeypatch):
 
     assert module.main() == 0
 
-    assert "completed_through" in record, "warm entry did not inject the completed-day boundary"
+    assert record["boundary_passed"] is True, (
+        "warm entry did not inject the completed-day boundary"
+    )
     boundary = record["completed_through"]
     assert callable(boundary), "boundary must be the calendar callable, not a frozen date"
     assert boundary() == dt.date(2026, 9, 21)
     assert record["trading_days"] is not None
 
 
-def test_warm_entry_boundary_matches_request_path_idiom():
-    """Guard the exact idiom: ``getattr(calendar, "last_completed_trade_date", None)``."""
+class _CalendarWithoutBoundary:
+    """A calendar that cannot answer "which day is fully completed?"."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        pass
+
+    def count_between(self, start, end):
+        return 3
+
+
+def test_warm_entry_omits_boundary_when_the_calendar_cannot_provide_one(monkeypatch):
+    """Behavioural counterpart of the removed source-text assertion.
+
+    C (V2 review) noted that matching the script's *source text* breaks on any refactor
+    while proving little. The property that must actually hold: when the calendar has no
+    ``last_completed_trade_date``, the script must not pass the keyword **at all** - an
+    explicit ``completed_through=None`` is a different statement from omitting it, and a
+    script that cannot prove a boundary must not invent one.
+    """
     module = _load_warm_module()
-    source = inspect.getsource(module.main)
-    assert 'getattr(calendar, "last_completed_trade_date", None)' in source
-    assert 'inspect.signature(MarketDataService.__init__)' in source
+    record: dict = {}
+    _install_fakes(
+        monkeypatch,
+        module,
+        _make_service_cls(record, with_boundary=True),
+        calendar_cls=_CalendarWithoutBoundary,
+    )
+
+    assert module.main() == 0
+
+    assert record["completed_through"] is None
+    assert record["boundary_passed"] is False
 
 
 def test_warm_entry_keeps_old_behaviour_without_boundary_support(monkeypatch):
