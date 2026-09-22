@@ -33,16 +33,18 @@ $env:MYSQL_DATABASE="ai_quant_test"   # 本地验证建议用独立库，不要�
 | v6 | `backtest_result.input_snapshot`（交给 C 的确切输入行，含预热） |
 | v7 | `backtest_result.c_result`（C 完整结果的 JSON 回退列） |
 | v8 | `backtest_result.c_result_text`（**LONGTEXT**，精确原文）+ 旧行回填 |
+| v9 | `ai_analysis.analysis_mode`（`VARCHAR(16) NULL`）+ `ai_analysis.backtest_id`（`BIGINT NULL`）——V3 F4；**两列均可空，旧报告不回溯填充** |
 
-### 2.1 V1 → v8 全链路已在真实 MySQL 验证
+### 2.1 V1 → v9 全链路已在真实 MySQL 验证
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\verify_v1_migration_chain.py
 ```
 
-- 基线不是"当前元数据"，而是**从 tag `v1-frozen-package-r2` 取出的六个 V1 模型**（`backtest_result` 15 列 / `ai_analysis` 13 列，不含任何 V2 列），因此 v4/v6/v7/v8 的 ALTER 真的被执行。
-- 覆盖：V1 基线 → 步骤 1..7 → **模拟 v8 中断**（列已提交、回填未跑、版本仍 7）→ 文档入口恢复；全部 V1 列逐一比对不变；重复迁移全表所有行/列与 `schema_version` 每行 `version`+`applied_at` 不变。
-- 证据：`docs/evidence/v1-migration-chain-20260917/`（README + 运行输出）。
+- 基线不是"当前元数据"，而是**从 tag `v1-frozen-package-r2` 取出的六个 V1 模型**（`backtest_result` 15 列 / `ai_analysis` 13 列，不含任何 V2 列），因此 v4/v6/v7/v8/v9 的 ALTER 真的被执行。
+- 覆盖：V1 基线 → 步骤 1..7 → **模拟 v8 中断**（列已提交、回填未跑、版本仍 7）→ 文档入口恢复 → **v9 一并生效**；全部 V1 列逐一比对不变；重复迁移全表所有行/列与 `schema_version` 每行 `version`+`applied_at` 不变。
+- V3 新增的阶段 5b：v9 两列以 `varchar(16)` / `bigint` 出现，且 **V1 旧报告的两列仍为 `NULL`（不回溯填 `standard`）**。
+- 证据：V2 期 V1→v8 见 `docs/evidence/v1-migration-chain-20260917/`；**V3 期 V1→v9 运行输出见 `docs/evidence/v3-b-v9-migration-20260922/`**（同一脚本、真实 MySQL）。
 
 > **v8 为什么要用 LONGTEXT**：MySQL 的 JSON 列把数值叶子归一化到约 15 位有效数字（实测 `99633.35582084299` → `99633.355820843`），无法精确回读 C 的结果。新记录只写 `c_result_text`（`c_result` 留 NULL），v8 之前的旧行由 JSON 列回填并以 `c_result_exact=false` 如实标注。
 
@@ -138,7 +140,7 @@ curl.exe "http://127.0.0.1:8000/api/v1/backtests?stock_code=600519"
 | V03 | 注入超时/畸形报文/数据库失败的用例见 `tests/test_provider_retry.py`、`tests/test_stock_catalog.py`、`tests/test_data_status.py`；**API 层错误码契约**见 `tests/test_v2_error_contract.py`（B 侧实际码：`40001`/`40002`/`40003`/`40005` backtest not found/`50001`/`50002`/`50003`/`50004` backtest error/`50005`/`50006` 目录从未同步；**`40006` report not found 属 D 侧 AI 报告链路，B 分支上不存在**），且失败不留下成功记录 |
 | V04 | 省略 `parameters` 的旧请求与 V1 冻结基线一致（`final_equity 90834.22588204397`、12 次往返/24 条订单） |
 | V05 | 两组参数产生独立 `backtest_id`；详情 0.02s 读快照；未知 ID `404/40005` |
-| V09 | 空库初始化、**V1 库升级 1→8**（全部 V1 列逐一比对不变）、重复执行、**v8 中断恢复**、旧记录缺快照标注；证据 `docs/evidence/v1-migration-chain-20260917/` |
+| V09 | 空库初始化、**V1 库升级 1→9**（全部 V1 列逐一比对不变）、重复执行、**v8 中断恢复**、**v9 旧报告不回溯填充**、旧记录缺快照标注；证据 `docs/evidence/v1-migration-chain-20260917/`（V1→v8）与 `docs/evidence/v3-b-v9-migration-20260922/`（V1→v9） |
 | 交付包（新） | `docs/evidence/c-delivery-20260917/`：三股×437 行，`raw`/`normalized` **三对全部一致**、`rounding_problems` 空、独立 MySQL 回读 `ok`。**来源为 `tencent`（备用来源，非东财）**，溯源与精度差异见包内 README |
 | 交付包（旧） | `docs/evidence/c-delivery/`：**保留为历史证据，未修改**。其三对中有 1 对（600519 `2026-09-15`）不一致——该行 `normalized` 是库内 09:46 盘中快照 |
 

@@ -21,7 +21,7 @@ import backend.app.models  # noqa: F401  (register all ORM models on Base)
 from backend.app.db.base import Base
 
 #: Current schema revision. Bump only when a new migration step is added below.
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 _SCHEMA_VERSION_DDL = (
     "CREATE TABLE IF NOT EXISTS schema_version ("
@@ -191,6 +191,36 @@ def _migration_v8(connection: Connection) -> None:
     )
 
 
+#: V3 F4 columns: which mode produced the report, and which saved backtest it reads.
+#: Field set frozen with D on 2026-09-22 (V3 plan section 5.3); D owns the ORM
+#: mapping, B owns this migration.
+_V9_AI_ANALYSIS_COLUMNS = (
+    ("analysis_mode", "VARCHAR(16) NULL"),
+    ("backtest_id", "BIGINT NULL"),
+)
+
+
+def _migration_v9(connection: Connection) -> None:
+    """V3 F4: ``analysis_mode`` + ``backtest_id`` on ``ai_analysis``.
+
+    ``standard`` / ``custom_backtest`` are the only two modes. A pre-v9 report keeps
+    **both columns NULL and is read as ``standard`` by the service** - this step
+    deliberately does not backfill ``'standard'``, so a legacy row is never rewritten
+    into a claim about how it was produced, and its context snapshot is not recomputed.
+
+    No index and no foreign key: V3 never lists reports by ``backtest_id``, and the
+    link is validated in the application layer. The columns stay nullable so that
+    "no linked backtest" remains a first-class state.
+
+    Re-runnable on its own: :func:`_add_missing_columns` adds only what is absent, so
+    the MySQL case where the first ``ALTER`` was committed implicitly and the process
+    died before the version row was written (column present, schema still at v8)
+    resumes by adding just the second column. Only nullable columns are added, so
+    existing reports, their snapshots and C's exact ``c_result_text`` are untouched.
+    """
+    _add_missing_columns(connection, "ai_analysis", _V9_AI_ANALYSIS_COLUMNS)
+
+
 #: Ordered ``(version, step)`` pairs. Append new steps; never reorder.
 #: Every step must be idempotent and artifact-based (create-if-missing /
 #: add-column-if-missing): the convergence pass in :func:`apply_migrations`
@@ -206,6 +236,7 @@ MIGRATIONS: List[Tuple[int, Callable[[Connection], None]]] = [
     (6, _migration_v6),
     (7, _migration_v7),
     (8, _migration_v8),
+    (9, _migration_v9),
 ]
 
 
