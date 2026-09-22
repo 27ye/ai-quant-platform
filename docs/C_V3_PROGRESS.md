@@ -6,7 +6,7 @@
 |---|---|---|
 | C1 MACD契约与手算 | 已完成，PR #18 | C_V3_MACD_CONTRACT.md；B可按新签名并行适配 |
 | C2 引擎及回归 | 完成；全量677通过 | 代码SHA `6a84901c82256b7d48dfab3ebee3208633e5058c`；三股15份旧MA/默认评分结果完整JSON指纹不变 |
-| C3 对照/AI数值口径 | 契约、MA/MACD数值示例已交付；跨模块复核待实现 | C_V3_NUMERIC_MAPPING.md；证据目录的两个numeric_example.json |
+| C3 对照/AI数值口径 | 契约与示例已交付；D PR22正常数值链路复验通过，损坏快照拦截待修 | PR22原版596通过；D+C组合713通过；三股九组Prompt/快照/新连接GET一致，详见PR22复核证据 |
 | C4 最终数值验收 | C离线三股三参数通过；最终组合待B/D/A | 每组283曲线点、完整快照重放一致；最终POST/GET、AI隔离、浏览器需按集成SHA复验 |
 
 今日C可独立交付部分已完成：算法、117项新增测试、既有回归、三股三组MACD参数证据、数值对接示例。详见 [模块验收记录](evidence/c-v3-macd-20260922/README.md)。前端类型/构建、compileall和既有量化/AI历史兼容脚本通过。只补文档/证据的提交与被测代码SHA分开记录；任何生产代码变动需重新验证。
@@ -15,3 +15,5 @@
 追加远端核对：B PR #19 `fa91f4c...`（v9迁移）与C隔离组合 **682 passed**；10份MACD/MA结果经临时SQLite新engine/session完整读回一致。但B当前HTTP仍拒绝strategy，MACD接线明确待完成。详见 [远端接口对接清单与证据](evidence/c-v3-remote-contract-20260922/README.md)。C已发布签名/错误码/六参数/版本及精确快照边界，并请求B/D按实现SHA闭环。
 
 **最新状态（替代上一条“strategy尚未接线”的状态）：** B PR #21 `11a0c03ecca56fe667b845a976afd1cdde9197b7`已接线；C独立叠加复验 **696 passed, 1 skipped**。三股九组直接计算→HTTP POST→新SQLite连接HTTP GET的精确C结果一致；但MACD缺失/null日期被自动补齐落库，历史GET实际参数12字段与POST6字段不一致，已记录为需修改，不能签全面对齐。确认缺C实现50004及只转发显式MACD字段。详见 [PR21实测与两项整改](evidence/c-v3-b21-review-20260922/README.md)。C算法仍为6a84901，等待B修复SHA；未修改B生产文件。
+
+**D 新交付复核：** PR #22 `bf7cd54a7694728e48937ce9d8f54a5ae4a12714`原版596通过，叠加C quant后713通过；两种环境各9组MA数值→归一化Prompt→快照→新SQLite连接GET一致，独立context_hash验证通过，MACD按首版范围拒绝40007。发现保存结果的收益/回撤/往返数与曲线或订单矛盾时仍会调用LLM并保存，已形成D整改证据；不修改C算法或D生产代码。详见 [PR22数值复核](evidence/c-v3-d22-review-20260922/README.md)。B PR21仍未出修复SHA，最终接口对齐与C4签字继续等待对应修复及最终集成版本。
