@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from backend.app.api.v1.dependencies import (
     get_ai_analysis_service,
+    get_ai_report_history_service,
     get_analysis_context_provider,
     get_backtest_analysis_service,
     get_news_analysis_service,
@@ -122,7 +123,7 @@ def test_ai_analyze_response_contract():
 
 
 def test_ai_report_list_contract_and_validation():
-    app.dependency_overrides[get_ai_analysis_service] = lambda: FakeAIAnalysisService()
+    app.dependency_overrides[get_ai_report_history_service] = lambda: FakeAIAnalysisService()
     client = TestClient(app)
     try:
         response = client.get("/api/v1/ai/reports?stock_code=600519&page=2&page_size=10")
@@ -145,7 +146,7 @@ def test_ai_report_detail_not_found_and_invalid_id():
         def get_report(self, report_id):
             return None
 
-    app.dependency_overrides[get_ai_analysis_service] = lambda: MissingReportService()
+    app.dependency_overrides[get_ai_report_history_service] = lambda: MissingReportService()
     client = TestClient(app)
     try:
         missing = client.get("/api/v1/ai/reports/9")
@@ -164,7 +165,7 @@ def test_ai_report_history_maps_database_error():
         def list_reports(self, stock_code, page, page_size):
             raise DatabaseOperationError()
 
-    app.dependency_overrides[get_ai_analysis_service] = lambda: FailingHistoryService()
+    app.dependency_overrides[get_ai_report_history_service] = lambda: FailingHistoryService()
     client = TestClient(app)
     try:
         response = client.get("/api/v1/ai/reports")
@@ -253,3 +254,11 @@ def test_ai_dependency_graph_installs_real_context_adapters():
     assert news_service._repository._session is db
     assert market._repository._session is db
     assert isinstance(context_provider, ServiceAnalysisContextProvider)
+
+
+def test_ai_report_history_dependency_only_requires_database():
+    db = object()
+
+    service = get_ai_report_history_service(db)
+
+    assert service._repository._db is db

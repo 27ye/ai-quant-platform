@@ -10,6 +10,7 @@ from backend.app.data.providers.base import StockDataProvider
 from backend.app.db.session import get_db
 from backend.app.services.ai_analysis import (
     AIAnalysisService,
+    AIReportHistoryService,
     SQLAlchemyAIAnalysisRepository,
 )
 from backend.app.services.ai_context_adapter import StockQuantAnalysisAdapter
@@ -194,3 +195,9 @@ def get_ai_analysis_service(
         llm_client=llm_client,
         repository=SQLAlchemyAIAnalysisRepository(db),
     )
+
+
+def get_ai_report_history_service(
+    db: Session = Depends(get_db),
+) -> AIReportHistoryService:
+    return AIReportHistoryService(repository=SQLAlchemyAIAnalysisRepository(db))

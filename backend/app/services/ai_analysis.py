@@ -327,6 +327,24 @@ class AIAnalysisService:
         return self._repository.get_report(report_id)
 
 
+class AIReportHistoryService:
+    """Read saved reports without constructing generation dependencies."""
+
+    def __init__(self, repository: AIAnalysisRepository) -> None:
+        self._repository = repository
+
+    def list_reports(
+        self,
+        stock_code: Optional[str],
+        page: int,
+        page_size: int,
+    ) -> PaginatedAIReports:
+        return self._repository.list_reports(stock_code, page, page_size)
+
+    def get_report(self, report_id: int) -> Optional[AIReportDetail]:
+        return self._repository.get_report(report_id)
+
+
 def _utc_now_naive() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
 

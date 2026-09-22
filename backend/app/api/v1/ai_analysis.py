@@ -2,11 +2,14 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Path, Query
 
-from backend.app.api.v1.dependencies import get_ai_analysis_service
+from backend.app.api.v1.dependencies import (
+    get_ai_analysis_service,
+    get_ai_report_history_service,
+)
 from backend.app.core.errors import ReportNotFoundError
 from backend.app.schemas.ai import AIAnalyzeRequest, AIReportDetail, PaginatedAIReports
 from backend.app.schemas.common import ApiResponse
-from backend.app.services.ai_analysis import AIAnalysisService
+from backend.app.services.ai_analysis import AIAnalysisService, AIReportHistoryService
 
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -26,7 +29,7 @@ def list_reports(
     stock_code: Optional[str] = Query(default=None, pattern=r"^\d{6}$"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    service: AIAnalysisService = Depends(get_ai_analysis_service),
+    service: AIReportHistoryService = Depends(get_ai_report_history_service),
 ) -> ApiResponse[PaginatedAIReports]:
     return ApiResponse(data=service.list_reports(stock_code, page, page_size))
 
@@ -34,7 +37,7 @@ def list_reports(
 @router.get("/reports/{report_id}", response_model=ApiResponse[AIReportDetail])
 def get_report(
     report_id: int = Path(gt=0),
-    service: AIAnalysisService = Depends(get_ai_analysis_service),
+    service: AIReportHistoryService = Depends(get_ai_report_history_service),
 ) -> ApiResponse[AIReportDetail]:
     report = service.get_report(report_id)
     if report is None:
