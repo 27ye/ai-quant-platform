@@ -649,6 +649,15 @@ class BacktestService:
         raw_parameters: Optional[Dict[str, Any]] = None,
         strategy: Optional[str] = None,
     ) -> Dict[str, Any]:
+        if strategy == STRATEGY_MACD and (start_date is None or end_date is None):
+            # V3 plan 5.1 / API_SPEC / C's contract: a MACD request must state its window
+            # explicitly. Inheriting the MA defaulting below would silently run - and save -
+            # a window the caller never asked for (C reproduced 5 such cases: both missing,
+            # start missing, end missing, start=null, end=null - each HTTP 200 with one
+            # fetch and one saved row). Checked before any defaulting, C call, fetch or save.
+            raise InvalidParameterError(
+                "strategy=macd requires explicit start_date and end_date"
+            )
         end = end_date or self._today()
         start = start_date or (end - timedelta(days=DEFAULT_WINDOW_DAYS))
         if start > end:
@@ -741,12 +750,21 @@ class BacktestService:
             "window_owner": WINDOW_OWNER_C,
         }
         if strategy == STRATEGY_MACD:
-            # C documents ``effective_parameters`` as the MACD six fields and returns
-            # its own ``parameters`` envelope; keep C's values and use B's sparse
-            # request only as a fallback, so saved history states what C actually ran
-            # rather than what B happened to forward.
-            result.setdefault("effective_parameters", raw_parameters)
-            stored_parameters = result.get("parameters") or raw_parameters
+            # Persist **C's** ``effective_parameters`` - the six fields that actually ran.
+            # C's ``parameters`` additionally carries execution notes
+            # (``allow_fractional_shares``, ``annualization_days``, ``benchmark_method``,
+            # ``contract_status``, ``effective_trading_days``, ``risk_free_rate``) and must
+            # not be stored here: doing so made POST report six fields while a historical
+            # GET reported twelve, and re-submitting those parameters then failed 40001
+            # (C, PR #21 review). The execution notes stay in the exact C snapshot.
+            c_effective = c_result.get("effective_parameters")
+            if not isinstance(c_effective, Mapping) or not c_effective:
+                raise BacktestError(
+                    "C's macd result did not include effective_parameters; refusing to "
+                    "store the sparse request as the effective parameters"
+                )
+            result["effective_parameters"] = dict(c_effective)
+            stored_parameters = dict(c_effective)
         else:
             # C owns everything outside the whitelist, so only those five are stored as
             # "effective parameters": B's QuantConfig defaults for the rest must not

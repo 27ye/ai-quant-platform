@@ -246,7 +246,18 @@ class _FakeCWindowedEntry:
             # C's own envelopes. B must keep these instead of substituting its sparse
             # request - that is exactly what the effective_parameters assertion checks.
             "effective_parameters": effective,
-            "parameters": {**effective, "strategy_name": "macd_dif_above_dea_long_only"},
+            # C's real ``parameters`` object is the six fields **plus six execution notes**
+            # (verified against C's live output in the PR #21 review). That difference is
+            # exactly why B must not persist this one as the "effective parameters".
+            "parameters": {
+                **effective,
+                "allow_fractional_shares": True,
+                "annualization_days": 252,
+                "benchmark_method": "first_open_to_last_close_no_cost",
+                "contract_status": "long_only",
+                "effective_trading_days": 283,
+                "risk_free_rate": 0.0,
+            },
             "indicator_spec": {"warmup_rows": 34, "hist_multiplier": 2},
             "warmup": {"required_rows": 34, "used_rows": 34},
             "initial_equity": {
@@ -1183,7 +1194,11 @@ def test_macd_forces_windowed_semantics_without_parameters():
     }
     assert result["effective_parameters"]["macd_slow_period"] == 26
     assert result["strategy_name"] == "macd_dif_above_dea_long_only"
-    assert stored.parameters["strategy_name"] == "macd_dif_above_dea_long_only"
+    # The strategy identity lives in its own column and in C's exact snapshot - never
+    # inside the persisted parameters (C's ``parameters`` is the execution-note object;
+    # storing it made POST/GET disagree, C's PR #21 review).
+    assert stored.strategy_name == "macd_dif_above_dea_long_only"
+    assert set(stored.effective_parameters) == set(result["effective_parameters"])
 
 
 def test_macd_forwards_only_the_fields_the_caller_sent():
@@ -1368,3 +1383,149 @@ def test_short_strategy_version_is_stored_as_is():
         stored = session.get(BacktestResult, result["backtest_id"])
 
     assert stored.strategy_version == "v3.0.0"
+
+
+# -- V3 F5: MACD must state its window (C's PR #21 review) -------------------
+#
+# C reproduced 5 cases on ``11a0c03`` where a MACD request without dates inherited the MA
+# defaulting and returned HTTP 200 after one fetch and one saved row. The rule is now:
+# MACD requires both dates, checked before any defaulting/C call/fetch/save. MA keeps its
+# old defaulting behaviour, which the last test pins.
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        pytest.param({"stock_code": STOCK_CODE, "strategy": "macd"}, id="both-missing"),
+        pytest.param(
+            {"stock_code": STOCK_CODE, "strategy": "macd", "end_date": "2025-12-31"},
+            id="start-missing",
+        ),
+        pytest.param(
+            {"stock_code": STOCK_CODE, "strategy": "macd", "start_date": "2025-06-01"},
+            id="end-missing",
+        ),
+        pytest.param(
+            {
+                "stock_code": STOCK_CODE,
+                "strategy": "macd",
+                "start_date": None,
+                "end_date": "2025-12-31",
+            },
+            id="start-null",
+        ),
+        pytest.param(
+            {
+                "stock_code": STOCK_CODE,
+                "strategy": "macd",
+                "start_date": "2025-06-01",
+                "end_date": None,
+            },
+            id="end-null",
+        ),
+    ],
+)
+def test_macd_without_an_explicit_window_is_rejected_without_side_effects(payload):
+    market = _FakeMarketSource(_rows())
+    with _session() as session:
+        repository = BacktestRepository(session)
+        service = _service(
+            market, repository, c_entry=_FakeCWindowedEntry(required_warmup_rows=34)
+        )
+        client = _api_client(repository, service)
+        try:
+            response = client.post("/api/v1/backtests", json=payload)
+        finally:
+            app.dependency_overrides.clear()
+        saved = session.query(BacktestResult).count()
+
+    assert response.status_code == 400, response.text
+    assert response.json()["code"] == 40001
+    assert market.calls == []  # zero fetches
+    assert saved == 0  # zero rows
+
+
+def test_ma_keeps_its_date_defaulting_while_macd_demands_a_window():
+    """The new rule is MACD-only - MA (v1_legacy / v2_windowed) still defaults dates."""
+    market = _FakeMarketSource(_rows())
+    c_entry = _FakeCWindowedEntry()
+    with _session() as session:
+        result = _service(market, BacktestRepository(session), c_entry=c_entry).run(
+            stock_code=STOCK_CODE,
+            parameters=BacktestParametersSchema(ma_long_period=20),
+            parameters_provided=True,
+        )
+
+    assert result["data_meta"]["requested_start_date"] is not None
+    assert result["data_meta"]["requested_end_date"] is not None
+    assert market.calls  # MA still fetches on its own default window
+
+
+def test_macd_post_and_historical_get_agree_on_effective_parameters(tmp_path):
+    """C's second finding: persist C's six-field ``effective_parameters``.
+
+    ``parameters`` is C's execution-note object (12 fields); storing it made POST report
+    six fields while a historical GET reported twelve, and re-submitting those parameters
+    then failed 40001. A file-backed database plus a **new engine/session** for the GET
+    mirrors C's reconnect, so this cannot pass thanks to one open transaction.
+    """
+    url = f"sqlite:///{tmp_path / 'bt.db'}"
+    engine = create_engine(url, connect_args={"check_same_thread": False})
+    apply_migrations(engine)
+    market = _FakeMarketSource(_rows())
+    c_entry = _FakeCWindowedEntry(required_warmup_rows=34)
+
+    with Session(bind=engine) as session:
+        repository = BacktestRepository(session)
+        result = _service(market, repository, c_entry=c_entry).run(
+            stock_code=STOCK_CODE,
+            strategy="macd",
+            strategy_provided=True,
+            **_WINDOWED,
+        )
+        backtest_id = result["backtest_id"]
+    engine.dispose()
+
+    engine2 = create_engine(url, connect_args={"check_same_thread": False})
+    try:
+        with Session(bind=engine2) as session2:
+            repository2 = BacktestRepository(session2)
+            detail = repository2.get(backtest_id)
+            full = repository2.get(backtest_id, include_c_result=True)
+    finally:
+        engine2.dispose()
+
+    six = {
+        "macd_fast_period",
+        "macd_slow_period",
+        "macd_signal_period",
+        "initial_cash",
+        "transaction_cost",
+        "slippage",
+    }
+    # POST and the reconnected GET agree, field set and value types alike.
+    assert set(result["effective_parameters"]) == six
+    assert set(detail["effective_parameters"]) == six
+    assert set(detail["parameters"]) == six
+    assert detail["effective_parameters"] == result["effective_parameters"]
+    assert {k: type(v).__name__ for k, v in detail["effective_parameters"].items()} == {
+        k: type(v).__name__ for k, v in result["effective_parameters"].items()
+    }
+
+    # The execution notes stay in C's exact snapshot, not in the effective parameters.
+    assert {"benchmark_method", "annualization_days"} <= set(full["c_result"]["parameters"])
+    assert "benchmark_method" not in detail["effective_parameters"]
+
+    # A's flow: the historical parameters can be submitted again without 40001.
+    with Session(bind=engine) as session:
+        resubmitted = _service(
+            market, BacktestRepository(session), c_entry=c_entry
+        ).run(
+            stock_code=STOCK_CODE,
+            strategy="macd",
+            strategy_provided=True,
+            parameters=BacktestParametersSchema(**detail["effective_parameters"]),
+            parameters_provided=True,
+            **_WINDOWED,
+        )
+    assert resubmitted["effective_parameters"] == result["effective_parameters"]
