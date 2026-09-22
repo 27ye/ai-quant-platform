@@ -224,7 +224,10 @@ def test_migration_v8_resumes_when_column_exists_but_backfill_is_missing():
     payload = {"algorithm_version": "pre-v8", "equity": 1.0}
     exact_text = json.dumps({"algorithm_version": "post-v8", "equity": 2.0})
     with engine.begin() as connection:
-        connection.execute(text("DELETE FROM schema_version WHERE version = 8"))
+        # Rewind to "v7 + half-applied v8": every version row at or above the interrupted
+        # step must go. Deleting only row 8 would leave MAX(version) reporting a later
+        # revision (V3's v9) and the entry point would skip the v8 step under test.
+        connection.execute(text("DELETE FROM schema_version WHERE version >= 8"))
         connection.execute(
             text(
                 "INSERT INTO backtest_result "
@@ -253,7 +256,9 @@ def test_migration_v8_resumes_when_column_exists_but_backfill_is_missing():
         ).all()
         version = migrations.get_schema_version(engine)
 
-    assert version == 8
+    # The entry point resumes the interrupted v8 step and then continues to the current
+    # revision (v9 in V3); the guard is "resumed, not skipped", not the literal 8.
+    assert version == migrations.SCHEMA_VERSION
     assert rows[0].strategy_name == "pre-v8"
     assert json.loads(rows[0].c_result_text) == payload
     assert rows[1].strategy_name == "post-v8"
@@ -325,7 +330,8 @@ def test_migration_v8_recovers_when_the_column_exists_but_the_backfill_never_ran
     # and a legacy row still waiting for its backfill.
     payload = {"algorithm_version": "pre-v8", "equity": 99633.35582084299}
     with engine.begin() as connection:
-        connection.execute(text("DELETE FROM schema_version WHERE version = 8"))
+        # Same rewinding rule as above: drop every row at or above the interrupted step.
+        connection.execute(text("DELETE FROM schema_version WHERE version >= 8"))
         connection.execute(
             text(
                 "INSERT INTO backtest_result "
@@ -340,12 +346,15 @@ def test_migration_v8_recovers_when_the_column_exists_but_the_backfill_never_ran
         before = connection.execute(text("SELECT c_result_text FROM backtest_result")).scalar()
     assert before is None  # the interrupted run never got to write it
 
-    assert apply_migrations(engine) == 8  # the re-run must resume, not skip
+    # The documented entry point applies *every* pending step, so the expected value is
+    # the current revision, not the literal 8: V3 added v9 on top of the v8 work. What
+    # this test guards is that the re-run resumes instead of skipping - not the number.
+    assert apply_migrations(engine) == migrations.SCHEMA_VERSION
 
     with engine.connect() as connection:
         after = connection.execute(text("SELECT c_result_text FROM backtest_result")).scalar()
     assert json.loads(after) == payload
-    assert migrations.get_schema_version(engine) == 8
+    assert migrations.get_schema_version(engine) == migrations.SCHEMA_VERSION
 
     # And the row still reads back the way a pre-v8 row must: readable, inexact.
     with Session(bind=engine) as session:
@@ -394,5 +403,11 @@ def test_repeated_migration_v8_never_rewrites_exact_post_upgrade_records():
     assert full["c_result"] == envelope
 
 
-def test_schema_version_is_eight():
-    assert migrations.SCHEMA_VERSION == 8
+def test_schema_version_is_nine():
+    """Pin the current revision deliberately (V2 ended at 8; V3 adds v9).
+
+    A literal pin makes adding a migration step a conscious edit in two places, so a
+    step cannot be appended and forgotten. The v8 *content* assertions (column,
+    backfill, half-applied recovery) live above and are unaffected by the bump.
+    """
+    assert migrations.SCHEMA_VERSION == 9
