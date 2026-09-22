@@ -175,6 +175,9 @@ def graph(monkeypatch):
     app.dependency_overrides[dependencies.get_trading_calendar_provider] = (
         lambda: state.calendar
     )
+    app.dependency_overrides[dependencies.get_standard_ai_context_factory] = lambda: (
+        lambda db: dependencies.build_standard_ai_context(db, state.provider, state.calendar)
+    )
     app.dependency_overrides[dependencies.get_llm_client] = lambda: llm
     try:
         with TestClient(app) as client:

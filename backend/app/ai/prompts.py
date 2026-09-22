@@ -1,7 +1,7 @@
 import json
 from typing import Dict, List
 
-from backend.app.schemas.ai import AIAnalysisStructuredOutput, AnalysisContext
+from backend.app.schemas.ai import AIAnalysisStructuredOutput, BacktestInterpretationContext, ReportContext
 
 
 SYSTEM_PROMPT = """你是 A 股量化投研报告生成器。请严格遵守以下规则：
@@ -15,7 +15,7 @@ SYSTEM_PROMPT = """你是 A 股量化投研报告生成器。请严格遵守以�
 """
 
 
-def build_analysis_messages(context: AnalysisContext) -> List[Dict[str, str]]:
+def build_analysis_messages(context: ReportContext) -> List[Dict[str, str]]:
     context_json = json.dumps(
         context.model_dump(mode="json"),
         ensure_ascii=False,
@@ -26,6 +26,19 @@ def build_analysis_messages(context: AnalysisContext) -> List[Dict[str, str]]:
         ensure_ascii=False,
         separators=(",", ":"),
     )
+    if isinstance(context, BacktestInterpretationContext):
+        return [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": (
+                "请仅解释保存的 MA 回测。technical_analysis 解释策略与参数，quant_analysis 解释保存的回测表现。"
+                "不得分析当前股票趋势、补充最新行情、默认评分或新闻；不得重新计算或推荐最优参数。"
+                "trend 必须为 neutral，news_analysis 必须为 本报告未纳入新闻数据。"
+                "说明 execution_assumptions 的简化成交假设及历史表现不代表未来收益。"
+                "data_as_of 为回测保存时间，实际区间为 start_date/end_date。\n"
+                f"output_json_schema={schema_json}\n"
+                f"analysis_context={context_json}"
+            )},
+        ]
     user_prompt = (
         "请根据 analysis_context 生成综合分析。\n"
         "当 analysis_context.news 为空时，news_analysis 必须明确说明新闻数据暂不可用，"
@@ -43,7 +56,7 @@ def build_analysis_messages(context: AnalysisContext) -> List[Dict[str, str]]:
 
 
 def build_repair_messages(
-    context: AnalysisContext,
+    context: ReportContext,
     invalid_output: str,
 ) -> List[Dict[str, str]]:
     messages = build_analysis_messages(context)

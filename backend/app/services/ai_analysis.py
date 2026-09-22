@@ -19,6 +19,10 @@ from backend.app.ai.prompts import build_analysis_messages, build_repair_message
 from backend.app.core.errors import DatabaseOperationError
 from backend.app.models.ai_analysis import AIAnalysis
 from backend.app.schemas.ai import (
+    BACKTEST_CONTEXT_VERSION,
+    BACKTEST_NEWS_DISCLOSURE,
+    BacktestInterpretationContext,
+    ReportContext,
     CONTEXT_SCHEMA_VERSION,
     OUTPUT_SCHEMA_VERSION,
     PROMPT_VERSION,
@@ -35,7 +39,7 @@ from backend.app.services.analysis_context import AnalysisContextProvider
 logger = logging.getLogger(__name__)
 
 
-def serialize_analysis_context(context: AnalysisContext) -> tuple[dict, str]:
+def serialize_analysis_context(context: ReportContext) -> tuple[dict, str]:
     snapshot = _normalize_json_numbers(context.model_dump(mode="json"))
     canonical = json.dumps(
         snapshot,
@@ -46,7 +50,7 @@ def serialize_analysis_context(context: AnalysisContext) -> tuple[dict, str]:
     return snapshot, hashlib.sha256(canonical).hexdigest()
 
 
-def normalize_analysis_context(context: AnalysisContext) -> AnalysisContext:
+def normalize_analysis_context(context: ReportContext) -> ReportContext:
     """Normalize JSON numbers before the context reaches Prompt or storage.
 
     MySQL JSON canonicalizes IEEE ``-0.0`` and fractional digits beyond its
@@ -54,14 +58,14 @@ def normalize_analysis_context(context: AnalysisContext) -> AnalysisContext:
     boundary keeps the prompt, stored snapshot and readback hash identical.
     """
     payload = _normalize_json_numbers(context.model_dump(mode="python"))
-    return AnalysisContext.model_validate(payload)
+    return type(context).model_validate(payload)
 
 
 class AIAnalysisRepository(Protocol):
     def save(
         self,
         analysis: AIAnalysisData,
-        context: AnalysisContext,
+        context: ReportContext,
         metadata: AIReportMetadata,
     ) -> AIReportDetail:
         """Persist one validated report and its exact input snapshot."""
@@ -85,7 +89,7 @@ class SQLAlchemyAIAnalysisRepository:
     def save(
         self,
         analysis: AIAnalysisData,
-        context: AnalysisContext,
+        context: ReportContext,
         metadata: AIReportMetadata,
     ) -> AIReportDetail:
         snapshot, actual_hash = serialize_analysis_context(context)
@@ -103,6 +107,8 @@ class SQLAlchemyAIAnalysisRepository:
             risks=analysis.risks,
             conclusion=analysis.conclusion,
             model_name=analysis.model_name,
+            analysis_mode=metadata.analysis_mode,
+            backtest_id=metadata.backtest_id,
             context_snapshot=snapshot,
             context_hash=metadata.context_hash,
             source_mode=metadata.source_mode,
@@ -158,6 +164,11 @@ class SQLAlchemyAIAnalysisRepository:
                 AIAnalysis.data_as_of,
                 AIAnalysis.created_at,
                 AIAnalysis.source_mode,
+                AIAnalysis.analysis_mode,
+                AIAnalysis.backtest_id,
+                AIAnalysis.prompt_version,
+                AIAnalysis.context_schema_version,
+                AIAnalysis.output_schema_version,
                 has_complete_snapshot,
                 is_legacy_report,
             )
@@ -199,7 +210,10 @@ class SQLAlchemyAIAnalysisRepository:
         if not record.has_complete_snapshot and not record.is_legacy_report:
             raise ValueError("stored report snapshot metadata is incomplete")
         complete = bool(record.has_complete_snapshot)
+        mode = _report_mode(record, legacy=not complete)
         return AIReportSummary(
+            analysis_mode=mode,
+            backtest_id=record.backtest_id,
             report_id=record.id,
             stock_code=record.stock_code,
             quant_score=record.quant_score,
@@ -216,6 +230,7 @@ class SQLAlchemyAIAnalysisRepository:
     def _to_detail(record: AIAnalysis) -> AIReportDetail:
         legacy = record.context_snapshot is None
         context = None
+        mode = _report_mode(record, legacy=legacy)
         if legacy and any(
             value is not None
             for value in (
@@ -239,7 +254,13 @@ class SQLAlchemyAIAnalysisRepository:
             )
             if any(value is None for value in required_metadata):
                 raise ValueError("stored report metadata is incomplete")
-            context = AnalysisContext.model_validate(record.context_snapshot)
+            context_type = BacktestInterpretationContext if mode == "custom_backtest" else AnalysisContext
+            context = context_type.model_validate(record.context_snapshot)
+            context_stock = context.stock_code if mode == "custom_backtest" else context.stock.stock_code
+            if context_stock != record.stock_code:
+                raise ValueError("stored report stock mismatch")
+            if mode == "custom_backtest" and (context.backtest_id != record.backtest_id or record.news_analysis != BACKTEST_NEWS_DISCLOSURE):
+                raise ValueError("stored custom report metadata mismatch")
             _, actual_hash = serialize_analysis_context(context)
             if not record.context_hash or actual_hash != record.context_hash:
                 raise ValueError("stored context hash mismatch")
@@ -248,6 +269,8 @@ class SQLAlchemyAIAnalysisRepository:
             if (record.source_mode or "unknown") != context.provenance.source_mode:
                 raise ValueError("stored report source mode mismatch")
         return AIReportDetail(
+            analysis_mode=mode,
+            backtest_id=record.backtest_id,
             report_id=record.id,
             stock_code=record.stock_code,
             quant_score=record.quant_score,
@@ -276,18 +299,27 @@ class AIAnalysisService:
     def __init__(
         self,
         *,
-        context_provider: AnalysisContextProvider,
+        context_provider: Optional[AnalysisContextProvider],
         llm_client: LLMClient,
         repository: AIAnalysisRepository,
+        backtest_context_provider=None,
     ) -> None:
+        self._backtest_context_provider = backtest_context_provider
         self._context_provider = context_provider
         self._llm_client = llm_client
         self._repository = repository
 
-    async def analyze(self, stock_code: str) -> AIReportDetail:
-        context = normalize_analysis_context(
-            self._context_provider.get_context(stock_code)
-        )
+    async def analyze(self, stock_code: str, backtest_id: Optional[int] = None) -> AIReportDetail:
+        custom = backtest_id is not None
+        if custom:
+            if self._backtest_context_provider is None:
+                raise RuntimeError("backtest context provider is not configured")
+            raw_context = self._backtest_context_provider.get_context(stock_code, backtest_id)
+        else:
+            if self._context_provider is None:
+                raise RuntimeError("standard context provider is not configured")
+            raw_context = self._context_provider.get_context(stock_code)
+        context = normalize_analysis_context(raw_context)
         _, context_hash = serialize_analysis_context(context)
         content = await self._llm_client.complete_json(build_analysis_messages(context))
         try:
@@ -298,18 +330,24 @@ class AIAnalysisService:
             )
             structured_output = parse_structured_output(repaired_content)
 
-        quant_score = context.quant_score.score if context.quant_score else None
+        if custom:
+            structured_output = structured_output.model_copy(update={
+                "trend": "neutral", "news_analysis": BACKTEST_NEWS_DISCLOSURE,
+            })
+        quant_score = None if custom else (context.quant_score.score if context.quant_score else None)
         result = AIAnalysisData(
-            stock_code=context.stock.stock_code,
+            stock_code=context.stock_code if custom else context.stock.stock_code,
             quant_score=quant_score,
             model_name=self._llm_client.model_name,
             **structured_output.model_dump(),
         )
         metadata = AIReportMetadata(
+            analysis_mode="custom_backtest" if custom else "standard",
+            backtest_id=backtest_id,
             data_as_of=context.data_as_of,
             source_mode=context.provenance.source_mode,
-            prompt_version=PROMPT_VERSION,
-            context_schema_version=CONTEXT_SCHEMA_VERSION,
+            prompt_version=BACKTEST_CONTEXT_VERSION if custom else PROMPT_VERSION,
+            context_schema_version=BACKTEST_CONTEXT_VERSION if custom else CONTEXT_SCHEMA_VERSION,
             output_schema_version=OUTPUT_SCHEMA_VERSION,
             context_hash=context_hash,
         )
@@ -343,6 +381,25 @@ class AIReportHistoryService:
 
     def get_report(self, report_id: int) -> Optional[AIReportDetail]:
         return self._repository.get_report(report_id)
+
+
+def _report_mode(record, *, legacy: bool) -> str:
+    if legacy and record.analysis_mode is not None:
+        raise ValueError("new report mode requires a complete snapshot")
+    mode = "standard" if record.analysis_mode is None else record.analysis_mode
+    if mode not in ("standard", "custom_backtest"):
+        raise ValueError("unknown stored analysis mode")
+    if mode == "standard":
+        if record.backtest_id is not None:
+            raise ValueError("standard report must not reference a backtest")
+        expected = (PROMPT_VERSION, CONTEXT_SCHEMA_VERSION, OUTPUT_SCHEMA_VERSION)
+    else:
+        if legacy or type(record.backtest_id) is not int or record.backtest_id <= 0 or record.quant_score is not None or record.trend != "neutral":
+            raise ValueError("inconsistent custom report metadata")
+        expected = (BACKTEST_CONTEXT_VERSION, BACKTEST_CONTEXT_VERSION, OUTPUT_SCHEMA_VERSION)
+    if not legacy and (record.prompt_version, record.context_schema_version, record.output_schema_version) != expected:
+        raise ValueError("unsupported stored report schema version")
+    return mode
 
 
 def _utc_now_naive() -> datetime:

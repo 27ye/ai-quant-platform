@@ -281,6 +281,7 @@ def validate_mysql_v1_upgrade() -> None:
         required = {
             "context_snapshot", "context_hash", "source_mode", "data_as_of",
             "prompt_version", "context_schema_version", "output_schema_version",
+            "analysis_mode", "backtest_id",
         }
         if (
             version != SCHEMA_VERSION

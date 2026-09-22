@@ -248,6 +248,9 @@ def install_frozen_overrides(app, package: FrozenPackage) -> None:
     app.dependency_overrides[dependencies.get_data_provider] = lambda: provider
     app.dependency_overrides[dependencies.get_stock_service] = lambda: StockService(provider=provider)
     app.dependency_overrides[dependencies.get_trading_calendar_provider] = lambda: package.calendar
+    app.dependency_overrides[dependencies.get_standard_ai_context_factory] = lambda: (
+        lambda db: dependencies.build_standard_ai_context(db, provider, package.calendar)
+    )
 
     def market_override(db=Depends(get_db)):
         return FrozenMarketDataSource(

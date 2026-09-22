@@ -85,3 +85,9 @@ class BacktestError(ApplicationError):
     code = 50004
     message = "backtest error"
     status_code = 500
+
+
+class BacktestInterpretationUnavailableError(ApplicationError):
+    code = 40007
+    message = "backtest is not eligible for AI interpretation"
+    status_code = 422

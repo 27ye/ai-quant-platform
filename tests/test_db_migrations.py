@@ -77,6 +77,7 @@ def test_v1_database_is_upgraded_without_changing_legacy_rows():
     assert {
         "context_snapshot", "context_hash", "source_mode", "data_as_of",
         "prompt_version", "context_schema_version", "output_schema_version",
+        "analysis_mode", "backtest_id",
     } <= columns
     with engine.connect() as connection:
         row = connection.execute(
