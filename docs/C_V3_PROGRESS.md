@@ -11,3 +11,5 @@
 
 今日C可独立交付部分已完成：算法、117项新增测试、既有回归、三股三组MACD参数证据、数值对接示例。详见 [模块验收记录](evidence/c-v3-macd-20260922/README.md)。前端类型/构建、compileall和既有量化/AI历史兼容脚本通过。只补文档/证据的提交与被测代码SHA分开记录；任何生产代码变动需重新验证。
 未宣称：HTTP已支持MACD、数据库新增字段已保存、页面/真实AI已验证或V3整站已完成。没有合并任何PR。
+
+追加远端核对：B PR #19 `fa91f4c...`（v9迁移）与C隔离组合 **682 passed**；10份MACD/MA结果经临时SQLite新engine/session完整读回一致。但B当前HTTP仍拒绝strategy，MACD接线明确待完成。详见 [远端接口对接清单与证据](evidence/c-v3-remote-contract-20260922/README.md)。C已发布签名/错误码/六参数/版本及精确快照边界，并请求B/D按实现SHA闭环。

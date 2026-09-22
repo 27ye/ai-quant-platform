@@ -1,0 +1,81 @@
+{
+  "b_sha": "fa91f4ca7477cc28db4df4021e32e40a42870fe6",
+  "c_code_sha": "6a84901c82256b7d48dfab3ebee3208633e5058c",
+  "c_published_sha": "a79155e23e63ce1d8f01c56e41bdedc0c3a07c68",
+  "scope": "B PR19 exact files + C PR18 quant overlay, SQLite and TestClient only; not deployed server or MySQL",
+  "repository_roundtrips": [
+    {
+      "file": "600519_default.json",
+      "exact_c_result": true,
+      "parameters_and_flat_projections": true,
+      "new_engine_and_session": true
+    },
+    {
+      "file": "600519_fast6_slow13_signal5.json",
+      "exact_c_result": true,
+      "parameters_and_flat_projections": true,
+      "new_engine_and_session": true
+    },
+    {
+      "file": "600519_fast20_slow40_signal12_cost.json",
+      "exact_c_result": true,
+      "parameters_and_flat_projections": true,
+      "new_engine_and_session": true
+    },
+    {
+      "file": "ma_default.json",
+      "exact_c_result": true,
+      "parameters_and_flat_projections": true,
+      "new_engine_and_session": true
+    },
+    {
+      "file": "000001_default.json",
+      "exact_c_result": true,
+      "parameters_and_flat_projections": true,
+      "new_engine_and_session": true
+    },
+    {
+      "file": "000001_fast6_slow13_signal5.json",
+      "exact_c_result": true,
+      "parameters_and_flat_projections": true,
+      "new_engine_and_session": true
+    },
+    {
+      "file": "000001_fast20_slow40_signal12_cost.json",
+      "exact_c_result": true,
+      "parameters_and_flat_projections": true,
+      "new_engine_and_session": true
+    },
+    {
+      "file": "300750_default.json",
+      "exact_c_result": true,
+      "parameters_and_flat_projections": true,
+      "new_engine_and_session": true
+    },
+    {
+      "file": "300750_fast6_slow13_signal5.json",
+      "exact_c_result": true,
+      "parameters_and_flat_projections": true,
+      "new_engine_and_session": true
+    },
+    {
+      "file": "300750_fast20_slow40_signal12_cost.json",
+      "exact_c_result": true,
+      "parameters_and_flat_projections": true,
+      "new_engine_and_session": true
+    }
+  ],
+  "http_current_status": [
+    {
+      "strategy": "macd",
+      "http_status": 400,
+      "business_code": 40001
+    },
+    {
+      "strategy": "ma_cross",
+      "http_status": 400,
+      "business_code": 40001
+    }
+  ],
+  "conclusion": "C output preserves exact repository storage under B v9; explicit strategy HTTP wiring remains blocked until B F5 implementation."
+}
