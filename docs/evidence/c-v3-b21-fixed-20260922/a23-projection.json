@@ -1,0 +1,21 @@
+{
+  "a_sha": "6daa211fc98a2ec252fd19eccdd4d340a17e0dd3",
+  "b_sha": "0360b699f6530aefd5afe5e11e859f4c179146d8",
+  "scope": "Real B HTTP fields evaluated by original A computed projection; no browser",
+  "actual_rows": [
+    {
+      "label": "请求区间",
+      "a": "2025-07-07 ~ 2026-08-28",
+      "b": "2025-07-07 ~ 2026-08-28",
+      "diff": false
+    },
+    {
+      "label": "实际区间",
+      "a": "—",
+      "b": "—"
+    }
+  ],
+  "expected_requested": "2025-07-05 ~ 2026-08-30",
+  "expected_actual": "2025-07-07 ~ 2026-08-28",
+  "finding": true
+}

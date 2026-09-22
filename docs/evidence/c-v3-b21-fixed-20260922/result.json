@@ -1,0 +1,386 @@
+{
+  "b_sha": "0360b699f6530aefd5afe5e11e859f4c179146d8",
+  "c_code_sha": "6a84901c82256b7d48dfab3ebee3208633e5058c",
+  "scope": "isolated B21 + C18; real HTTP routes/schema/service/C/repository; fixed Tencent qfq sample source; temporary SQLite, NOT MySQL/live Provider/LLM",
+  "matrix": [
+    {
+      "stock_code": "600519",
+      "parameters": "default",
+      "direct_post_equal": true,
+      "direct_exact_get_equal": true,
+      "new_engine_session": true,
+      "history_effective_equals_post": true,
+      "post_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "get_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "warmup_rows": 34,
+      "curve_points": 283,
+      "history_parameters_repost_exact": true
+    },
+    {
+      "stock_code": "600519",
+      "parameters": "fast6_slow13_signal5",
+      "direct_post_equal": true,
+      "direct_exact_get_equal": true,
+      "new_engine_session": true,
+      "history_effective_equals_post": true,
+      "post_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "get_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "warmup_rows": 17,
+      "curve_points": 283,
+      "history_parameters_repost_exact": true
+    },
+    {
+      "stock_code": "600519",
+      "parameters": "fast20_slow40_signal12_cost",
+      "direct_post_equal": true,
+      "direct_exact_get_equal": true,
+      "new_engine_session": true,
+      "history_effective_equals_post": true,
+      "post_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "get_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "warmup_rows": 51,
+      "curve_points": 283,
+      "history_parameters_repost_exact": true
+    },
+    {
+      "stock_code": "000001",
+      "parameters": "default",
+      "direct_post_equal": true,
+      "direct_exact_get_equal": true,
+      "new_engine_session": true,
+      "history_effective_equals_post": true,
+      "post_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "get_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "warmup_rows": 34,
+      "curve_points": 283,
+      "history_parameters_repost_exact": true
+    },
+    {
+      "stock_code": "000001",
+      "parameters": "fast6_slow13_signal5",
+      "direct_post_equal": true,
+      "direct_exact_get_equal": true,
+      "new_engine_session": true,
+      "history_effective_equals_post": true,
+      "post_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "get_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "warmup_rows": 17,
+      "curve_points": 283,
+      "history_parameters_repost_exact": true
+    },
+    {
+      "stock_code": "000001",
+      "parameters": "fast20_slow40_signal12_cost",
+      "direct_post_equal": true,
+      "direct_exact_get_equal": true,
+      "new_engine_session": true,
+      "history_effective_equals_post": true,
+      "post_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "get_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "warmup_rows": 51,
+      "curve_points": 283,
+      "history_parameters_repost_exact": true
+    },
+    {
+      "stock_code": "300750",
+      "parameters": "default",
+      "direct_post_equal": true,
+      "direct_exact_get_equal": true,
+      "new_engine_session": true,
+      "history_effective_equals_post": true,
+      "post_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "get_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "warmup_rows": 34,
+      "curve_points": 283,
+      "history_parameters_repost_exact": true
+    },
+    {
+      "stock_code": "300750",
+      "parameters": "fast6_slow13_signal5",
+      "direct_post_equal": true,
+      "direct_exact_get_equal": true,
+      "new_engine_session": true,
+      "history_effective_equals_post": true,
+      "post_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "get_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "warmup_rows": 17,
+      "curve_points": 283,
+      "history_parameters_repost_exact": true
+    },
+    {
+      "stock_code": "300750",
+      "parameters": "fast20_slow40_signal12_cost",
+      "direct_post_equal": true,
+      "direct_exact_get_equal": true,
+      "new_engine_session": true,
+      "history_effective_equals_post": true,
+      "post_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "get_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "warmup_rows": 51,
+      "curve_points": 283,
+      "history_parameters_repost_exact": true
+    }
+  ],
+  "date_matrix": [
+    {
+      "case": "omit_both",
+      "status": 400,
+      "code": 40001,
+      "fetch_calls": 0,
+      "saved_records": 0,
+      "resolved_start": null,
+      "resolved_end": null
+    },
+    {
+      "case": "omit_start",
+      "status": 400,
+      "code": 40001,
+      "fetch_calls": 0,
+      "saved_records": 0,
+      "resolved_start": null,
+      "resolved_end": null
+    },
+    {
+      "case": "omit_end",
+      "status": 400,
+      "code": 40001,
+      "fetch_calls": 0,
+      "saved_records": 0,
+      "resolved_start": null,
+      "resolved_end": null
+    },
+    {
+      "case": "null_start",
+      "status": 400,
+      "code": 40001,
+      "fetch_calls": 0,
+      "saved_records": 0,
+      "resolved_start": null,
+      "resolved_end": null
+    },
+    {
+      "case": "null_end",
+      "status": 400,
+      "code": 40001,
+      "fetch_calls": 0,
+      "saved_records": 0,
+      "resolved_start": null,
+      "resolved_end": null
+    }
+  ],
+  "parameter_matrix": [
+    {
+      "case": "null_strategy",
+      "status": 400,
+      "code": 40001,
+      "fetch_calls": 0,
+      "saved_records": 0
+    },
+    {
+      "case": "null_params",
+      "status": 400,
+      "code": 40001,
+      "fetch_calls": 0,
+      "saved_records": 0
+    },
+    {
+      "case": "mixed_ma",
+      "status": 400,
+      "code": 40001,
+      "fetch_calls": 0,
+      "saved_records": 0
+    },
+    {
+      "case": "period_bool",
+      "status": 400,
+      "code": 40001,
+      "fetch_calls": 0,
+      "saved_records": 0
+    },
+    {
+      "case": "period_range",
+      "status": 400,
+      "code": 40001,
+      "fetch_calls": 0,
+      "saved_records": 0
+    },
+    {
+      "case": "period_order",
+      "status": 400,
+      "code": 40001,
+      "fetch_calls": 0,
+      "saved_records": 0
+    }
+  ],
+  "ma_default_window": [
+    {
+      "strategy": "omitted",
+      "status": 200,
+      "start": "2025-08-30",
+      "end": "2026-08-31"
+    },
+    {
+      "strategy": "ma_cross",
+      "status": 200,
+      "start": "2025-08-30",
+      "end": "2026-08-31"
+    }
+  ],
+  "nontrading_boundary_detail": {
+    "start_date": "2025-07-07",
+    "end_date": "2026-08-28",
+    "data_meta": {
+      "semantics_version": "v2_windowed",
+      "requested_start_date": "2025-07-05",
+      "requested_end_date": "2026-08-30",
+      "warmup_start_date": "2025-04-29",
+      "warmup_rows": 45,
+      "warmup_required_days": 34,
+      "delivery_warmup_min_bars": 120,
+      "rows": 326,
+      "rows_in_window": 281,
+      "frame_digest": "be92c3906ae63b36b2d2caaf10aa1d776bb54e380b3bb2a0f69cb256284f03f5",
+      "c_data_hash": "38eeb58975423a135b3eda93693a6658110e7ed2d988644a6956a763627a59a1",
+      "computed_start_date": "2025-07-07",
+      "computed_end_date": "2026-08-28",
+      "current_position": 0,
+      "parameters_explicit": false,
+      "data_source": "MarketDataSource.query_daily (warmup window)",
+      "window_owner": "C.run_backtest_request"
+    }
+  },
+  "missing_c_support": {
+    "status": 500,
+    "code": 50004,
+    "fetch_calls": 0,
+    "saved_records": 0
+  },
+  "findings": [],
+  "status": "passed"
+}
