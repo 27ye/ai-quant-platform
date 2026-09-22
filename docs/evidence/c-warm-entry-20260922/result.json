@@ -1,0 +1,93 @@
+{
+  "D_head": "b506618e904b8b0edb09b5a06d0110c9392f493a",
+  "B_script_commit": "a89c2ea5c67eb8a1b64f1ac195e2ef80d4390a1a",
+  "executed_core_sha": "bcbd559acb67d3435fe7a840f34ad73bbe35bbad",
+  "scope": "exact CLI main + real StockService/MarketDataService + SQLite; synthetic Provider/calendar. B script + D core is a local diagnostic combination, not an integrated SHA.",
+  "existing_databases_modified": false,
+  "tree_audit": {
+    "backend": {
+      "bcbd559acb67d3435fe7a840f34ad73bbe35bbad": "36434a1a7b2bc29f8e439a34760403576b8f70b9",
+      "b506618e904b8b0edb09b5a06d0110c9392f493a": "36434a1a7b2bc29f8e439a34760403576b8f70b9"
+    },
+    "frontend": {
+      "bcbd559acb67d3435fe7a840f34ad73bbe35bbad": "1acb94b432d325f8e84417c2432f3982fbf706f5",
+      "b506618e904b8b0edb09b5a06d0110c9392f493a": "1acb94b432d325f8e84417c2432f3982fbf706f5"
+    },
+    "scripts": {
+      "bcbd559acb67d3435fe7a840f34ad73bbe35bbad": "efc91dd43627cdb22b5fa39a1b91718f7a9dae81",
+      "b506618e904b8b0edb09b5a06d0110c9392f493a": "efc91dd43627cdb22b5fa39a1b91718f7a9dae81"
+    },
+    "tests": {
+      "bcbd559acb67d3435fe7a840f34ad73bbe35bbad": "71c8db8af8ce052ffa3048fab9f23b6901d82fdc",
+      "b506618e904b8b0edb09b5a06d0110c9392f493a": "71c8db8af8ce052ffa3048fab9f23b6901d82fdc"
+    },
+    "docs/evidence/c-delivery-20260917": {
+      "bcbd559acb67d3435fe7a840f34ad73bbe35bbad": "28d7b2591fe3fcbe662af9f915a7db4018d3641c",
+      "b506618e904b8b0edb09b5a06d0110c9392f493a": "28d7b2591fe3fcbe662af9f915a7db4018d3641c"
+    }
+  },
+  "production_and_fixed_package_identical": true,
+  "D_changes_since_tested_core": "M\tdocs/V2_AI_INTEGRATION_ACCEPTANCE.md\nA\tdocs/evidence/runtime-three-stock-20260922/README.md\nA\tdocs/evidence/runtime-three-stock-20260922/live-three-stock-851146e.json\nA\tdocs/evidence/runtime-three-stock-20260922/probe.py\n",
+  "results": {
+    "D_original_reproduces_intraday_write": {
+      "expected_observation_confirmed": true,
+      "script_revision": "b506618e904b8b0edb09b5a06d0110c9392f493a",
+      "script_sha256": "e8e996fc230b264df57ca17bc77c3ff0a0fbd69cd76fdaaecf8d2384d43408a0",
+      "exit_code": 0,
+      "stored_rows": 100,
+      "last_stored_date": "2026-09-22",
+      "provider_calls": [
+        [
+          "2026-05-06",
+          "2026-09-22"
+        ]
+      ],
+      "source": "C-synthetic",
+      "stdout": "--- pass 1/1 (2026-05-06..2026-09-22)\n    {'stock_code': '600519', 'ok': True, 'rows': 100, 'window': ['2026-05-06', '2026-09-22'], 'mode': 'live', 'source': 'C-synthetic', 'seconds': 0.0}\n\nwarm-up summary:\n  600519: OK 100 rows\n"
+    },
+    "B_patch_cold_cache_caps_at_completed_day": {
+      "expected_observation_confirmed": true,
+      "script_revision": "a89c2ea5c67eb8a1b64f1ac195e2ef80d4390a1a",
+      "script_sha256": "9a985dd152ab98853d251d15adbcdecf7cc39701eec9cda41e11b2d90d000647",
+      "exit_code": 0,
+      "stored_rows": 99,
+      "last_stored_date": "2026-09-21",
+      "provider_calls": [
+        [
+          "2026-05-06",
+          "2026-09-21"
+        ]
+      ],
+      "source": "C-synthetic",
+      "stdout": "--- pass 1/1 (2026-05-06..2026-09-22)\n    {'stock_code': '600519', 'ok': True, 'rows': 99, 'window': ['2026-05-06', '2026-09-21'], 'mode': 'live', 'source': 'C-synthetic', 'seconds': 0.0}\n\nwarm-up summary:\n  600519: OK 99 rows\n"
+    },
+    "B_patch_unknown_completed_day_rejects": {
+      "expected_observation_confirmed": true,
+      "script_revision": "a89c2ea5c67eb8a1b64f1ac195e2ef80d4390a1a",
+      "script_sha256": "9a985dd152ab98853d251d15adbcdecf7cc39701eec9cda41e11b2d90d000647",
+      "exit_code": 1,
+      "stored_rows": 0,
+      "last_stored_date": null,
+      "provider_calls": [],
+      "source": null,
+      "stdout": "--- pass 1/1 (2026-05-06..2026-09-22)\n    {'stock_code': '600519', 'ok': False, 'error': 'StockDataProviderError: trading calendar cannot determine the latest completed daily bar', 'seconds': 0.0}\n\nwarm-up summary:\n  600519: FAILED\nfailed stocks: ['600519'] (source unavailable window; see docs/V2_B_DATA_EVIDENCE.md)\n"
+    },
+    "B_patch_old_dirty_tail_is_replaced": {
+      "expected_observation_confirmed": true,
+      "script_revision": "a89c2ea5c67eb8a1b64f1ac195e2ef80d4390a1a",
+      "script_sha256": "9a985dd152ab98853d251d15adbcdecf7cc39701eec9cda41e11b2d90d000647",
+      "exit_code": 0,
+      "stored_rows": 99,
+      "last_stored_date": "2026-09-21",
+      "provider_calls": [
+        [
+          "2026-05-06",
+          "2026-09-21"
+        ]
+      ],
+      "source": "C-synthetic",
+      "stdout": "--- pass 1/1 (2026-05-06..2026-09-22)\n    {'stock_code': '600519', 'ok': True, 'rows': 99, 'window': ['2026-05-06', '2026-09-21'], 'mode': 'live', 'source': 'C-synthetic', 'seconds': 0.0}\n\nwarm-up summary:\n  600519: OK 99 rows\n"
+    }
+  },
+  "all_expected_observations_confirmed": true
+}
