@@ -33,3 +33,5 @@
 **群协同与新PR25跟进：** A23原样前端+隔离D22/B/C后端完成MACD真实页面预验：默认12/26/9与6/13/5（成本0.2%/滑点0.1%）提交、日期/周期拦截、历史详情/对照、两条完整C快照重放通过；前端typecheck/build通过。F3请求/实际区间错误在浏览器仍可复现，保留A修改请求。评分null“—”只确认源码口径，本轮未注入null验收。新B25目录显式同步4项定向测试通过；未合入且不代表实时源恢复。已记录导出/路由/视觉等非C事项，并提醒B按D要求主审C18。详见 [群协同逐项回执与UI证据](evidence/c-v3-ui-coordination-20260922/README.md)。本轮是固定样本、回测真实HTTP/SQLite、其他页面API mock的隔离预验，不是实时/真实MySQL/LLM/最终C4。C算法不变。
 
 **D群消息后的最新闭环：** A23已出6be52abd，C用原样前端与既有HTTP/SQLite历史结果确认请求/实际区间显示正确，缺字段投影3项、typecheck/build通过，可解除原修改请求。D22新64474b4仅AnalysisMode→AIAnalysisMode，后端/tests/scripts无差异、前端typecheck通过，既有C数值批准保持。B公共错误码结论已收到，新增PR26纯文档口径与C一致。详见 [A修复与D/B新状态](evidence/c-v3-a23-closed-20260922/README.md)。仍待B主审C18、D组合与最终C4；本轮无算法修改。
+
+**D收尾三步请求已处理：** PR23的6be52abd早已通过C复验并APPROVE（review5279610443）；本轮发现旧行内线程PRRT_kwDOUJlmdc6kuH60仍未解决，现已标为resolved，历史CHANGES_REQUESTED保留为审阅记录，不代表当前C结论。PR25 head976bb230与C此前4项定向测试版本一致，本轮正式APPROVE review5279674996，未重复运行无变化测试。C侧这两项门禁已闭环，D可按#18+#23+#24+#25+#22做组合预演；#26纯文档是否随同纳入由D明确。后续仍由B执行最终SHA真实DB检查，C执行最终量化C4，D负责#22转Ready及合并流程；C未代办这些动作。
