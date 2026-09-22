@@ -1,0 +1,397 @@
+{
+  "b_sha": "11a0c03ecca56fe667b845a976afd1cdde9197b7",
+  "c_code_sha": "6a84901c82256b7d48dfab3ebee3208633e5058c",
+  "scope": "isolated B21 + C18; real HTTP routes/schema/service/C/repository; fixed Tencent qfq sample source; temporary SQLite, NOT MySQL/live Provider/LLM",
+  "matrix": [
+    {
+      "stock_code": "600519",
+      "parameters": "default",
+      "direct_post_equal": true,
+      "direct_exact_get_equal": true,
+      "new_engine_session": true,
+      "history_effective_equals_post": false,
+      "post_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "get_parameter_keys": [
+        "allow_fractional_shares",
+        "annualization_days",
+        "benchmark_method",
+        "contract_status",
+        "effective_trading_days",
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "risk_free_rate",
+        "slippage",
+        "transaction_cost"
+      ],
+      "warmup_rows": 34,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "600519",
+      "parameters": "fast6_slow13_signal5",
+      "direct_post_equal": true,
+      "direct_exact_get_equal": true,
+      "new_engine_session": true,
+      "history_effective_equals_post": false,
+      "post_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "get_parameter_keys": [
+        "allow_fractional_shares",
+        "annualization_days",
+        "benchmark_method",
+        "contract_status",
+        "effective_trading_days",
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "risk_free_rate",
+        "slippage",
+        "transaction_cost"
+      ],
+      "warmup_rows": 17,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "600519",
+      "parameters": "fast20_slow40_signal12_cost",
+      "direct_post_equal": true,
+      "direct_exact_get_equal": true,
+      "new_engine_session": true,
+      "history_effective_equals_post": false,
+      "post_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "get_parameter_keys": [
+        "allow_fractional_shares",
+        "annualization_days",
+        "benchmark_method",
+        "contract_status",
+        "effective_trading_days",
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "risk_free_rate",
+        "slippage",
+        "transaction_cost"
+      ],
+      "warmup_rows": 51,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "000001",
+      "parameters": "default",
+      "direct_post_equal": true,
+      "direct_exact_get_equal": true,
+      "new_engine_session": true,
+      "history_effective_equals_post": false,
+      "post_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "get_parameter_keys": [
+        "allow_fractional_shares",
+        "annualization_days",
+        "benchmark_method",
+        "contract_status",
+        "effective_trading_days",
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "risk_free_rate",
+        "slippage",
+        "transaction_cost"
+      ],
+      "warmup_rows": 34,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "000001",
+      "parameters": "fast6_slow13_signal5",
+      "direct_post_equal": true,
+      "direct_exact_get_equal": true,
+      "new_engine_session": true,
+      "history_effective_equals_post": false,
+      "post_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "get_parameter_keys": [
+        "allow_fractional_shares",
+        "annualization_days",
+        "benchmark_method",
+        "contract_status",
+        "effective_trading_days",
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "risk_free_rate",
+        "slippage",
+        "transaction_cost"
+      ],
+      "warmup_rows": 17,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "000001",
+      "parameters": "fast20_slow40_signal12_cost",
+      "direct_post_equal": true,
+      "direct_exact_get_equal": true,
+      "new_engine_session": true,
+      "history_effective_equals_post": false,
+      "post_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "get_parameter_keys": [
+        "allow_fractional_shares",
+        "annualization_days",
+        "benchmark_method",
+        "contract_status",
+        "effective_trading_days",
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "risk_free_rate",
+        "slippage",
+        "transaction_cost"
+      ],
+      "warmup_rows": 51,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "300750",
+      "parameters": "default",
+      "direct_post_equal": true,
+      "direct_exact_get_equal": true,
+      "new_engine_session": true,
+      "history_effective_equals_post": false,
+      "post_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "get_parameter_keys": [
+        "allow_fractional_shares",
+        "annualization_days",
+        "benchmark_method",
+        "contract_status",
+        "effective_trading_days",
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "risk_free_rate",
+        "slippage",
+        "transaction_cost"
+      ],
+      "warmup_rows": 34,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "300750",
+      "parameters": "fast6_slow13_signal5",
+      "direct_post_equal": true,
+      "direct_exact_get_equal": true,
+      "new_engine_session": true,
+      "history_effective_equals_post": false,
+      "post_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "get_parameter_keys": [
+        "allow_fractional_shares",
+        "annualization_days",
+        "benchmark_method",
+        "contract_status",
+        "effective_trading_days",
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "risk_free_rate",
+        "slippage",
+        "transaction_cost"
+      ],
+      "warmup_rows": 17,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "300750",
+      "parameters": "fast20_slow40_signal12_cost",
+      "direct_post_equal": true,
+      "direct_exact_get_equal": true,
+      "new_engine_session": true,
+      "history_effective_equals_post": false,
+      "post_parameter_keys": [
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "slippage",
+        "transaction_cost"
+      ],
+      "get_parameter_keys": [
+        "allow_fractional_shares",
+        "annualization_days",
+        "benchmark_method",
+        "contract_status",
+        "effective_trading_days",
+        "initial_cash",
+        "macd_fast_period",
+        "macd_signal_period",
+        "macd_slow_period",
+        "risk_free_rate",
+        "slippage",
+        "transaction_cost"
+      ],
+      "warmup_rows": 51,
+      "curve_points": 283
+    }
+  ],
+  "date_matrix": [
+    {
+      "case": "omit_both",
+      "status": 200,
+      "code": 0,
+      "fetch_calls": 1,
+      "saved_records": 1,
+      "resolved_start": "2025-08-30",
+      "resolved_end": "2026-08-31"
+    },
+    {
+      "case": "omit_start",
+      "status": 200,
+      "code": 0,
+      "fetch_calls": 1,
+      "saved_records": 1,
+      "resolved_start": "2025-08-30",
+      "resolved_end": "2026-08-31"
+    },
+    {
+      "case": "omit_end",
+      "status": 200,
+      "code": 0,
+      "fetch_calls": 1,
+      "saved_records": 1,
+      "resolved_start": "2025-07-04",
+      "resolved_end": "2026-08-31"
+    },
+    {
+      "case": "null_start",
+      "status": 200,
+      "code": 0,
+      "fetch_calls": 1,
+      "saved_records": 1,
+      "resolved_start": "2025-08-30",
+      "resolved_end": "2026-08-31"
+    },
+    {
+      "case": "null_end",
+      "status": 200,
+      "code": 0,
+      "fetch_calls": 1,
+      "saved_records": 1,
+      "resolved_start": "2025-07-04",
+      "resolved_end": "2026-08-31"
+    }
+  ],
+  "parameter_matrix": [
+    {
+      "case": "null_strategy",
+      "status": 400,
+      "code": 40001,
+      "fetch_calls": 0,
+      "saved_records": 0
+    },
+    {
+      "case": "null_params",
+      "status": 400,
+      "code": 40001,
+      "fetch_calls": 0,
+      "saved_records": 0
+    },
+    {
+      "case": "mixed_ma",
+      "status": 400,
+      "code": 40001,
+      "fetch_calls": 0,
+      "saved_records": 0
+    },
+    {
+      "case": "period_bool",
+      "status": 400,
+      "code": 40001,
+      "fetch_calls": 0,
+      "saved_records": 0
+    },
+    {
+      "case": "period_range",
+      "status": 400,
+      "code": 40001,
+      "fetch_calls": 0,
+      "saved_records": 0
+    },
+    {
+      "case": "period_order",
+      "status": 400,
+      "code": 40001,
+      "fetch_calls": 0,
+      "saved_records": 0
+    }
+  ],
+  "missing_c_support": {
+    "status": 500,
+    "code": 50004,
+    "fetch_calls": 0,
+    "saved_records": 0
+  },
+  "findings": [
+    "MACD missing/null dates are auto-filled before C validation, despite explicit-window contract.",
+    "MACD GET effective_parameters contains execution metadata (12 keys), unlike POST six actual configurable parameters. C exact envelope itself remains intact."
+  ],
+  "status": "changes_required"
+}
