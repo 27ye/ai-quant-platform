@@ -1,0 +1,58 @@
+{
+  "a_sha": "6be52abd3b024853b4c297c5e03da118d15314a0",
+  "cases": [
+    {
+      "label": "real_http",
+      "rows": [
+        {
+          "label": "请求区间",
+          "a": "2025-07-05 ~ 2026-08-30",
+          "b": "2025-07-05 ~ 2026-08-30",
+          "diff": false
+        },
+        {
+          "label": "实际区间",
+          "a": "2025-07-07 ~ 2026-08-28",
+          "b": "2025-07-07 ~ 2026-08-28",
+          "diff": false
+        }
+      ]
+    },
+    {
+      "label": "legacy_missing",
+      "rows": [
+        {
+          "label": "请求区间",
+          "a": "—",
+          "b": "—",
+          "diff": false
+        },
+        {
+          "label": "实际区间",
+          "a": "2025-07-07 ~ 2026-08-28",
+          "b": "2025-07-07 ~ 2026-08-28",
+          "diff": false
+        }
+      ]
+    },
+    {
+      "label": "partial_request",
+      "rows": [
+        {
+          "label": "请求区间",
+          "a": "—",
+          "b": "—",
+          "diff": false
+        },
+        {
+          "label": "实际区间",
+          "a": "2025-07-07 ~ 2026-08-28",
+          "b": "2025-07-07 ~ 2026-08-28",
+          "diff": false
+        }
+      ]
+    }
+  ],
+  "status": "passed",
+  "scope": "Original A computed source executed with saved real B GET and two missing-field variations; browser validation recorded separately in README"
+}
