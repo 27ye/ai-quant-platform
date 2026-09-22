@@ -2,7 +2,6 @@ import { http } from './http'
 import { useMockFor } from './mockSwitch'
 import { mockAIAnalysis, mockAIReportDetail, mockAIReports } from '../mocks/ai'
 import type {
-  AIAnalysisData,
   AIReportDetail,
   ApiResponse,
   PaginatedAIReports,
@@ -13,11 +12,14 @@ const AI_TIMEOUT_MS = 120_000
 
 export async function analyzeStock(
   stockCode: string,
-): Promise<ApiResponse<AIAnalysisData>> {
-  if (useMockFor('AI')) return mockAIAnalysis(stockCode)
-  const response = await http.post<ApiResponse<AIAnalysisData>>(
+  backtestId?: number,
+): Promise<ApiResponse<AIReportDetail>> {
+  if (useMockFor('AI')) return mockAIAnalysis(stockCode, backtestId)
+  const response = await http.post<ApiResponse<AIReportDetail>>(
     '/ai/analyze',
-    { stock_code: stockCode },
+    backtestId === undefined
+      ? { stock_code: stockCode }
+      : { stock_code: stockCode, backtest_id: backtestId },
     { timeout: AI_TIMEOUT_MS },
   )
   return response.data

@@ -34,4 +34,9 @@ class AIAnalysis(Base):
     prompt_version: Mapped[Optional[str]] = mapped_column(String(32))
     context_schema_version: Mapped[Optional[str]] = mapped_column(String(32))
     output_schema_version: Mapped[Optional[str]] = mapped_column(String(32))
+    # -- V3 saved-backtest interpretation (migration v9) --
+    #: NULL on reports written before V3; readers interpret that legacy shape as
+    #: ``standard`` only when ``backtest_id`` is also NULL.
+    analysis_mode: Mapped[Optional[str]] = mapped_column(String(16))
+    backtest_id: Mapped[Optional[int]] = mapped_column(BIGINT)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

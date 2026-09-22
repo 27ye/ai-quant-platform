@@ -6,9 +6,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { AxiosError } from 'axios'
 
 import { fetchAIReportDetail } from '../api/ai'
-import type { AIReportDetail } from '../types/api'
+import type {
+  AIReportDetail,
+  AnalysisContextSnapshot,
+  BacktestInterpretationContextSnapshot,
+} from '../types/api'
 import AIReportBody from '../components/ai/AIReportBody.vue'
 import { formatDateTime, SOURCE_MODE_LABEL } from '../utils/format'
+import { downloadReportMarkdown } from '../utils/reportMarkdown'
 
 const route = useRoute()
 const router = useRouter()
@@ -20,6 +25,47 @@ const failed = ref(false)
 const notFound = ref(false)
 
 const isLegacy = computed(() => report.value?.snapshot_status === 'legacy_missing')
+const isCustom = computed(() => report.value?.analysis_mode === 'custom_backtest')
+const standardSnapshot = computed(() =>
+  !isCustom.value
+    ? (report.value?.context_snapshot as AnalysisContextSnapshot | null)
+    : null,
+)
+const customSnapshot = computed(() =>
+  isCustom.value
+    ? (report.value?.context_snapshot as BacktestInterpretationContextSnapshot | null)
+    : null,
+)
+
+function downloadMarkdown() {
+  if (report.value) downloadReportMarkdown(report.value)
+}
+
+function formatPercent(value: number | null): string {
+  if (value == null) return '—'
+  return `${value > 0 ? '+' : ''}${(value * 100).toFixed(2)}%`
+}
+
+const customFactRows = computed(() => {
+  const context = customSnapshot.value
+  if (!context) return []
+  const p = context.effective_parameters
+  const m = context.metrics
+  return [
+    { label: '实际区间', value: `${context.start_date} ~ ${context.end_date}` },
+    { label: 'MA 参数', value: `${p.ma_short_period} / ${p.ma_long_period}` },
+    { label: '初始资金', value: p.initial_cash.toLocaleString() },
+    { label: '交易成本', value: formatPercent(p.transaction_cost) },
+    { label: '滑点', value: formatPercent(p.slippage) },
+    { label: '总收益', value: formatPercent(m.total_return) },
+    { label: '年化收益', value: formatPercent(m.annual_return) },
+    { label: '最大回撤', value: formatPercent(m.max_drawdown) },
+    { label: '夏普率', value: m.sharpe_ratio == null ? '—' : m.sharpe_ratio.toFixed(2) },
+    { label: '胜率', value: formatPercent(m.win_rate) },
+    { label: '基准收益', value: formatPercent(m.benchmark_return) },
+    { label: '成交笔数 / 往返次数', value: `${m.order_count} / ${m.trade_count}` },
+  ]
+})
 
 // context_hash 64 位 hex 太长，展示头尾各 8 位
 const shortHash = computed(() => {
@@ -80,9 +126,10 @@ function safeBack() {
   <main class="detail-page">
     <header class="page-header">
       <div class="header-left">
-        <h1 class="page-title">AI 报告详情</h1>
+        <h1 class="page-title">{{ isCustom ? 'AI 回测解读' : 'AI 报告详情' }}</h1>
         <span class="id-chip">#{{ reportId }}</span>
       </div>
+      <el-button v-if="report" plain @click="downloadMarkdown">导出 Markdown</el-button>
     </header>
 
     <!-- 加载态 -->
@@ -114,6 +161,7 @@ function safeBack() {
         <span class="banner-text">
           历史报告 · 生成于 {{ formatDateTime(report.created_at) }}
           <template v-if="marketEndDate"> · 行情截至 {{ marketEndDate }}</template>
+          <template v-if="isCustom"> · 回测 #{{ report.backtest_id }}</template>
         </span>
         <span class="mode-chip">{{ SOURCE_MODE_LABEL[report.source_mode] }}</span>
       </div>
@@ -125,6 +173,17 @@ function safeBack() {
 
       <el-card shadow="never" class="panel report-panel">
         <AIReportBody :data="report" />
+      </el-card>
+
+      <el-card v-if="customFactRows.length" shadow="never" class="panel facts-panel">
+        <h3 class="meta-title">保存的回测事实</h3>
+        <p class="facts-note">以下数值来自 C 保存的精确结果，AI 仅负责解释。</p>
+        <dl class="facts-grid">
+          <div v-for="item in customFactRows" :key="item.label" class="fact-item">
+            <dt>{{ item.label }}</dt>
+            <dd>{{ item.value }}</dd>
+          </div>
+        </dl>
       </el-card>
 
       <!-- 快照元数据（完整快照时展示） -->
@@ -142,16 +201,30 @@ function safeBack() {
               行）
             </dd>
           </div>
-          <div class="meta-item">
+          <div v-if="standardSnapshot" class="meta-item">
             <dt>新闻</dt>
             <dd>
               {{
-                report.context_snapshot.provenance.news_status === 'available'
-                  ? `${report.context_snapshot.provenance.news_count} 条`
+                standardSnapshot.provenance.news_status === 'available'
+                  ? `${standardSnapshot.provenance.news_count} 条`
                   : '当时无新闻'
               }}
             </dd>
           </div>
+          <template v-if="customSnapshot">
+            <div class="meta-item">
+              <dt>策略</dt>
+              <dd>{{ customSnapshot.strategy_name }} · {{ customSnapshot.algorithm_version }}</dd>
+            </div>
+            <div class="meta-item">
+              <dt>回测区间</dt>
+              <dd>{{ customSnapshot.start_date }} ~ {{ customSnapshot.end_date }}</dd>
+            </div>
+            <div class="meta-item">
+              <dt>C 输入快照哈希</dt>
+              <dd class="hash">{{ customSnapshot.data_hash }}</dd>
+            </div>
+          </template>
           <div class="meta-item">
             <dt>版本</dt>
             <dd>
@@ -262,6 +335,36 @@ function safeBack() {
   margin-bottom: 12px;
 }
 
+.facts-panel {
+  margin-bottom: 12px;
+}
+
+.facts-note {
+  margin: -4px 0 12px;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.facts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+}
+
+.fact-item dt {
+  margin-bottom: 2px;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.fact-item dd {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
 .meta-title {
   margin: 0 0 10px;
   font-size: 12px;
@@ -317,6 +420,10 @@ function safeBack() {
 
   .meta-grid {
     grid-template-columns: 1fr;
+  }
+
+  .facts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

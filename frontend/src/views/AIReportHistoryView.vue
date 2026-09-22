@@ -115,9 +115,12 @@ watch(
           <div class="item-main">
             <div class="item-top">
               <span :class="['trend', trendClass(item.trend)]">
-                {{ TREND_LABEL[item.trend] }}
+                {{ item.analysis_mode === 'custom_backtest' ? '回测解读' : TREND_LABEL[item.trend] }}
               </span>
-              <span class="score">评分 {{ item.quant_score ?? '—' }}</span>
+              <span v-if="item.analysis_mode === 'standard'" class="score">
+                评分 {{ item.quant_score ?? '—' }}
+              </span>
+              <span v-else class="score">回测 #{{ item.backtest_id }}</span>
               <span v-if="page === 1 && index === 0" class="tag tag-latest">最新</span>
               <span
                 v-if="item.snapshot_status === 'legacy_missing'"

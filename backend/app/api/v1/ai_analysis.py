@@ -20,7 +20,11 @@ async def analyze_stock(
     request: AIAnalyzeRequest,
     service: AIAnalysisService = Depends(get_ai_analysis_service),
 ) -> ApiResponse[AIReportDetail]:
-    result = await service.analyze(request.stock_code)
+    result = (
+        await service.analyze(request.stock_code, backtest_id=request.backtest_id)
+        if request.backtest_id is not None
+        else await service.analyze(request.stock_code)
+    )
     return ApiResponse(data=result)
 
 

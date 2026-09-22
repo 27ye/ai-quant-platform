@@ -2,10 +2,14 @@
 // AI 报告正文的纯展示组件：新生成（AIReportCard）与历史详情（AIReportDetailView）共用
 import { computed } from 'vue'
 
-import type { AIAnalysisData } from '../../types/api'
+import type { AIAnalysisData, AIAnalysisMode } from '../../types/api'
 import { TREND_LABEL } from '../../utils/format'
 
-const props = defineProps<{ data: AIAnalysisData }>()
+const props = defineProps<{
+  data: AIAnalysisData & { analysis_mode?: AIAnalysisMode }
+}>()
+
+const isCustom = computed(() => props.data.analysis_mode === 'custom_backtest')
 
 const trendClass = computed(() => {
   const trend = props.data.trend
@@ -18,12 +22,12 @@ const trendClass = computed(() => {
 <template>
   <div class="report">
     <div class="verdict">
-      <span class="verdict-label">AI 观点</span>
+      <span class="verdict-label">{{ isCustom ? 'AI 回测解读' : 'AI 观点' }}</span>
       <span :class="['verdict-value', trendClass]">
-        {{ TREND_LABEL[data.trend] }}
+        {{ isCustom ? '历史结果说明' : TREND_LABEL[data.trend] }}
       </span>
       <span class="verdict-divider" aria-hidden="true"></span>
-      <span class="score-chip">
+      <span v-if="!isCustom" class="score-chip">
         <span class="chip-label">评分</span>
         <strong>{{ data.quant_score ?? '—' }}</strong>
         <span class="chip-total">/ 100</span>
@@ -34,11 +38,11 @@ const trendClass = computed(() => {
     <p class="lede">{{ data.summary }}</p>
 
     <section class="analysis-block">
-      <h4>技术面</h4>
+      <h4>{{ isCustom ? '策略与参数' : '技术面' }}</h4>
       <p>{{ data.technical_analysis }}</p>
     </section>
     <section class="analysis-block">
-      <h4>量化面</h4>
+      <h4>{{ isCustom ? '回测表现' : '量化面' }}</h4>
       <p>{{ data.quant_analysis }}</p>
     </section>
     <section class="analysis-block">

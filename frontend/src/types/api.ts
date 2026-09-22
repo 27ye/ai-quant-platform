@@ -182,6 +182,44 @@ export interface AnalysisContextSnapshot {
   provenance: DataProvenance
 }
 
+export interface BacktestInterpretationContextSnapshot {
+  stock_code: string
+  backtest_id: number
+  backtest_created_at: string
+  data_as_of: string
+  strategy_name: string
+  semantics_version: 'v2_windowed'
+  algorithm_version: string
+  effective_parameters: BacktestParameters
+  requested_start_date: string
+  requested_end_date: string
+  start_date: string
+  end_date: string
+  warmup: BacktestWarmup
+  execution_assumptions: Record<string, string | boolean>
+  metrics: {
+    initial_cash: number
+    final_equity: number
+    total_return: number
+    annual_return: number | null
+    max_drawdown: number | null
+    sharpe_ratio: number | null
+    win_rate: number | null
+    trade_count: number
+    order_count: number
+    benchmark_return: number | null
+  }
+  initial_equity: BacktestInitialEquity
+  data_hash: string
+  provenance: {
+    source_mode: SourceMode
+    provider: string
+    market_start_date: string
+    market_end_date: string
+    market_rows: number
+  }
+}
+
 // POST /ai/analyze 的 V2 响应 / GET /ai/reports/{report_id} 详情（两者同构）
 // V1 旧记录：snapshot_status='legacy_missing'，context_snapshot/版本字段为 null，source_mode='unknown'
 export interface AIReportDetail extends AIAnalysisData {
@@ -198,7 +236,7 @@ export interface AIReportDetail extends AIAnalysisData {
   output_schema_version: string | null
   context_hash: string | null
   snapshot_status: SnapshotStatus
-  context_snapshot: AnalysisContextSnapshot | null
+  context_snapshot: AnalysisContextSnapshot | BacktestInterpretationContextSnapshot | null
 }
 
 // POST /backtests（口径已经 C 契约回归确认：指标为扁平字段；equity 为账户绝对权益，

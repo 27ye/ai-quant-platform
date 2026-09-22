@@ -1,3 +1,5 @@
+from typing import Callable
+
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
@@ -8,6 +10,8 @@ from backend.app.data.trading_calendar import TradingCalendarProvider
 from backend.app.data.providers.akshare_provider import AKShareStockProvider
 from backend.app.data.providers.base import StockDataProvider
 from backend.app.db.session import get_db
+from backend.app.schemas.ai import AIAnalyzeRequest
+from backend.app.services.backtest_interpretation import BacktestInterpretationContextProvider
 from backend.app.services.ai_analysis import (
     AIAnalysisService,
     AIReportHistoryService,
@@ -185,13 +189,38 @@ def get_llm_client() -> LLMClient:
     )
 
 
+def build_standard_ai_context(
+    db: Session, provider: StockDataProvider, trading_calendar: TradingCalendarProvider,
+) -> AnalysisContextProvider:
+    """Build V2 dependencies only after the request selects standard analysis."""
+    stock_service = get_stock_service(provider)
+    market_data_source = get_market_data_source(stock_service, db, trading_calendar)
+    adapter = get_stock_quant_analysis_adapter(market_data_source, stock_service)
+    return get_analysis_context_provider(
+        stock_service=adapter, quant_service=adapter, backtest_service=adapter,
+        news_service=get_news_analysis_service(provider, db),
+    )
+
+
+def get_standard_ai_context_factory() -> Callable[[Session], AnalysisContextProvider]:
+    # A factory (rather than pre-resolved Depends) keeps custom generation from
+    # constructing Provider, calendar, Quant and News. Frozen acceptance can
+    # override this boundary without changing the production graph.
+    return lambda db: build_standard_ai_context(
+        db, get_data_provider(), get_trading_calendar_provider(),
+    )
+
+
 def get_ai_analysis_service(
-    context_provider: AnalysisContextProvider = Depends(get_analysis_context_provider),
+    request: AIAnalyzeRequest,
     db: Session = Depends(get_db),
     llm_client: LLMClient = Depends(get_llm_client),
+    standard_context_factory: Callable = Depends(get_standard_ai_context_factory),
 ) -> AIAnalysisService:
+    custom = request.backtest_id is not None
     return AIAnalysisService(
-        context_provider=context_provider,
+        context_provider=None if custom else standard_context_factory(db),
+        backtest_context_provider=BacktestInterpretationContextProvider(db) if custom else None,
         llm_client=llm_client,
         repository=SQLAlchemyAIAnalysisRepository(db),
     )
