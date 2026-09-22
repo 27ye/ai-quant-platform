@@ -245,5 +245,10 @@ CREATE TABLE stock_daily_sync (
 | v2 | `stock_catalog_sync` |
 | v3 | `stock_daily_sync` |
 | v4 | `backtest_result` 增加 V2 快照列（见 §6） |
+| v5 | `ai_analysis` 增加 V2 上下文快照与版本列 |
+| v6 | `backtest_result.input_snapshot` |
+| v7 | `backtest_result.c_result` |
+| v8 | `backtest_result.c_result_text`，并可重入回填旧封套 |
+| v9 | `ai_analysis.analysis_mode` 和 `ai_analysis.backtest_id`，两列可空 |
 
 任何数据库结构调整必须先修改本文档，并同步 ORM、Schema 和测试。

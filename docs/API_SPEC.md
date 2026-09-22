@@ -373,7 +373,10 @@ GET /api/v1/backtests/{backtest_id}
 POST /api/v1/ai/analyze
 ```
 
-AI Service 内部调用 Stock、Quant、Backtest、News Service，前端只传 `stock_code`。
+`POST /ai/analyze` 支持两种由服务端推导的模式：
+
+- 只传 `stock_code`：`standard`，保持 V2 默认综合分析，使用 Stock、Quant、默认 Backtest 和 News Service。
+- 同时传正整数 `backtest_id`：`custom_backtest`，只解读数据库中已保存的精确 MA 回测，不调用行情、新闻或量化服务。
 
 请求：
 
@@ -382,6 +385,17 @@ AI Service 内部调用 Stock、Quant、Backtest、News Service，前端只传 `
   "stock_code": "600519"
 }
 ```
+
+已保存回测解读请求：
+
+```json
+{
+  "stock_code": "600519",
+  "backtest_id": 123
+}
+```
+
+`backtest_id` 必须省略或为 MySQL `BIGINT` 范围内的正整数；显式 `null`、布尔值、字符串和小数均返回 `40001`。
 
 成功返回：
 
@@ -410,6 +424,8 @@ AI Service 内部调用 Stock、Quant、Backtest、News Service，前端只传 `
     "output_schema_version": "v2.0",
     "context_hash": "64-character SHA-256 hex digest",
     "snapshot_status": "complete",
+    "analysis_mode": "standard",
+    "backtest_id": null,
     "context_snapshot": {}
   }
 }
@@ -425,7 +441,10 @@ AI Service 内部调用 Stock、Quant、Backtest、News Service，前端只传 `
 - 数据不足时返回 `40003`，LLM 调用或输出校验失败时返回 `50005`。
 - Prompt 与 `context_snapshot` 使用同一个 `AnalysisContext` 对象；哈希基于字段排序、固定分隔符的 UTF-8 JSON。
 - `source_mode` 允许 `live`、`cache`、`frozen`、`unknown`。新报告为 `complete`；V1 旧记录为 `legacy_missing`，不按当前数据补写历史快照。
-- AI 始终解释默认量化评分与默认回测结果，不引用用户参数化回测。
+- `standard` 始终解释默认量化评分与默认回测结果，不会隐式引用最近一次用户回测。
+- `custom_backtest` 首版仅支持 `v2_windowed` + `ma_long_only` + 完整精确的 C 结果。`quant_score=null`，`trend=neutral` 只是兼容字段，新闻段固定为“本报告未纳入新闻数据”。
+- custom 报告的 Prompt/Context 版本为 `v3.backtest.1`，快照包含保存时间、策略/算法版本、实际参数、请求/实际区间、预热、执行假设、精确指标、初始权益和 C 输入快照哈希。不保存全部日线、曲线或成交明细的副本。
+- custom 回测不存在返回 HTTP 404 / `40005`；股票不匹配返回 HTTP 400 / `40001`；非精确或不支持的快照返回 HTTP 422 / `40007`；声称精确但内容损坏返回 HTTP 500 / `50002`。
 
 ### 9.1 报告历史列表
 
@@ -437,6 +456,7 @@ GET /api/v1/ai/reports?stock_code=600519&page=1&page_size=20
 - `page` 默认 1、最小 1；`page_size` 默认 20、范围 1–100。
 - 按 `created_at DESC, id DESC` 排序。
 - 返回 `items`、`total`、`page`、`page_size`；列表项不包含 `context_snapshot`。
+- 列表项增加 `analysis_mode` 和 `backtest_id`，不新增模式筛选参数。
 
 ### 9.2 报告历史详情
 
@@ -456,6 +476,7 @@ GET /api/v1/ai/reports/101
 40004    reserved (unused; an illegal strategy returns 40001)
 40005    backtest not found
 40006    report not found
+40007    backtest is not eligible for AI interpretation
 50000    internal error (generic fallback)
 50001    data provider error
 50002    database error
@@ -467,6 +488,7 @@ GET /api/v1/ai/reports/101
 
 > **V2 补充口径**：
 > - `40005 = backtest not found`（B）；`40006 = report not found`（D，随 PR #10 落地，勿与 `40005` 互借）。
+> - `40007` 仅表示历史回测存在但不满足 AI 解读条件，不用于数据库损坏或 LLM 失败。
 > - `50004 backtest error` 用于**回测引擎无法服务该请求**：典型是 `v2_windowed` 请求到达但 C 的
 >   `run_backtest_request` 不可导入。此时接口明确失败并且**不写入任何回测记录**，绝不回退到旧
 >   `run_backtest` 再把结果标成 `v2_windowed`。省略 `parameters` 的 `v1_legacy` 路径不受影响。
