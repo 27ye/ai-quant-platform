@@ -43,9 +43,16 @@ custom 新增测试覆盖：严格请求类型、不存在/跨股票/不支持/�
 - 点击“导出 Markdown”实际生成 `ai-report-600519-1-2026-09-22.md`（1579 字节）；文件包含完整 context SHA-256、完整 C input SHA-256、保存事实表和新闻边界。
 - 浏览器 console 错误为 0。
 
+## 真实 DeepSeek LLM（用户明确授权后执行）
+
+- 目的地：`https://api.deepseek.com/chat/completions`，模型 `deepseek-v4-flash`；用户于 2026-09-22 对“具体目的地 + 具体载荷”明确授权。
+- 环境：全新隔离 MySQL 8.0.41 实例（127.0.0.1:3307），数据库 `ai_quant_v1_acceptance_20260922_082650_804723`，V1 → v9 迁移后执行。
+- 种子：两条不同的精确 MA 回测 —— `#1` 默认参数（5/20）、`#2` `ma_short_period=8 / ma_long_period=25`，C 输入哈希不同。
+- 生成：`POST /ai/analyze` 携带各自 `backtest_id`，真实 LLM 产出报告 `#1` / `#2`。断言全部通过：`analysis_mode=custom_backtest`、`backtest_id` 匹配、`quant_score=null`、新闻边界披露、Prompt/Context 版本 `v3.backtest.1`、`source_mode=unknown`、正文各段非空、上下文哈希与 C 输入哈希互相独立（报告 `#1`：context `0c87be8f…7583ee`、data `325782da…14f8`；报告 `#2`：context `8e8ba445…9b3f16`、data `132b54ff…67fe2`），且数据库记录与响应逐字段一致。
+- 重启回读：新进程、`LLM_API_KEY` 置空后，列表顺序 `#2, #1`，两份详情与生成响应完全一致；LLM 未被构造（若构造会因空 key 立即失败）。
+
 ## 尚未通过的外部门禁
 
-- 真实 LLM 未执行。当前配置目的地为 `api.deepseek.com`，模型 `deepseek-v4-flash`；待发送内容是一条已保存的合成 MA 回测上下文，包含股票代码、策略/参数、日期区间、执行假设、历史指标及哈希，不包含 API key、完整日线、成交明细或个人信息。自动审批因该外发未获得对“具体目的地 + 具体载荷”的明确授权而拒绝。
 - A 需复核公共类型、按钮与 custom 展示；B 需复核 v9 幂等迁移和读取路径；C 需复核 custom context 中投影的精确数值和两类哈希的语义。
 
-PR 在真实 LLM 和 A/B/C 复核完成前保持 Draft。此后如修改生产代码，必须在新的完整 SHA 上重跑受影响验收。
+PR 在 A/B/C 复核完成前保持 Draft。此后如修改生产代码，必须在新的完整 SHA 上重跑受影响验收。
