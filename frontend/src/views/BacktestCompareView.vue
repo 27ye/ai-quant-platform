@@ -265,7 +265,6 @@ function goBack() {
   <main class="compare-page">
     <header class="page-header">
       <div class="header-left">
-        <a class="back-link" @click="goBack">← 返回</a>
         <h1 class="page-title">回测对照</h1>
         <template v-if="ready">
           <span class="stock-chip">{{ detailA!.stock_code }}</span>
@@ -487,19 +486,6 @@ function goBack() {
   align-items: baseline;
   gap: 12px;
   min-width: 0;
-}
-
-.back-link {
-  color: var(--text-faint);
-  font-size: 12px;
-  text-decoration: none;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: color 0.15s ease;
-}
-
-.back-link:hover {
-  color: var(--accent);
 }
 
 .page-title {
