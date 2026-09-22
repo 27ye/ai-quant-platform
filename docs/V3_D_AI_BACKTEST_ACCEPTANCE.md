@@ -2,7 +2,7 @@
 
 ## 候选范围
 
-- 生产代码候选：`01dbe2c`（rebase 到 `origin/main` `10283b0` 含 B #19 v9 迁移 + B #21 strategy 接线后的完整树；C 复核修复见末节）
+- 生产代码候选：`6c9ca52`（rebase 到 `origin/main` `10283b0` 含 B #19 v9 迁移 + B #21 strategy 接线后的完整树；含两轮 C 复核修复，见末节）
 - 后端提交：`44516e1`（AI ORM/Service/上下文，v9 迁移已移除，由 B #19 独占）
 - 分支：`codex/v3-d-report-workflow`
 - 范围：已保存的 `v2_windowed` MA 精确回测 → AI 解读 → 报告历史 → Markdown 导出。
@@ -12,7 +12,7 @@
 
 | 检查 | 结果 |
 |---|---|
-| 后端全量 | `629 passed`（rebase 到含 B #19/#21 的 main 后；修复前 `596`，修复后 `599`，rebase 后去重 D 侧 v9 测试并纳入 B 侧迁移/接线测试） |
+| 后端全量 | `630 passed`（rebase 到含 B #19/#21 的 main 后；修复前 `596`，两轮修复与去重后 `630`） |
 | 定向 AI/迁移 | `91 passed` |
 | Python 编译 | `python -m compileall -q backend scripts` 通过 |
 | C/D 历史兼容 | `validate_c_ai_history_compatibility.py` 通过；SQLite + 合成行情 + 假 LLM |
@@ -53,7 +53,11 @@ custom 新增测试覆盖：严格请求类型、不存在/跨股票/不支持/�
 
 ## C 复核后的修复（01dbe2c，rebase 前为 7530d01）
 
-C 复核（PR #22 review5277425787）发现：保存结果的 `total_return`、`max_drawdown`、`trade_count` 与保存曲线/订单矛盾时（输入哈希仍合法），原实现仍调用 LLM 并生成报告。修复在 LLM 调用前新增三项保存字段一致性校验（`final_equity/initial_cash-1`、`min(0.0, 曲线最小值)`、卖出笔数，浮点 rel 1e-12），矛盾按数据损坏拒绝：HTTP 500 / 50002、LLM 0 调用、报告 0 条。损坏矩阵新增三个“类型合法但数值矛盾”用例。真实 LLM 证据针对未改动的正常链路，继续有效；受影响验收（矛盾拒绝路径与全量回归）已在 rebase 后重跑。
+C 复核（PR #22 review5277425787）发现：保存结果的 `total_return`、`max_drawdown`、`trade_count` 与保存曲线/订单矛盾时（输入哈希仍合法），原实现仍调用 LLM 并生成报告。修复在 LLM 调用前新增三项保存字段一致性校验（`final_equity/initial_cash-1`、`min(0.0, 曲线最小值)`、卖出笔数，浮点 rel 1e-12），矛盾按数据损坏拒绝：HTTP 500 / 50002、LLM 0 调用、报告 0 条。损坏矩阵新增三个“类型合法但数值矛盾”用例。
+
+第二轮修复（`6c9ca52`，C review5278362407）：上述除法在 `initial_cash=0` 的损坏记录上会先抛未捕获的 `ZeroDivisionError`（`ArithmeticError` 子类，不在 except 元组内），API 退化为纯文本 500。现于除法前校验分母为非 bool、有限、正数，否则 `ValueError` → JSON 50002；损坏矩阵新增零资金用例。
+
+真实 LLM 证据针对未改动的正常链路，继续有效；受影响验收（矛盾拒绝路径、零资金路径与全量回归）已在 rebase 后重跑。
 
 ## Rebase 与 v9 去重（44516e1 之后）
 
