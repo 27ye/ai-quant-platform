@@ -126,10 +126,11 @@ const metaRows = computed(() => {
   const short = (hash?: string | null) =>
     hash ? `${hash.slice(0, 8)}…${hash.slice(-8)}` : '—'
   const rows: Array<{ label: string; value: string }> = []
-  if (meta.actual_start_date) {
+  // 请求区间来自 data_meta.requested_*；实际区间已在页头用顶层 start/end 展示
+  if (meta.requested_start_date && meta.requested_end_date) {
     rows.push({
-      label: '实际区间',
-      value: `${meta.actual_start_date} ~ ${meta.actual_end_date ?? '—'}`,
+      label: '请求区间',
+      value: `${meta.requested_start_date} ~ ${meta.requested_end_date}`,
     })
   }
   if (meta.rows != null) rows.push({ label: '行情行数', value: String(meta.rows) })

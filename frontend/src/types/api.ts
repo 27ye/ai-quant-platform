@@ -395,13 +395,19 @@ export interface PaginatedBacktests {
  * c_data_hash 是 C 输入快照的 SHA-256——两者分开，不可混用）
  */
 export interface BacktestDataMeta {
+  /** 调用方请求的窗口（如实回显，不被静默改写） */
   requested_start_date?: string
   requested_end_date?: string
-  actual_start_date?: string
-  actual_end_date?: string
+  /** 实际使用的首末 bar，与顶层 start_date/end_date 相等（契约中不存在 actual_*） */
+  computed_start_date?: string
+  computed_end_date?: string
   rows?: number
   rows_in_window?: number
+  /** 预热实际取用的行情行数 */
+  warmup_rows?: number
   warmup_required_days?: number | null
+  /** 行情来源说明（如 MarketDataSource.query_daily (warmup window)） */
+  data_source?: string
   window_owner?: string
   frame_digest?: string | null
   c_data_hash?: string | null
@@ -436,6 +442,8 @@ export interface BacktestDetail extends BacktestSummary {
   data_meta: BacktestDataMeta | null
   /** 当前持仓状态 0/1 */
   current_position: 0 | 1 | null
+  /** 策略算法版本（VARCHAR(20) 摘要；旧记录为 null，不造值） */
+  strategy_version?: string | null
   /** snapshot_status=missing 时附原因 */
   snapshot_missing_reason?: string | null
   c_result_available?: boolean

@@ -104,7 +104,7 @@ const caveats = computed(() => {
   const b = detailB.value
   if (!a || !b) return []
   const out: string[] = []
-  if (a.start_date !== b.start_date || a.end_date !== b.end_date) out.push('两条记录回测区间不同')
+  if (a.start_date !== b.start_date || a.end_date !== b.end_date) out.push('两条记录实际回测区间不同')
   if (a.initial_cash !== b.initial_cash) out.push('初始资金不同')
   if (a.semantics_version !== b.semantics_version) out.push('执行语义不同（v1/v2）')
   if (a.c_result_exact === false || b.c_result_exact === false) {
@@ -124,6 +124,11 @@ function semanticsLabel(d: BacktestDetail): string {
 function shortHash(hash?: string | null): string {
   if (!hash) return '—'
   return `${hash.slice(0, 8)}…${hash.slice(-8)}`
+}
+
+// 区间文本：缺任一端（旧记录无快照/字段缺失）统一显「—」，不编造半段区间
+function rangeText(start?: string, end?: string): string {
+  return start && end ? `${start} ~ ${end}` : '—'
 }
 
 const infoRows = computed(() => {
@@ -147,19 +152,20 @@ const infoRows = computed(() => {
       diff: a.c_algorithm_version !== b.c_algorithm_version,
     },
     {
+      // 调用方请求的窗口：data_meta.requested_*（旧记录无快照时显「—」）
       label: '请求区间',
-      a: `${a.start_date} ~ ${a.end_date}`,
-      b: `${b.start_date} ~ ${b.end_date}`,
-      diff: a.start_date !== b.start_date || a.end_date !== b.end_date,
+      a: rangeText(a.data_meta?.requested_start_date, a.data_meta?.requested_end_date),
+      b: rangeText(b.data_meta?.requested_start_date, b.data_meta?.requested_end_date),
+      diff:
+        a.data_meta?.requested_start_date !== b.data_meta?.requested_start_date ||
+        a.data_meta?.requested_end_date !== b.data_meta?.requested_end_date,
     },
     {
+      // 实际使用的首末 bar：顶层 start/end（= data_meta.computed_*）
       label: '实际区间',
-      a: a.data_meta?.actual_start_date
-        ? `${a.data_meta.actual_start_date} ~ ${a.data_meta.actual_end_date ?? '—'}`
-        : '—',
-      b: b.data_meta?.actual_start_date
-        ? `${b.data_meta.actual_start_date} ~ ${b.data_meta.actual_end_date ?? '—'}`
-        : '—',
+      a: rangeText(a.start_date, a.end_date),
+      b: rangeText(b.start_date, b.end_date),
+      diff: a.start_date !== b.start_date || a.end_date !== b.end_date,
     },
     {
       label: '预热起点',
