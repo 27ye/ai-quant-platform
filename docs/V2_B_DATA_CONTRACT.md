@@ -83,7 +83,7 @@ D 在 **Issue #15** 提案「东财失败后腾讯 qfq 兜底」；C 的复现�
 > 旧的 conservative-refetch 用例已按新契约改名/改断言（`tests/test_market_data_repository.py`、
 > `tests/test_ai_integration.py`），不是删测试掩盖。
 
-**一条已作废的替代实现（记录以免重复提出）**：B 曾提 `cb2cfeb`——"只保护批次起点早于库内起点"的宽松判据，
+**一条已作废的替代实现（记录以免重复提出）**：B 曾提 `cb2cfeb`——"只检查新批次起点不晚于库内起点"（判据为 `rows[0].trade_date > stored_first` 才拒绝）的宽松判据，
 理由是"末端偏短已由日历计数与 `cap` 管住"。**该理由在 `expected is None` 时自相矛盾**：
 那时日历计数根本没有兜住末端。C 用两个反例判定其不足（均已注入日历、完成日可知、union 覆盖未知、
 Provider 严格按范围返回、数量满足 `min_rows`）：
