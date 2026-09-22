@@ -259,14 +259,20 @@ class _StubCWindowedEntry:
     parameter_errors: tuple = ()
     data_errors: tuple = ()
 
-    def resolve(self, raw_parameters):
+    #: This stub stands in for a tree whose quant entry predates V3 ``strategy``.
+    strategy_unset = None
+    supports_strategy = False
+
+    def resolve(self, raw_parameters, strategy=None):
         required = int(raw_parameters.get("ma_long_period", 20))
         return type("_RequestConfig", (), {"required_warmup_rows": required})()
 
     def validate_window(self, start_date, end_date):
         return start_date, end_date
 
-    def run(self, frame, *, start_date, end_date, parameters):  # pragma: no cover
+    def run(  # pragma: no cover
+        self, frame, *, start_date, end_date, parameters, strategy=None
+    ):
         raise AssertionError("warmup must fail before C is called")
 
 
