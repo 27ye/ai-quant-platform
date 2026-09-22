@@ -2,8 +2,8 @@
 
 ## 候选范围
 
-- 生产代码候选：`6c9ca52`（rebase 到 `origin/main` `10283b0` 含 B #19 v9 迁移 + B #21 strategy 接线后的完整树；含两轮 C 复核修复，见末节）
-- 后端提交：`44516e1`（AI ORM/Service/上下文，v9 迁移已移除，由 B #19 独占）
+- 生产代码候选：`b3ad89876a0d40ed7b51a93eeb0e59318449c6dc`（rebase 到 `origin/main` `1841133` 含 B #19/#21/#24/#25 + A #23 后的完整树；含两轮 C 复核修复，见末节）
+- 后端提交：`1b397c3`（AI ORM/Service/上下文，v9 迁移已移除，由 B #19 独占）
 - 分支：`codex/v3-d-report-workflow`
 - 范围：已保存的 `v2_windowed` MA 精确回测 → AI 解读 → 报告历史 → Markdown 导出。
 - 未纳入：MACD、追问、最新行情/新闻补充、自动调参和新页面布局。
@@ -12,7 +12,7 @@
 
 | 检查 | 结果 |
 |---|---|
-| 后端全量 | `630 passed`（rebase 到含 B #19/#21 的 main 后；修复前 `596`，两轮修复与去重后 `630`） |
+| 后端全量 | `635 passed`（rebase 到含 B #19/#21/#24/#25 + A #23 的 main `1841133` 后；本树不含 C #18 MACD，故 C 的基线用例不在内） |
 | 定向 AI/迁移 | `91 passed` |
 | Python 编译 | `python -m compileall -q backend scripts` 通过 |
 | C/D 历史兼容 | `validate_c_ai_history_compatibility.py` 通过；SQLite + 合成行情 + 假 LLM |
