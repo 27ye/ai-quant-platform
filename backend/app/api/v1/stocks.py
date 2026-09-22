@@ -1,5 +1,5 @@
 from datetime import date
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends
 
@@ -56,6 +56,39 @@ def search_stocks(
     except StockDataProviderError as exc:
         raise DataProviderError(str(exc)) from exc
     return ApiResponse(data=data)
+
+
+@router.post("/stocks/catalog/sync", response_model=ApiResponse[Dict[str, Any]])
+def sync_stock_catalog(
+    service: StockCatalogService = Depends(get_stock_catalog_service),
+) -> ApiResponse[Dict[str, Any]]:
+    """Explicitly (re)sync the local stock catalog - the trigger that was missing.
+
+    V2 B1 froze *search* as a local-only read that must never call the provider, and the
+    sync was reachable only through ``scripts/sync_stock_catalog.py``. Nothing in the
+    running service ever called ``StockCatalogService.sync()``, so a real backend started
+    with an empty catalog and answered **every** search with ``50006`` (A, PR #23 review).
+    This endpoint is that missing trigger. It stays **outside** the search path: search
+    still answers from MySQL only, and never calls the provider.
+
+    Calling it repeatedly is a refresh, not an append. A failed refresh is reported
+    honestly as ``50001``/``502`` and leaves an already-synced catalog fully searchable -
+    only a catalog that has **never** been synced yields ``50006``.
+    """
+    try:
+        result = service.sync()
+    except InvalidParameterError:
+        raise
+    except StockDataProviderError as exc:
+        raise DataProviderError(str(exc)) from exc
+    return ApiResponse(
+        data={
+            "row_count": result.row_count,
+            "source": result.source,
+            "synced_at": result.synced_at.isoformat() if result.synced_at else None,
+            "catalog_complete": service.is_catalog_usable(),
+        }
+    )
 
 
 @router.get("/stocks/{stock_code}", response_model=ApiResponse[StockBasicSchema])
