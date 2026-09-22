@@ -2,13 +2,13 @@
 
 更新：2026-09-22。正式分支 `feature/v2-c-backtest-params`；PR #10 唯一集成入口，PR #12 保留 C 来源与验收证据。
 
-**当前组合 `bcbd559acb67d3435fe7a840f34ad73bbe35bbad` + `c-delivery-20260917`：C 九组通过；原两处运行时阻塞关闭。整体 V2 仍待实时、真实 LLM、页面与最终用户验收。**
+**当前集成 `904b5addf7f055672312a2ad308e64499b5c7443`；生产代码及固定包与 C 已验收的 `bcbd559acb67d3435fe7a840f34ad73bbe35bbad` 完全相同，仅增加 D 验收文档。C 九组与原两处运行时缺陷验收结论保持有效。D 已报告真实 LLM 验收通过；整体仍待实时三股、页面及用户验收。**
 
 ```mermaid
 flowchart LR
-    D["D bcbd559"] --> C["557 tests · 固定九组通过"]
+    D["D 904b5ad<br/>生产树等同 bcbd559"] --> C["557 tests · 固定九组通过"]
     C --> R["SQLite/MySQL 各12场景通过<br/>原两项 C 阻塞关闭"]
-    R --> A["B 复审 · A/D 实时/LLM/页面"]
+    R --> A["A/D 实时三股/页面<br/>B/C 与真实 LLM 门槛已关闭"]
     A --> U["用户最终验收 · D安排合并"]
 ```
 
@@ -22,9 +22,19 @@ flowchart LR
 | 日历无法证明 union | ✅ 保守拒绝，旧成功快照保留；中间/末端缺日反例也通过 |
 | 空 LLM 历史读取 | ✅ 实际 ASGI/MySQL；历史200、缺失404/40006、缺配置生成50005 |
 | B 复审与替代分支 | ✅ B 在 5769722115 公开复审通过 D fe8c0b4/c30f799，明确 cb2cfeb 作废、勿合；C 的反例保留为历史证据 |
-| 整体 V2 | ⏳ 真实行情/LLM/关闭 Mock 页面与用户验收不在 C 本轮通过范围；PR #10 仍 Draft |
+| D 真实 LLM | ✅ D 新增验收记录：真实生成、冻结双报告新进程/空配置回读和哈希对账；非 C 本轮独立实测 |
+| 整体 V2 | ⏳ 仍待完整实时三股/目录、关闭 Mock 页面、A 页面复验与用户验收；PR #10 仍 Draft |
 
 [当前签字与 B 对比](C_V2_BCBD559_ACCEPTANCE_20260922.md) · [机器可读结论](evidence/c-bcbd559-20260922/summary.json) · [f465ee3 阶段记录](C_V2_F465EE3_REVIEW_20260922.md) · [119a10c 原复现](C_V2_119A10C_REVIEW_20260922.md)
+
+### 2026-09-22：904b5ad 仅文档变更，重复复验请求已撤回
+
+- D 在 [5769918798](https://github.com/27ye/ai-quant-platform/issues/15#issuecomment-5769918798) 撤回上一条针对新文档 SHA 的 B/C 重跑要求，并已在 PR #10 勾选 B/C 与真实 LLM 门槛。
+- C 独立检查两个完整提交，仅 `docs/V2_AI_INTEGRATION_ACCEPTANCE.md` 改动；backend/frontend/scripts/tests/固定批次 Git tree 均相同。维持已测生产树的验收范围，本轮不新建测试库、不重跑、不重算。
+- D 的真实 LLM 结果依其公开验收文档记录，不归入 C 独立实测；实时第二次生成因 Provider 50001 拒绝不能记作两次实时成功。冻结 R2 双报告与 C 三股固定批次也不混用。
+- C 无新增算法/开发阻塞；A/D 按既定剩余范围推进。后续若改变生产代码、依赖、配置或验收数据，再按差异决定复验。
+
+[文档变更与树一致性审计](evidence/c-bcbd559-20260922/904b5ad-docs-only-audit.json)。
 
 ### 2026-09-22：B/C 复核已齐（代码未变）
 

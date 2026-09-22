@@ -1,0 +1,46 @@
+{
+  "checked_date": "2026-09-22",
+  "tested_C_SHA": "bcbd559acb67d3435fe7a840f34ad73bbe35bbad",
+  "current_integration_SHA": "904b5addf7f055672312a2ad308e64499b5c7443",
+  "changed_paths": [
+    "docs/V2_AI_INTEGRATION_ACCEPTANCE.md"
+  ],
+  "tree_comparison": {
+    "backend": {
+      "tested_tree": "36434a1a7b2bc29f8e439a34760403576b8f70b9",
+      "current_tree": "36434a1a7b2bc29f8e439a34760403576b8f70b9",
+      "identical": true
+    },
+    "frontend": {
+      "tested_tree": "1acb94b432d325f8e84417c2432f3982fbf706f5",
+      "current_tree": "1acb94b432d325f8e84417c2432f3982fbf706f5",
+      "identical": true
+    },
+    "scripts": {
+      "tested_tree": "efc91dd43627cdb22b5fa39a1b91718f7a9dae81",
+      "current_tree": "efc91dd43627cdb22b5fa39a1b91718f7a9dae81",
+      "identical": true
+    },
+    "tests": {
+      "tested_tree": "71c8db8af8ce052ffa3048fab9f23b6901d82fdc",
+      "current_tree": "71c8db8af8ce052ffa3048fab9f23b6901d82fdc",
+      "identical": true
+    },
+    "docs/evidence/c-delivery-20260917": {
+      "tested_tree": "28d7b2591fe3fcbe662af9f915a7db4018d3641c",
+      "current_tree": "28d7b2591fe3fcbe662af9f915a7db4018d3641c",
+      "identical": true
+    }
+  },
+  "verification": "independent git tree/diff audit; no tests rerun",
+  "D_repeated_test_request_withdrawn": "https://github.com/27ye/ai-quant-platform/issues/15#issuecomment-5769918798",
+  "C_acceptance": "Existing tested scope applies to identical production/data trees; this is not a new test execution",
+  "D_real_LLM": "D reports completed authorized real LLM and frozen two-report restart/hash checks; not independently executed by C in this turn",
+  "remaining_release_gates": [
+    "three-stock complete live flow and upstream catalog",
+    "browser with Mock disabled",
+    "A current V2 page acceptance",
+    "final user acceptance"
+  ],
+  "overall_V2_approved": false
+}
