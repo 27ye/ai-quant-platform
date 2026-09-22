@@ -151,5 +151,5 @@ with tempfile.TemporaryDirectory(prefix='c-d22-review-') as folder:
             assert len(llm.calls) == before_calls
             report['macd_out_of_f4_scope'] = {'http_status': 422, 'code': 40007, 'llm_calls': 0}
     engine.dispose()
-Path(sys.argv[1]).write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+Path(sys.argv[1]).write_bytes((json.dumps(report, ensure_ascii=False, indent=2)+'\n').encode('utf-8'))
 print(json.dumps({'matrix_passed': len(report['matrix']), 'corruption_probes': report['corruption_probes']}, ensure_ascii=False))
