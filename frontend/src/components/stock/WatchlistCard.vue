@@ -2,7 +2,7 @@
 // V3 F1：本地自选条（工作台紧凑区域，A1）
 // 只读展示 + 本地增删，不请求行情；点击自选股进入对应工作台。
 // 冻结验收模式下不能通过自选入口绕过可打开股票的限制。
-import { computed } from 'vue'
+import { computed, h } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
@@ -19,13 +19,36 @@ const watchlist = useWatchlist()
 
 const inWatchlist = computed(() => watchlist.has(props.stockCode))
 
+// 移除后 3.5s 内可撤销：恢复原名称的自选条目
+function notifyRemoved(code: string, name: string) {
+  ElMessage({
+    type: 'success',
+    duration: 3500,
+    message: h('span', { class: 'wl-toast' }, [
+      h('span', null, '已移出自选'),
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'wl-toast-undo',
+          onClick: () => watchlist.add(code, name),
+        },
+        '撤销',
+      ),
+    ]),
+  })
+}
+
 function toggleCurrent() {
   if (inWatchlist.value) {
+    const name = appContext.names[props.stockCode] ?? ''
     watchlist.remove(props.stockCode)
+    notifyRemoved(props.stockCode, name)
     return
   }
   const result = watchlist.add(props.stockCode, appContext.names[props.stockCode] ?? '')
   if (result.message) ElMessage.info(result.message)
+  else ElMessage.success('已加入自选')
 }
 
 function openStock(code: string) {
@@ -38,7 +61,9 @@ function openStock(code: string) {
 }
 
 function removeItem(code: string) {
+  const name = watchlist.items.find((item) => item.code === code)?.name ?? ''
   watchlist.remove(code)
+  notifyRemoved(code, name)
 }
 </script>
 
@@ -99,6 +124,7 @@ function removeItem(code: string) {
   position: relative;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 8px 14px;
   margin-bottom: 14px;
@@ -250,15 +276,35 @@ function removeItem(code: string) {
 }
 
 .strip-notice {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  bottom: -26px;
+  /* 卡片内第二行展示提示，不再绝对定位压到下方卡 */
+  flex-basis: 100%;
   display: flex;
   align-items: center;
   gap: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
   color: var(--text-faint);
   font-size: 11px;
+}
+
+/* ElMessage 内的撤销按钮（scoped 无法作用，用全局类） */
+:global(.wl-toast) {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+:global(.wl-toast-undo) {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--el-color-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+:global(.wl-toast-undo:hover) {
+  text-decoration: underline;
 }
 
 .notice-dismiss {

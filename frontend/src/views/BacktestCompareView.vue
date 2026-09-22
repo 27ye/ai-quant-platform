@@ -372,8 +372,8 @@ function goBack() {
         <!-- 参数差异 -->
         <el-card shadow="never" class="panel">
           <template #header><span class="card-title">参数对照</span></template>
-          <div class="table-scroll">
-          <table v-if="!paramsMissing" class="cmp-table">
+          <div v-if="!paramsMissing" class="table-scroll">
+          <table class="cmp-table">
             <thead>
               <tr>
                 <th class="col-label"></th>

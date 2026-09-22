@@ -301,7 +301,7 @@ function goBack() {
               </tbody>
             </table>
           </div>
-          <p v-else class="no-trades">该区间无成交</p>
+          <p v-else class="no-trades">暂无成交记录</p>
         </el-card>
 
         <!-- 数据元信息 -->

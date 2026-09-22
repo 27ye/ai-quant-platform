@@ -25,11 +25,13 @@ function pick(hex: string) {
     </template>
 
     <div class="panel">
-      <div class="swatches">
+      <div class="swatches" role="radiogroup" aria-label="选择主题色">
         <button
           v-for="opt in ACCENT_OPTIONS"
           :key="opt.hex"
           type="button"
+          role="radio"
+          :aria-checked="isActive(opt.hex)"
           :class="['swatch', { active: isActive(opt.hex) }]"
           :style="{ background: opt.hex, color: opt.hex }"
           :title="opt.name"
