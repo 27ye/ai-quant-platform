@@ -2,7 +2,7 @@
 
 ## 候选范围
 
-- 生产代码候选：`ea0a0160e33e9ac9d9ee2e2be3ab79573c6611c5`
+- 生产代码候选：`7530d0180c32377fc763951e4ece828fc59b63c0`（含 C 复核修复，见末节）
 - 后端/迁移提交：`2aee049707c59c2928bfee31d1281733fb2bec7a`
 - 分支：`codex/v3-d-report-workflow`
 - 范围：已保存的 `v2_windowed` MA 精确回测 → AI 解读 → 报告历史 → Markdown 导出。
@@ -12,7 +12,7 @@
 
 | 检查 | 结果 |
 |---|---|
-| 后端全量 | `596 passed in 17.93s` |
+| 后端全量 | `599 passed`（修复后新 SHA；修复前为 `596 passed in 17.93s`） |
 | 定向 AI/迁移 | `91 passed` |
 | Python 编译 | `python -m compileall -q backend scripts` 通过 |
 | C/D 历史兼容 | `validate_c_ai_history_compatibility.py` 通过；SQLite + 合成行情 + 假 LLM |
@@ -51,8 +51,14 @@ custom 新增测试覆盖：严格请求类型、不存在/跨股票/不支持/�
 - 生成：`POST /ai/analyze` 携带各自 `backtest_id`，真实 LLM 产出报告 `#1` / `#2`。断言全部通过：`analysis_mode=custom_backtest`、`backtest_id` 匹配、`quant_score=null`、新闻边界披露、Prompt/Context 版本 `v3.backtest.1`、`source_mode=unknown`、正文各段非空、上下文哈希与 C 输入哈希互相独立（报告 `#1`：context `0c87be8f…7583ee`、data `325782da…14f8`；报告 `#2`：context `8e8ba445…9b3f16`、data `132b54ff…67fe2`），且数据库记录与响应逐字段一致。
 - 重启回读：新进程、`LLM_API_KEY` 置空后，列表顺序 `#2, #1`，两份详情与生成响应完全一致；LLM 未被构造（若构造会因空 key 立即失败）。
 
+## C 复核后的修复（7530d01）
+
+C 复核（PR #22 review5277425787）发现：保存结果的 `total_return`、`max_drawdown`、`trade_count` 与保存曲线/订单矛盾时（输入哈希仍合法），原实现仍调用 LLM 并生成报告。修复在 LLM 调用前新增三项保存字段一致性校验（`final_equity/initial_cash-1`、`min(0.0, 曲线最小值)`、卖出笔数，浮点 rel 1e-12），矛盾按数据损坏拒绝：HTTP 500 / 50002、LLM 0 调用、报告 0 条。损坏矩阵新增三个“类型合法但数值矛盾”用例；全量 596 → 599 passed。真实 LLM 证据针对未改动的正常链路，继续有效；受影响验收（矛盾拒绝路径与全量回归）已在新 SHA 重跑。
+
 ## 尚未通过的外部门禁
 
+- C 需按新 SHA `7530d0180c32377fc763951e4ece828fc59b63c0` 复验矛盾拦截（正常链路 C 已验证通过）。
 - A 需复核公共类型、按钮与 custom 展示；B 需复核 v9 幂等迁移和读取路径；C 需复核 custom context 中投影的精确数值和两类哈希的语义。
+- v9 重复实现已定来源：B PR #19 为唯一迁移（D 已 APPROVE）；本分支在 #19 合并后 rebase，移除 D 侧重复的迁移实现与测试。
 
 PR 在 A/B/C 复核完成前保持 Draft。此后如修改生产代码，必须在新的完整 SHA 上重跑受影响验收。
