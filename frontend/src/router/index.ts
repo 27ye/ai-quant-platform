@@ -45,6 +45,12 @@ const router = createRouter({
       component: () => import('../views/BacktestHistoryView.vue'),
     },
     {
+      // V3 F3：两个历史回测对照（静态段优先于 /backtests/:id 参数段）
+      path: '/backtests/compare',
+      name: 'backtest-compare',
+      component: () => import('../views/BacktestCompareView.vue'),
+    },
+    {
       path: '/backtests/:id',
       name: 'backtest-detail',
       component: () => import('../views/BacktestDetailView.vue'),

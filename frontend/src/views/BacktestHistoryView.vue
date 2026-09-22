@@ -1,8 +1,10 @@
 <script setup lang="ts">
 // A3：回测历史列表（/stock/:code/backtests）
 // 只读 GET /backtests，排序 created_at DESC, id DESC；点击进详情重放保存时快照
+// V3 F3：勾选两条记录进入对照页（同股票翻页保留 ≤2 个已选；切股票清空）
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 
 import { fetchBacktests } from '../api/backtests'
 import type { BacktestSummary } from '../types/api'
@@ -18,6 +20,33 @@ const page = ref(1)
 const pageSize = 20
 const loading = ref(true)
 const failed = ref(false)
+
+// V3 F3 对照选择：只存列表拿到的 ID（跨页保留；不预取详情）
+const selectedIds = ref<number[]>([])
+
+function toggleSelect(item: BacktestSummary) {
+  const index = selectedIds.value.indexOf(item.backtest_id)
+  if (index !== -1) {
+    selectedIds.value.splice(index, 1)
+    return
+  }
+  if (selectedIds.value.length >= 2) {
+    ElMessage.warning('最多同时选择两条回测进行对照')
+    return
+  }
+  selectedIds.value.push(item.backtest_id)
+}
+
+function cancelSelected(id: number) {
+  const index = selectedIds.value.indexOf(id)
+  if (index !== -1) selectedIds.value.splice(index, 1)
+}
+
+function goCompare() {
+  if (selectedIds.value.length !== 2) return
+  const [a, b] = selectedIds.value
+  router.push({ path: '/backtests/compare', query: { a: String(a), b: String(b) } })
+}
 
 // 过期请求防护（同 StockDetailView 的 epoch 模式，C 复核要求）
 const epoch = ref(0)
@@ -65,11 +94,12 @@ function returnClass(value: number | null): string {
   return ''
 }
 
-// 切股时回到第一页重新加载（路由参数变化）
+// 切股时回到第一页重新加载并清空对照选择（路由参数变化）
 watch(
   stockCode,
   () => {
     page.value = 1
+    selectedIds.value = []
     load()
   },
   { immediate: true },
@@ -108,13 +138,22 @@ watch(
 
     <!-- 列表 -->
     <template v-else>
+      <p class="compare-hint">勾选两条记录可进行对照</p>
       <ul class="bt-list">
         <li
           v-for="item in items"
           :key="item.backtest_id"
           class="bt-item"
+          :class="{ selected: selectedIds.includes(item.backtest_id) }"
           @click="openDetail(item.backtest_id)"
         >
+          <el-checkbox
+            :model-value="selectedIds.includes(item.backtest_id)"
+            class="select-box"
+            :aria-label="`选择回测 ${item.backtest_id} 进行对照`"
+            @click.stop
+            @change="toggleSelect(item)"
+          />
           <div class="item-main">
             <div class="item-top">
               <span class="bt-id">#{{ item.backtest_id }}</span>
@@ -153,6 +192,26 @@ watch(
           :current-page="page"
           @current-change="onPageChange"
         />
+      </div>
+
+      <!-- V3 F3 选择条：显示代码与 ID，可取消；选中两条后进入对照 -->
+      <div v-if="selectedIds.length > 0" class="select-bar">
+        <span class="select-label">已选 {{ stockCode }}</span>
+        <span v-for="id in selectedIds" :key="id" class="select-chip">
+          #{{ id }}
+          <button type="button" class="chip-x" :aria-label="`取消选择 ${id}`" @click="cancelSelected(id)">
+            ×
+          </button>
+        </span>
+        <el-button
+          type="primary"
+          size="small"
+          class="compare-btn"
+          :disabled="selectedIds.length !== 2"
+          @click="goCompare"
+        >
+          开始对照（{{ selectedIds.length }}/2）
+        </el-button>
       </div>
     </template>
   </main>
@@ -242,6 +301,77 @@ watch(
 .bt-item:hover {
   background: var(--surface-hover);
   border-color: var(--border-strong);
+}
+
+/* V3 F3：已选记录高亮 */
+.bt-item.selected {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.compare-hint {
+  margin: 0 0 10px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.select-box {
+  height: auto;
+  margin-right: 4px;
+}
+
+/* V3 F3 选择条：贴底吸顶展示已选 ID */
+.select-bar {
+  position: sticky;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.select-label {
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.select-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chip-x {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.chip-x:hover {
+  opacity: 1;
+}
+
+.compare-btn {
+  margin-left: auto;
 }
 
 .item-main {
