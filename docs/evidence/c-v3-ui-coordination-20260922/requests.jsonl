@@ -1,0 +1,13 @@
+{"method": "GET", "path": "/api/v1/health", "body": null, "status": 200, "market_calls": 1}
+{"method": "POST", "path": "/api/v1/backtests", "body": {"stock_code": "600519"}, "status": 200, "market_calls": 1}
+{"method": "POST", "path": "/api/v1/backtests", "body": {"stock_code": "600519", "strategy": "macd", "start_date": "2025-07-05", "end_date": "2026-08-30", "parameters": {"macd_fast_period": 12, "macd_slow_period": 26, "macd_signal_period": 9, "initial_cash": 100000, "transaction_cost": 0.001, "slippage": 0}}, "status": 200, "market_calls": 1}
+{"method": "POST", "path": "/api/v1/backtests", "body": {"stock_code": "600519", "strategy": "macd", "start_date": "2025-07-05", "end_date": "2026-08-30", "parameters": {"macd_fast_period": 6, "macd_slow_period": 13, "macd_signal_period": 5, "initial_cash": 100000, "transaction_cost": 0.002, "slippage": 0.001}}, "status": 200, "market_calls": 1}
+{"method": "GET", "path": "/api/v1/backtests", "body": null, "status": 200, "market_calls": 0}
+{"method": "GET", "path": "/api/v1/backtests/3", "body": null, "status": 200, "market_calls": 0}
+{"method": "GET", "path": "/api/v1/backtests/3", "body": null, "status": 200, "market_calls": 0}
+{"method": "GET", "path": "/api/v1/backtests", "body": null, "status": 200, "market_calls": 0}
+{"method": "GET", "path": "/api/v1/backtests/3", "body": null, "status": 200, "market_calls": 0}
+{"method": "GET", "path": "/api/v1/backtests/2", "body": null, "status": 200, "market_calls": 0}
+{"method": "GET", "path": "/api/v1/backtests/3", "body": null, "status": 200, "market_calls": 0}
+{"method": "GET", "path": "/api/v1/backtests/2", "body": null, "status": 200, "market_calls": 0}
+{"method": "GET", "path": "/api/v1/backtests/3", "body": null, "status": 200, "market_calls": 0}

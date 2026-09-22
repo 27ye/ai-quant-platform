@@ -3,8 +3,10 @@
 from backend.app.quant.backtest import run_backtest
 from backend.app.quant.backtest_config import (
     PARAMETERS_UNSET,
+    STRATEGY_UNSET,
     BacktestParameterError,
     BacktestParameters,
+    MacdBacktestParameters,
     resolve_backtest_request,
 )
 from backend.app.quant.config import QuantConfig
@@ -16,8 +18,10 @@ from backend.app.quant.windowed_backtest import run_backtest_request, validate_b
 __all__ = [
     "QuantConfig",
     "PARAMETERS_UNSET",
+    "STRATEGY_UNSET",
     "BacktestParameterError",
     "BacktestParameters",
+    "MacdBacktestParameters",
     "analyze_quant_dataframe",
     "calculate_indicators",
     "calculate_quant_score",

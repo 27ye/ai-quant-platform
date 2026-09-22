@@ -1,0 +1,458 @@
+{
+  "d_sha": "bf7cd54a7694728e48937ce9d8f54a5ae4a12714",
+  "scope": "D22 plus C18 quant-only overlay (no B21); actual MA C calculation, HTTP, repository, new SQLite engines. Fixture LLM. No MySQL/live provider/real LLM/browser.",
+  "matrix": [
+    {
+      "stock_code": "600519",
+      "parameters": "default",
+      "raw_numeric_mapping_exact": true,
+      "normalized_prompt_post_saved_get_equal": true,
+      "independent_context_hash": "6db983fed42fcfc438862ebaa856e22d6cf045d4da0ec98eacc843ce5d2484bd",
+      "c_input_hash": "0fa1aa408689f559a12c37afe6c726c01be0e80b3a70d07363c59ec86e465153",
+      "new_engine_session": true,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "600519",
+      "parameters": "10_30",
+      "raw_numeric_mapping_exact": true,
+      "normalized_prompt_post_saved_get_equal": true,
+      "independent_context_hash": "1dd4c260c54966e7a0329de2c76e7486e18f295eae8482b63554d99c9815cd91",
+      "c_input_hash": "9ab75c3158920dd2fe73b29ada28d367c333c9dde66e26e2025941418bfa989d",
+      "new_engine_session": true,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "600519",
+      "parameters": "20_60_cost",
+      "raw_numeric_mapping_exact": true,
+      "normalized_prompt_post_saved_get_equal": true,
+      "independent_context_hash": "88623abfcda775c555689e8f3a8a62618458b856a0f43d06d068420447a92852",
+      "c_input_hash": "97e7e76a66dadda99ebe307dfb72a6a3c5e39ed81e8c5fa9cb88c20c8c1fb888",
+      "new_engine_session": true,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "000001",
+      "parameters": "default",
+      "raw_numeric_mapping_exact": true,
+      "normalized_prompt_post_saved_get_equal": true,
+      "independent_context_hash": "eced70f8349e53b443833e446a8ab10df8024c4dec9b3db257ab7eeefbc16406",
+      "c_input_hash": "6f3b5ec3699fa71c8fef97c5131aea893cc4b1e1ec963b892db5dffb371444d3",
+      "new_engine_session": true,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "000001",
+      "parameters": "10_30",
+      "raw_numeric_mapping_exact": true,
+      "normalized_prompt_post_saved_get_equal": true,
+      "independent_context_hash": "604616199b16cabeee78dba9089933d0f32bd5268a6041755233ccb9e92020cf",
+      "c_input_hash": "8f00d96ee1e9f6395ab9dcc22e084d98ebf5abe606bdf2ff83bf01f94e00ea73",
+      "new_engine_session": true,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "000001",
+      "parameters": "20_60_cost",
+      "raw_numeric_mapping_exact": true,
+      "normalized_prompt_post_saved_get_equal": true,
+      "independent_context_hash": "7f900c34e3d5aab8f03ea622fa8b2699287caeb8f282a63c0a709533b3aca76c",
+      "c_input_hash": "51d7fdc9e326a3156b8a78ae7052b5b0cc9781dd322270116ed9f311a289d9e8",
+      "new_engine_session": true,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "300750",
+      "parameters": "default",
+      "raw_numeric_mapping_exact": true,
+      "normalized_prompt_post_saved_get_equal": true,
+      "independent_context_hash": "9955ae36962d5af4a4ba7d3f66deebe4ad2110cba69a091f003c8a40a55516d4",
+      "c_input_hash": "fc03a520077a4632c771c767984dbcfff35ceaac8a35d7c10e635940ee0a981a",
+      "new_engine_session": true,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "300750",
+      "parameters": "10_30",
+      "raw_numeric_mapping_exact": true,
+      "normalized_prompt_post_saved_get_equal": true,
+      "independent_context_hash": "996e181df72a4e8b186aea75498534a1b9e2125f810e07ad72d57c4b0be95157",
+      "c_input_hash": "409f040e25a58fd8eb610f8af2bad69137b82a32088bb5747045bfdf787205e0",
+      "new_engine_session": true,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "300750",
+      "parameters": "20_60_cost",
+      "raw_numeric_mapping_exact": true,
+      "normalized_prompt_post_saved_get_equal": true,
+      "independent_context_hash": "9302b1522b4008565765a001897e84c0a1b6f2bf5c70ff17325e78967d3ad6e8",
+      "c_input_hash": "d74df6e804446ebf97cf34d155893b8abb259dd92faa4cfa524d9c8e1545be5d",
+      "new_engine_session": true,
+      "curve_points": 283
+    }
+  ],
+  "corruption_probes": [
+    {
+      "field": "total_return",
+      "original": 0.25458314506235635,
+      "replacement": 0.99,
+      "http_status": 200,
+      "code": 0,
+      "response_body": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "trend": "neutral",
+          "summary": "Saved context.",
+          "technical_analysis": "MA.",
+          "quant_analysis": "Saved results.",
+          "news_analysis": "本报告未纳入新闻数据",
+          "advantages": [
+            "Reproducible"
+          ],
+          "risks": [
+            "Historical"
+          ],
+          "conclusion": "Research only.",
+          "stock_code": "300750",
+          "quant_score": null,
+          "model_name": "c-independent-fixture-not-real-llm",
+          "analysis_mode": "custom_backtest",
+          "backtest_id": 10,
+          "report_id": 10,
+          "created_at": "2026-09-22T12:55:43Z",
+          "data_as_of": "2026-09-22T12:55:42Z",
+          "source_mode": "unknown",
+          "prompt_version": "v3.backtest.1",
+          "context_schema_version": "v3.backtest.1",
+          "output_schema_version": "v2.0",
+          "context_hash": "05942f6b5078524ff2dce384c5126d5de3da4de40e72ac52c4321778b50bf97d",
+          "snapshot_status": "complete",
+          "context_snapshot": {
+            "stock_code": "300750",
+            "backtest_id": 10,
+            "backtest_created_at": "2026-09-22T12:55:42Z",
+            "data_as_of": "2026-09-22T12:55:42Z",
+            "strategy_name": "ma_long_only",
+            "semantics_version": "v2_windowed",
+            "algorithm_version": "ma_long_only_v2.0.0",
+            "effective_parameters": {
+              "ma_short_period": 20,
+              "ma_long_period": 60,
+              "initial_cash": 200000.0,
+              "transaction_cost": 0.002,
+              "slippage": 0.001
+            },
+            "requested_start_date": "2025-07-04",
+            "requested_end_date": "2026-08-31",
+            "start_date": "2025-07-04",
+            "end_date": "2026-08-31",
+            "warmup": {
+              "start_date": "2025-04-07",
+              "end_date": "2025-07-03",
+              "required_rows": 60,
+              "used_rows": 60
+            },
+            "execution_assumptions": {
+              "benchmark_includes_costs": false,
+              "exchange_execution_constraints": "not_modelled",
+              "execution": "next_observation_open",
+              "first_day_signal": "last_warmup_close",
+              "forced_final_sale": false,
+              "fractional_shares": true,
+              "model": "research_fractional_v1",
+              "price_basis": "qfq",
+              "signal": "previous_observation_close",
+              "slippage": "buy_price_increased_sell_price_decreased",
+              "transaction_cost": "proportional_on_each_buy_and_sell"
+            },
+            "metrics": {
+              "initial_cash": 200000.0,
+              "final_equity": 250916.629012471,
+              "total_return": 0.99,
+              "annual_return": 0.223798048645284,
+              "max_drawdown": -0.238507599195487,
+              "sharpe_ratio": 0.780619095525653,
+              "win_rate": 0.5,
+              "trade_count": 2,
+              "order_count": 5,
+              "benchmark_return": 0.421783339851388
+            },
+            "initial_equity": {
+              "trade_date": "2025-07-04",
+              "equity": 200000.0,
+              "valuation": "before_open"
+            },
+            "data_hash": "d74df6e804446ebf97cf34d155893b8abb259dd92faa4cfa524d9c8e1545be5d",
+            "provenance": {
+              "source_mode": "unknown",
+              "provider": "unknown",
+              "market_start_date": "2025-07-04",
+              "market_end_date": "2026-08-31",
+              "market_rows": 283
+            }
+          }
+        }
+      },
+      "provider_exception_type": null,
+      "llm_calls": 1,
+      "reports_saved": 1,
+      "expected": "500/50002, zero LLM calls and zero saved reports",
+      "initial_cash": 200000.0,
+      "final_equity": 250916.62901247127,
+      "order_count": 5
+    },
+    {
+      "field": "max_drawdown",
+      "original": -0.2385075991954868,
+      "replacement": -0.5,
+      "http_status": 200,
+      "code": 0,
+      "response_body": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "trend": "neutral",
+          "summary": "Saved context.",
+          "technical_analysis": "MA.",
+          "quant_analysis": "Saved results.",
+          "news_analysis": "本报告未纳入新闻数据",
+          "advantages": [
+            "Reproducible"
+          ],
+          "risks": [
+            "Historical"
+          ],
+          "conclusion": "Research only.",
+          "stock_code": "300750",
+          "quant_score": null,
+          "model_name": "c-independent-fixture-not-real-llm",
+          "analysis_mode": "custom_backtest",
+          "backtest_id": 11,
+          "report_id": 11,
+          "created_at": "2026-09-22T12:55:43Z",
+          "data_as_of": "2026-09-22T12:55:43Z",
+          "source_mode": "unknown",
+          "prompt_version": "v3.backtest.1",
+          "context_schema_version": "v3.backtest.1",
+          "output_schema_version": "v2.0",
+          "context_hash": "48133af4e4e2a61106895cd4d51180095492f3f72ebe87b0ba2d4410307ed5db",
+          "snapshot_status": "complete",
+          "context_snapshot": {
+            "stock_code": "300750",
+            "backtest_id": 11,
+            "backtest_created_at": "2026-09-22T12:55:43Z",
+            "data_as_of": "2026-09-22T12:55:43Z",
+            "strategy_name": "ma_long_only",
+            "semantics_version": "v2_windowed",
+            "algorithm_version": "ma_long_only_v2.0.0",
+            "effective_parameters": {
+              "ma_short_period": 20,
+              "ma_long_period": 60,
+              "initial_cash": 200000.0,
+              "transaction_cost": 0.002,
+              "slippage": 0.001
+            },
+            "requested_start_date": "2025-07-04",
+            "requested_end_date": "2026-08-31",
+            "start_date": "2025-07-04",
+            "end_date": "2026-08-31",
+            "warmup": {
+              "start_date": "2025-04-07",
+              "end_date": "2025-07-03",
+              "required_rows": 60,
+              "used_rows": 60
+            },
+            "execution_assumptions": {
+              "benchmark_includes_costs": false,
+              "exchange_execution_constraints": "not_modelled",
+              "execution": "next_observation_open",
+              "first_day_signal": "last_warmup_close",
+              "forced_final_sale": false,
+              "fractional_shares": true,
+              "model": "research_fractional_v1",
+              "price_basis": "qfq",
+              "signal": "previous_observation_close",
+              "slippage": "buy_price_increased_sell_price_decreased",
+              "transaction_cost": "proportional_on_each_buy_and_sell"
+            },
+            "metrics": {
+              "initial_cash": 200000.0,
+              "final_equity": 250916.629012471,
+              "total_return": 0.254583145062356,
+              "annual_return": 0.223798048645284,
+              "max_drawdown": -0.5,
+              "sharpe_ratio": 0.780619095525653,
+              "win_rate": 0.5,
+              "trade_count": 2,
+              "order_count": 5,
+              "benchmark_return": 0.421783339851388
+            },
+            "initial_equity": {
+              "trade_date": "2025-07-04",
+              "equity": 200000.0,
+              "valuation": "before_open"
+            },
+            "data_hash": "d74df6e804446ebf97cf34d155893b8abb259dd92faa4cfa524d9c8e1545be5d",
+            "provenance": {
+              "source_mode": "unknown",
+              "provider": "unknown",
+              "market_start_date": "2025-07-04",
+              "market_end_date": "2026-08-31",
+              "market_rows": 283
+            }
+          }
+        }
+      },
+      "provider_exception_type": null,
+      "llm_calls": 1,
+      "reports_saved": 1,
+      "expected": "500/50002, zero LLM calls and zero saved reports",
+      "initial_cash": 200000.0,
+      "final_equity": 250916.62901247127,
+      "order_count": 5
+    },
+    {
+      "field": "trade_count",
+      "original": 2,
+      "replacement": 999,
+      "http_status": 200,
+      "code": 0,
+      "response_body": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "trend": "neutral",
+          "summary": "Saved context.",
+          "technical_analysis": "MA.",
+          "quant_analysis": "Saved results.",
+          "news_analysis": "本报告未纳入新闻数据",
+          "advantages": [
+            "Reproducible"
+          ],
+          "risks": [
+            "Historical"
+          ],
+          "conclusion": "Research only.",
+          "stock_code": "300750",
+          "quant_score": null,
+          "model_name": "c-independent-fixture-not-real-llm",
+          "analysis_mode": "custom_backtest",
+          "backtest_id": 12,
+          "report_id": 12,
+          "created_at": "2026-09-22T12:55:43Z",
+          "data_as_of": "2026-09-22T12:55:43Z",
+          "source_mode": "unknown",
+          "prompt_version": "v3.backtest.1",
+          "context_schema_version": "v3.backtest.1",
+          "output_schema_version": "v2.0",
+          "context_hash": "409578d559f271ea89de88b749b2d481b6684bcd63e90c2bdbca0289772fc53f",
+          "snapshot_status": "complete",
+          "context_snapshot": {
+            "stock_code": "300750",
+            "backtest_id": 12,
+            "backtest_created_at": "2026-09-22T12:55:43Z",
+            "data_as_of": "2026-09-22T12:55:43Z",
+            "strategy_name": "ma_long_only",
+            "semantics_version": "v2_windowed",
+            "algorithm_version": "ma_long_only_v2.0.0",
+            "effective_parameters": {
+              "ma_short_period": 20,
+              "ma_long_period": 60,
+              "initial_cash": 200000.0,
+              "transaction_cost": 0.002,
+              "slippage": 0.001
+            },
+            "requested_start_date": "2025-07-04",
+            "requested_end_date": "2026-08-31",
+            "start_date": "2025-07-04",
+            "end_date": "2026-08-31",
+            "warmup": {
+              "start_date": "2025-04-07",
+              "end_date": "2025-07-03",
+              "required_rows": 60,
+              "used_rows": 60
+            },
+            "execution_assumptions": {
+              "benchmark_includes_costs": false,
+              "exchange_execution_constraints": "not_modelled",
+              "execution": "next_observation_open",
+              "first_day_signal": "last_warmup_close",
+              "forced_final_sale": false,
+              "fractional_shares": true,
+              "model": "research_fractional_v1",
+              "price_basis": "qfq",
+              "signal": "previous_observation_close",
+              "slippage": "buy_price_increased_sell_price_decreased",
+              "transaction_cost": "proportional_on_each_buy_and_sell"
+            },
+            "metrics": {
+              "initial_cash": 200000.0,
+              "final_equity": 250916.629012471,
+              "total_return": 0.254583145062356,
+              "annual_return": 0.223798048645284,
+              "max_drawdown": -0.238507599195487,
+              "sharpe_ratio": 0.780619095525653,
+              "win_rate": 0.5,
+              "trade_count": 999,
+              "order_count": 5,
+              "benchmark_return": 0.421783339851388
+            },
+            "initial_equity": {
+              "trade_date": "2025-07-04",
+              "equity": 200000.0,
+              "valuation": "before_open"
+            },
+            "data_hash": "d74df6e804446ebf97cf34d155893b8abb259dd92faa4cfa524d9c8e1545be5d",
+            "provenance": {
+              "source_mode": "unknown",
+              "provider": "unknown",
+              "market_start_date": "2025-07-04",
+              "market_end_date": "2026-08-31",
+              "market_rows": 283
+            }
+          }
+        }
+      },
+      "provider_exception_type": null,
+      "llm_calls": 1,
+      "reports_saved": 1,
+      "expected": "500/50002, zero LLM calls and zero saved reports",
+      "initial_cash": 200000.0,
+      "final_equity": 250916.62901247127,
+      "order_count": 5
+    },
+    {
+      "field": "initial_cash",
+      "original": 200000.0,
+      "replacement": 0.0,
+      "http_status": 500,
+      "code": 50002,
+      "response_body": {
+        "code": 50002,
+        "message": "database error",
+        "data": null
+      },
+      "provider_exception_type": "DatabaseOperationError",
+      "llm_calls": 0,
+      "reports_saved": 0,
+      "expected": "500/50002, zero LLM calls and zero saved reports",
+      "initial_cash": 200000.0,
+      "final_equity": 250916.62901247127,
+      "order_count": 5
+    }
+  ],
+  "source_files_sha256": {
+    "600519_qfq_normalized_20241201_20260916.json": "280eed0f779440425bf79c5c368eebc07e1abc906dba7b2ad44afdd41f95cd27",
+    "000001_qfq_normalized_20241201_20260916.json": "d4fc99555e4a5283ab36408ef6063873e2a05e55e5a350826c3c56a3ac95aa73",
+    "300750_qfq_normalized_20241201_20260916.json": "b25d6e31442cdaeb37243d818b6171d69f2aad248e3f073e9500ebfcc1daf0df"
+  },
+  "c_code_sha": "6a84901c82256b7d48dfab3ebee3208633e5058c",
+  "macd_out_of_f4_scope": {
+    "http_status": 422,
+    "code": 40007,
+    "llm_calls": 0
+  }
+}

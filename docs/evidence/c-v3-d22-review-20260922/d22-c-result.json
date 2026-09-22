@@ -1,0 +1,148 @@
+{
+  "d_sha": "bf7cd54a7694728e48937ce9d8f54a5ae4a12714",
+  "scope": "D22 plus C18 quant-only overlay (no B21); actual MA C calculation, HTTP, repository, new SQLite engines. Fixture LLM. No MySQL/live provider/real LLM/browser.",
+  "matrix": [
+    {
+      "stock_code": "600519",
+      "parameters": "default",
+      "raw_numeric_mapping_exact": true,
+      "normalized_prompt_post_saved_get_equal": true,
+      "independent_context_hash": "73640ea5844df7131b4aeff1e514186024a062376c453a6967d197eb83198517",
+      "c_input_hash": "0fa1aa408689f559a12c37afe6c726c01be0e80b3a70d07363c59ec86e465153",
+      "new_engine_session": true,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "600519",
+      "parameters": "10_30",
+      "raw_numeric_mapping_exact": true,
+      "normalized_prompt_post_saved_get_equal": true,
+      "independent_context_hash": "faee4b8558df7aa75e33b910bb849497d7c3eb4e738a80dc60436c6901d03b60",
+      "c_input_hash": "9ab75c3158920dd2fe73b29ada28d367c333c9dde66e26e2025941418bfa989d",
+      "new_engine_session": true,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "600519",
+      "parameters": "20_60_cost",
+      "raw_numeric_mapping_exact": true,
+      "normalized_prompt_post_saved_get_equal": true,
+      "independent_context_hash": "2b4f7c69ae94a9ca997b10a89775bdcba06c5590f3867501383a5b3707b7704f",
+      "c_input_hash": "97e7e76a66dadda99ebe307dfb72a6a3c5e39ed81e8c5fa9cb88c20c8c1fb888",
+      "new_engine_session": true,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "000001",
+      "parameters": "default",
+      "raw_numeric_mapping_exact": true,
+      "normalized_prompt_post_saved_get_equal": true,
+      "independent_context_hash": "e7daef800ec9469de1d6d5b271aaf53095e9b6b9edb99b3fbc8438a92d2d31c4",
+      "c_input_hash": "6f3b5ec3699fa71c8fef97c5131aea893cc4b1e1ec963b892db5dffb371444d3",
+      "new_engine_session": true,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "000001",
+      "parameters": "10_30",
+      "raw_numeric_mapping_exact": true,
+      "normalized_prompt_post_saved_get_equal": true,
+      "independent_context_hash": "8d673fb76e2dfe1929a7df2d888fd6d8ea280a3e9d28f10c944a3fbca85f6052",
+      "c_input_hash": "8f00d96ee1e9f6395ab9dcc22e084d98ebf5abe606bdf2ff83bf01f94e00ea73",
+      "new_engine_session": true,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "000001",
+      "parameters": "20_60_cost",
+      "raw_numeric_mapping_exact": true,
+      "normalized_prompt_post_saved_get_equal": true,
+      "independent_context_hash": "11527b7a827bd4017b132ad1870d8200b0140603fd8e0fbe3f7937c307f53f8e",
+      "c_input_hash": "51d7fdc9e326a3156b8a78ae7052b5b0cc9781dd322270116ed9f311a289d9e8",
+      "new_engine_session": true,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "300750",
+      "parameters": "default",
+      "raw_numeric_mapping_exact": true,
+      "normalized_prompt_post_saved_get_equal": true,
+      "independent_context_hash": "8d7c440d795b2fb3b34d9c40e57dc59bc83385a8fac0ca36937459eb5ded352a",
+      "c_input_hash": "fc03a520077a4632c771c767984dbcfff35ceaac8a35d7c10e635940ee0a981a",
+      "new_engine_session": true,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "300750",
+      "parameters": "10_30",
+      "raw_numeric_mapping_exact": true,
+      "normalized_prompt_post_saved_get_equal": true,
+      "independent_context_hash": "13dc6b88edfda22cf03a1daa77b30157eee55bb08d0b2e7eea5f0a1936e0e97f",
+      "c_input_hash": "409f040e25a58fd8eb610f8af2bad69137b82a32088bb5747045bfdf787205e0",
+      "new_engine_session": true,
+      "curve_points": 283
+    },
+    {
+      "stock_code": "300750",
+      "parameters": "20_60_cost",
+      "raw_numeric_mapping_exact": true,
+      "normalized_prompt_post_saved_get_equal": true,
+      "independent_context_hash": "b815231d6ac2b9d7c1e6d053b895104c2cc34433d3f9559c34a46735692ea7d1",
+      "c_input_hash": "d74df6e804446ebf97cf34d155893b8abb259dd92faa4cfa524d9c8e1545be5d",
+      "new_engine_session": true,
+      "curve_points": 283
+    }
+  ],
+  "corruption_probes": [
+    {
+      "field": "total_return",
+      "original": 0.25458314506235635,
+      "replacement": 0.99,
+      "http_status": 200,
+      "code": 0,
+      "llm_calls": 1,
+      "reports_saved": 1,
+      "expected": "500/50002, zero LLM calls and zero saved reports",
+      "initial_cash": 200000.0,
+      "final_equity": 250916.62901247127,
+      "order_count": 5
+    },
+    {
+      "field": "max_drawdown",
+      "original": -0.2385075991954868,
+      "replacement": -0.5,
+      "http_status": 200,
+      "code": 0,
+      "llm_calls": 1,
+      "reports_saved": 1,
+      "expected": "500/50002, zero LLM calls and zero saved reports",
+      "initial_cash": 200000.0,
+      "final_equity": 250916.62901247127,
+      "order_count": 5
+    },
+    {
+      "field": "trade_count",
+      "original": 2,
+      "replacement": 999,
+      "http_status": 200,
+      "code": 0,
+      "llm_calls": 1,
+      "reports_saved": 1,
+      "expected": "500/50002, zero LLM calls and zero saved reports",
+      "initial_cash": 200000.0,
+      "final_equity": 250916.62901247127,
+      "order_count": 5
+    }
+  ],
+  "source_files_sha256": {
+    "600519_qfq_normalized_20241201_20260916.json": "280eed0f779440425bf79c5c368eebc07e1abc906dba7b2ad44afdd41f95cd27",
+    "000001_qfq_normalized_20241201_20260916.json": "d4fc99555e4a5283ab36408ef6063873e2a05e55e5a350826c3c56a3ac95aa73",
+    "300750_qfq_normalized_20241201_20260916.json": "b25d6e31442cdaeb37243d818b6171d69f2aad248e3f073e9500ebfcc1daf0df"
+  },
+  "c_code_sha": "6a84901c82256b7d48dfab3ebee3208633e5058c",
+  "macd_out_of_f4_scope": {
+    "http_status": 422,
+    "code": 40007,
+    "llm_calls": 0
+  }
+}
