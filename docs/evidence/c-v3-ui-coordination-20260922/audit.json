@@ -1,0 +1,99 @@
+{
+  "scope": "A23 af5e172 untouched UI + D22 fedeb09 with C quant 6a84901 overlay; fixed Tencent qfq package; actual HTTP and isolated SQLite. Other UI APIs mocked. Not final integration/MySQL/live provider/LLM.",
+  "cases": [
+    {
+      "backtest_id": 2,
+      "exact_full_result_replay": true,
+      "display_values_match": true,
+      "ui_values": [
+        "-17.47%",
+        "-15.82%",
+        "-26.83%",
+        "-1.02",
+        "21.43%",
+        14,
+        28
+      ],
+      "curve_points": 281,
+      "data_hash": "38eeb58975423a135b3eda93693a6658110e7ed2d988644a6956a763627a59a1",
+      "effective_parameters": {
+        "macd_fast_period": 12,
+        "macd_slow_period": 26,
+        "macd_signal_period": 9,
+        "initial_cash": 100000.0,
+        "transaction_cost": 0.001,
+        "slippage": 0.0
+      },
+      "data_meta": {
+        "semantics_version": "v2_windowed",
+        "requested_start_date": "2025-07-05",
+        "requested_end_date": "2026-08-30",
+        "warmup_start_date": "2025-04-29",
+        "warmup_rows": 45,
+        "warmup_required_days": 34,
+        "delivery_warmup_min_bars": 120,
+        "rows": 326,
+        "rows_in_window": 281,
+        "frame_digest": "be92c3906ae63b36b2d2caaf10aa1d776bb54e380b3bb2a0f69cb256284f03f5",
+        "c_data_hash": "38eeb58975423a135b3eda93693a6658110e7ed2d988644a6956a763627a59a1",
+        "computed_start_date": "2025-07-07",
+        "computed_end_date": "2026-08-28",
+        "current_position": 0,
+        "parameters_explicit": true,
+        "data_source": "MarketDataSource.query_daily (warmup window)",
+        "window_owner": "C.run_backtest_request"
+      }
+    },
+    {
+      "backtest_id": 3,
+      "exact_full_result_replay": true,
+      "display_values_match": true,
+      "ui_values": [
+        "-18.09%",
+        "-16.38%",
+        "-20.96%",
+        "-1.07",
+        "22.73%",
+        22,
+        44
+      ],
+      "curve_points": 281,
+      "data_hash": "28ef193da7881a570c147d56e6e4854846b3d4f3541af74601919b8c6d8d5016",
+      "effective_parameters": {
+        "macd_fast_period": 6,
+        "macd_slow_period": 13,
+        "macd_signal_period": 5,
+        "initial_cash": 100000.0,
+        "transaction_cost": 0.002,
+        "slippage": 0.001
+      },
+      "data_meta": {
+        "semantics_version": "v2_windowed",
+        "requested_start_date": "2025-07-05",
+        "requested_end_date": "2026-08-30",
+        "warmup_start_date": "2025-05-28",
+        "warmup_rows": 27,
+        "warmup_required_days": 17,
+        "delivery_warmup_min_bars": 120,
+        "rows": 308,
+        "rows_in_window": 281,
+        "frame_digest": "5af6cc0c7213b1bbf430bae7d8715709c4823e281e5ba2f0cb1b20f2c83379df",
+        "c_data_hash": "28ef193da7881a570c147d56e6e4854846b3d4f3541af74601919b8c6d8d5016",
+        "computed_start_date": "2025-07-07",
+        "computed_end_date": "2026-08-28",
+        "current_position": 0,
+        "parameters_explicit": true,
+        "data_source": "MarketDataSource.query_daily (warmup window)",
+        "window_owner": "C.run_backtest_request"
+      }
+    }
+  ],
+  "ui_invalid_empty_date_blocked": true,
+  "ui_invalid_fast_ge_slow_blocked": true,
+  "total_posts": 3,
+  "history_requests": 9,
+  "history_market_calls": 0,
+  "a23_f3_window_mapping": "still incorrect; requested shown as actual 2025-07-07..2026-08-28; actual shown as dash",
+  "frontend_typecheck_build": "passed; large-chunk warning only",
+  "b25_targeted_tests": "4 passed; SQLite/fake provider; 976bb2306dad6b94d24d5842a921332ad92326ae"
+}
