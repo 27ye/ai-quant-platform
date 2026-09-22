@@ -75,6 +75,13 @@ class AKShareStockProvider(StockDataProvider):
     #: Tencent realtime quote, last-resort fallback for stock info when both
     #: eastmoney quote hosts are unreachable (carries name + caps, no industry).
     tencent_quote_url = "https://qt.gtimg.cn/q"
+    #: Sina full-A-share list node, last-resort catalog source (paged, 100/page).
+    sina_catalog_url = (
+        "http://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/"
+        "Market_Center.getHQNodeData"
+    )
+    sina_catalog_page_size = 100
+    sina_catalog_page_delay_seconds = 0.15
     tencent_retry_attempts = 2
     #: Cap on concurrently-running (possibly hung) background AKShare calls, so
     #: repeated timeouts cannot accumulate unbounded daemon threads.
@@ -252,6 +259,17 @@ class AKShareStockProvider(StockDataProvider):
         except (*_TRANSIENT_ERRORS, StockDataProviderError) as exc:
             reasons.append(f"delayed host: {type(exc).__name__}: {exc}")
 
+        # Both eastmoney hosts are blocked: cross-source Sina full-market list
+        # is the last resort for a searchable catalog.
+        try:
+            items = self._catalog_from_sina()
+            if items:
+                self.last_catalog_source = "sina.Market_Center.getHQNodeData"
+                return items
+            reasons.append("sina returned no rows")
+        except (*_TRANSIENT_ERRORS, StockDataProviderError) as exc:
+            reasons.append(f"sina: {type(exc).__name__}: {exc}")
+
         raise StockDataProviderError(
             "stock catalog unavailable (" + "; ".join(reasons) + ")"
         )
@@ -331,6 +349,71 @@ class AKShareStockProvider(StockDataProvider):
                 break
             if total is not None and len(collected) >= total:
                 break
+
+        return [
+            {"stock_code": code, "stock_name": name}
+            for code, name in sorted(collected.items())
+        ]
+
+    def _catalog_from_sina(self) -> List[Dict[str, str]]:
+        """Cross-source catalog fallback: Sina ``hs_a`` node, 100 rows/page.
+
+        Only reached after both eastmoney hosts have failed. The node covers
+        SH/SZ/BJ A-shares (~5.5k rows in 2026, so <=56 pages). Pages are
+        walked with a small polite delay; each page gets bounded retries.
+        A short page marks the end of the node. Code/name validation is
+        delegated to :meth:`_normalize_catalog_rows`, so the 口径 matches the
+        eastmoney sources exactly.
+        """
+        import requests
+
+        collected: Dict[str, str] = {}
+        for page in range(1, self.catalog_max_pages + 1):
+            last_exc: Optional[Exception] = None
+            for _ in range(self.tencent_retry_attempts):
+                try:
+                    response = requests.get(
+                        self.sina_catalog_url,
+                        params={
+                            "page": str(page),
+                            "num": str(self.sina_catalog_page_size),
+                            "sort": "symbol",
+                            "asc": "1",
+                            "node": "hs_a",
+                            "symbol": "",
+                            "_s_r_a": "init",
+                        },
+                        timeout=self.fallback_timeout_seconds,
+                    )
+                    if response.status_code != 200:
+                        raise StockDataProviderError(
+                            f"sina catalog HTTP {response.status_code}"
+                        )
+                    payload = response.json()
+                    break
+                except StockDataProviderError as exc:
+                    last_exc = exc
+                    break
+                except Exception as exc:
+                    last_exc = exc
+            else:
+                raise StockDataProviderError(
+                    f"sina catalog page {page} failed after retries: {last_exc}"
+                ) from last_exc
+
+            if not isinstance(payload, list):
+                raise StockDataProviderError("sina catalog payload is not a list")
+            for item in self._normalize_catalog_rows(
+                (row.get("code"), row.get("name"))
+                for row in payload
+                if isinstance(row, dict)
+            ):
+                collected[item["stock_code"]] = item["stock_name"]
+
+            # Short page means the node is exhausted.
+            if len(payload) < self.sina_catalog_page_size:
+                break
+            time.sleep(self.sina_catalog_page_delay_seconds)
 
         return [
             {"stock_code": code, "stock_name": name}
