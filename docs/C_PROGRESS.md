@@ -29,6 +29,8 @@ flowchart LR
 
 ### 2026-09-22：904b5ad 仅文档变更，重复复验请求已撤回
 
+09:48 补记：已读取 [B 最新执行回复 5769972208](https://github.com/27ye/ai-quant-platform/issues/15#issuecomment-5769972208)，并独立获取 `cd2e7069349dd9eff213bdb2a432ae620cc0df5a`。相对 B 前头 c7790c2 仅修改 `docs/V2_B_DATA_CONTRACT.md`，已写入两种失败原因、完整性优先取舍、C 反例、B/C 各自测试范围及替代分支作废事实；C 对该文档对接确认完成。远端精确查询不再存在 `fix/runtime-cache-boundary` 分支，无需继续保留两套方案的协调。D 仍 904b5ad，当前集成契约标题仍为“已实现，待独立复验”，建议 D 最终文档收尾时同步 B 新版 §2.1；这是文档收尾，不重开 C 算法/测试任务。本轮未重复运行测试。[核对证据](evidence/c-bcbd559-20260922/B-cd2e706-doc-review.json)。
+
 - D 在 [5769918798](https://github.com/27ye/ai-quant-platform/issues/15#issuecomment-5769918798) 撤回上一条针对新文档 SHA 的 B/C 重跑要求，并已在 PR #10 勾选 B/C 与真实 LLM 门槛。
 - C 独立检查两个完整提交，仅 `docs/V2_AI_INTEGRATION_ACCEPTANCE.md` 改动；backend/frontend/scripts/tests/固定批次 Git tree 均相同。维持已测生产树的验收范围，本轮不新建测试库、不重跑、不重算。
 - D 的真实 LLM 结果依其公开验收文档记录，不归入 C 独立实测；实时第二次生成因 Provider 50001 拒绝不能记作两次实时成功。冻结 R2 双报告与 C 三股固定批次也不混用。
