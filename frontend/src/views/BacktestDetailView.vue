@@ -4,8 +4,10 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { AxiosError } from 'axios'
+import { ElMessage } from 'element-plus'
 
 import { fetchBacktestDetail } from '../api/backtests'
+import { analyzeStock } from '../api/ai'
 import type { BacktestDetail } from '../types/api'
 import ReturnCurveChart from '../components/stock/ReturnCurveChart.vue'
 import { formatDateTime } from '../utils/format'
@@ -18,6 +20,7 @@ const detail = ref<BacktestDetail | null>(null)
 const loading = ref(true)
 const failed = ref(false)
 const notFound = ref(false)
+const interpreting = ref(false)
 
 // 过期请求防护（同 StockDetailView 的 epoch 模式）
 const epoch = ref(0)
@@ -53,6 +56,32 @@ async function load() {
 watch(backtestId, load, { immediate: true })
 
 const isMissing = computed(() => detail.value?.snapshot_status === 'missing')
+
+const interpretationUnavailableReason = computed(() => {
+  const value = detail.value
+  if (!value) return '回测详情尚未加载'
+  if (value.semantics_version !== 'v2_windowed') return '仅支持参数化回测'
+  if (value.strategy_name !== 'ma_long_only') return '首版仅支持 MA 回测'
+  if (value.snapshot_status !== 'complete') return '该回测缺少历史快照'
+  if (!value.c_result_available || !value.c_result_exact) return '该回测没有精确的 C 结果'
+  if (!value.input_snapshot_available) return '该回测缺少 C 输入快照'
+  return null
+})
+
+async function interpretBacktest() {
+  const value = detail.value
+  if (!value || interpreting.value || interpretationUnavailableReason.value) return
+  interpreting.value = true
+  try {
+    const response = await analyzeStock(value.stock_code, value.backtest_id)
+    await router.push(`/ai/reports/${response.data.report_id}`)
+  } catch (error) {
+    const code = error instanceof AxiosError ? error.response?.data?.code : undefined
+    if (code === 40007) ElMessage.error('该回测快照暂不支持 AI 解读')
+  } finally {
+    interpreting.value = false
+  }
+}
 
 const METRICS = [
   { key: 'total_return', label: '总收益', kind: 'percent' },
@@ -174,13 +203,28 @@ function goBack() {
           </router-link>
         </template>
       </div>
-      <router-link
-        v-if="detail"
-        class="back-link"
-        :to="`/stock/${detail.stock_code}/backtests`"
-      >
-        该股票全部回测 →
-      </router-link>
+      <div v-if="detail" class="header-actions">
+        <el-tooltip
+          :disabled="!interpretationUnavailableReason"
+          :content="interpretationUnavailableReason || ''"
+          placement="bottom"
+        >
+          <span>
+            <el-button
+              type="primary"
+              size="small"
+              :loading="interpreting"
+              :disabled="Boolean(interpretationUnavailableReason)"
+              @click="interpretBacktest"
+            >
+              AI 解读本回测
+            </el-button>
+          </span>
+        </el-tooltip>
+        <router-link class="back-link" :to="`/stock/${detail.stock_code}/backtests`">
+          该股票全部回测 →
+        </router-link>
+      </div>
     </header>
 
     <!-- 加载态 -->
@@ -346,6 +390,12 @@ function goBack() {
   align-items: baseline;
   gap: 12px;
   min-width: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .back-link {

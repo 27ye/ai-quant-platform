@@ -2,14 +2,17 @@
 import { AxiosError } from 'axios'
 
 import type {
-  AIAnalysisData,
   AIReportDetail,
   AIReportSummary,
   ApiResponse,
   PaginatedAIReports,
 } from '../types/api'
 
-export function mockAIAnalysis(stockCode: string): ApiResponse<AIAnalysisData> {
+export function mockAIAnalysis(
+  stockCode: string,
+  backtestId?: number,
+): ApiResponse<AIReportDetail> {
+  if (backtestId != null) return mockCustomAIReport(stockCode, backtestId)
   return {
     code: 0,
     message: 'success',
@@ -37,6 +40,128 @@ export function mockAIAnalysis(stockCode: string): ApiResponse<AIAnalysisData> {
       conclusion:
         '建议以中性偏多思路对待：持仓者可继续持有并关注 MA20 支撑，空仓者等待回调至均线附近再考虑介入，突破布林带上轨且放量时可视为趋势加强信号。',
       model_name: 'mock-model',
+      report_id: 101,
+      created_at: '2026-09-15T08:30:00Z',
+      data_as_of: '2026-09-14T15:00:00Z',
+      source_mode: 'frozen',
+      prompt_version: 'v2.0',
+      context_schema_version: 'v2.0',
+      output_schema_version: 'v2.0',
+      context_hash: '9af45d325e7cced7fc420da9f502e3abcf72ede1b7ad95070b264f8b0c4052f4',
+      snapshot_status: 'complete',
+      context_snapshot: {
+        stock: { stock_code: stockCode, stock_name: '贵州茅台', industry: '白酒' },
+        market_snapshot: {
+          trade_date: '2026-09-14',
+          close: 1450.5,
+          change_pct: 0.012,
+          turnover_rate: 0.002,
+        },
+        technical_indicators: null,
+        quant_score: { score: 72, level: 'strong', reasons: ['趋势得分较高'] },
+        backtest_metrics: null,
+        news: [],
+        data_as_of: '2026-09-14T15:00:00Z',
+        provenance: {
+          source_mode: 'frozen',
+          provider: 'mock',
+          market_start_date: '2025-09-14',
+          market_end_date: '2026-09-14',
+          market_rows: 243,
+          news_status: 'empty',
+          news_count: 0,
+          retrieved_at: '2026-09-14T15:00:00Z',
+        },
+      },
+      analysis_mode: 'standard',
+      backtest_id: null,
+    },
+  }
+}
+
+function mockCustomAIReport(stockCode: string, backtestId: number): ApiResponse<AIReportDetail> {
+  return {
+    code: 0,
+    message: 'success',
+    data: {
+      stock_code: stockCode,
+      quant_score: null,
+      trend: 'neutral',
+      summary: '该 MA 策略在保存区间内获得正收益，但回撤和交易成本仍需关注。',
+      technical_analysis: '短长均线参数为 5/20，采用次日开盘执行的保存口径。',
+      quant_analysis: '保存结果显示总收益 12.30%，最大回撤 -8.10%，仅解释历史结果。',
+      news_analysis: '本报告未纳入新闻数据',
+      advantages: ['参数和执行假设已固定'],
+      risks: ['历史回测不代表未来表现'],
+      conclusion: '可将本结果作为策略研究输入，不应直接视为交易建议。',
+      model_name: 'mock-model',
+      report_id: 102,
+      created_at: '2026-09-16T08:30:00Z',
+      data_as_of: '2026-09-15T08:00:00Z',
+      source_mode: 'unknown',
+      prompt_version: 'v3.backtest.1',
+      context_schema_version: 'v3.backtest.1',
+      output_schema_version: 'v2.0',
+      context_hash: '2af45d325e7cced7fc420da9f502e3abcf72ede1b7ad95070b264f8b0c4052f4',
+      snapshot_status: 'complete',
+      analysis_mode: 'custom_backtest',
+      backtest_id: backtestId,
+      context_snapshot: {
+        stock_code: stockCode,
+        backtest_id: backtestId,
+        backtest_created_at: '2026-09-15T08:00:00Z',
+        data_as_of: '2026-09-15T08:00:00Z',
+        strategy_name: 'ma_long_only',
+        semantics_version: 'v2_windowed',
+        algorithm_version: 'ma_long_only_v2.0.0',
+        effective_parameters: {
+          ma_short_period: 5,
+          ma_long_period: 20,
+          initial_cash: 100000,
+          transaction_cost: 0.001,
+          slippage: 0,
+        },
+        requested_start_date: '2025-07-04',
+        requested_end_date: '2026-08-31',
+        start_date: '2025-07-04',
+        end_date: '2026-08-31',
+        warmup: {
+          start_date: '2025-06-06',
+          end_date: '2025-07-03',
+          required_rows: 20,
+          used_rows: 20,
+        },
+        execution_assumptions: {
+          model: 'research_fractional_v1',
+          signal: 'previous_observation_close',
+          fractional_shares: true,
+        },
+        metrics: {
+          initial_cash: 100000,
+          final_equity: 112300,
+          total_return: 0.123,
+          annual_return: 0.108,
+          max_drawdown: -0.081,
+          sharpe_ratio: 1.21,
+          win_rate: 0.6,
+          trade_count: 5,
+          order_count: 10,
+          benchmark_return: 0.09,
+        },
+        initial_equity: {
+          trade_date: '2025-07-04',
+          equity: 100000,
+          valuation: 'before_open',
+        },
+        data_hash: '3af45d325e7cced7fc420da9f502e3abcf72ede1b7ad95070b264f8b0c4052f4',
+        provenance: {
+          source_mode: 'unknown',
+          provider: 'unknown',
+          market_start_date: '2025-07-04',
+          market_end_date: '2026-08-31',
+          market_rows: 282,
+        },
+      },
     },
   }
 }
@@ -45,6 +170,20 @@ export function mockAIAnalysis(stockCode: string): ApiResponse<AIAnalysisData> {
 // 覆盖两种记录形态：id=101 完整快照（complete）+ id=100 旧记录（legacy_missing）
 
 const MOCK_REPORT_SUMMARIES: AIReportSummary[] = [
+  {
+    report_id: 102,
+    stock_code: '600519',
+    quant_score: null,
+    trend: 'neutral',
+    summary: '该 MA 策略在保存区间内获得正收益，但回撤和交易成本仍需关注。',
+    model_name: 'mock-model',
+    data_as_of: '2026-09-15T08:00:00Z',
+    created_at: '2026-09-16T08:30:00Z',
+    source_mode: 'unknown',
+    snapshot_status: 'complete',
+    analysis_mode: 'custom_backtest',
+    backtest_id: 201,
+  },
   {
     report_id: 101,
     stock_code: '600519',
@@ -100,6 +239,7 @@ export function mockAIReports(params: {
 }
 
 export function mockAIReportDetail(reportId: number): ApiResponse<AIReportDetail> {
+  if (reportId === 102) return mockCustomAIReport('600519', 201)
   const base = mockAIAnalysis('600519').data
   if (reportId === 100) {
     // V1 旧记录：无上下文快照、无版本字段，来源未知
