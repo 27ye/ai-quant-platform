@@ -1,0 +1,50 @@
+{
+  "sha": "bcbd559acb67d3435fe7a840f34ad73bbe35bbad",
+  "cases": {
+    "600519-default": {
+      "direct": "49411ad801c76bea4b77748a2f9776c41558aa9772f5313d852a3b759a88fcc1",
+      "post": "f83c85b578b4a245f803f7c345bb760891fcd23b1467c4ef1929d067c421113b",
+      "history": "c82a51ead8d75bacf6fbc0a7fae71b6aba400d64d6592c0606fefdf729c412a8"
+    },
+    "600519-ma10-30": {
+      "direct": "5866315f2f1a8b4929f73e4cd40c04d2ff9705172f7572f803f4fed51e2a0eb3",
+      "post": "8d8fd9b7fb6b39d3b1f9f723848a1aa49c0f3de622ca63308d3beaa7eab7a4dd",
+      "history": "b04d401420e694515c3940384ea4dc983287c693957cba61e6bd6bd9df3025ed"
+    },
+    "600519-ma20-60-cost": {
+      "direct": "b2b5cd32711a9d1593418b2a64ac66a5682e4ffe338e9a5c3270b9cd4ebc4658",
+      "post": "437bf05337fd2f5c0bab73bda15cd4d1283d92447a5d2c30e775133f75dc1c2f",
+      "history": "33222d35cc55d6bc4314256954d8af495d81c4e989f8db3f294ace15b38faada"
+    },
+    "000001-default": {
+      "direct": "ba7e3d313bb11e2c34cd7c7e895e3dff77cdb427d8246b0da9d2782607991e69",
+      "post": "2982ea65bcfef8be9e37bf312a48c07753357b5ad95622b1fafca729798d2840",
+      "history": "5bc41a659946e680456451ec96475433846abaf7e3a559d9e137a83df3073138"
+    },
+    "000001-ma10-30": {
+      "direct": "07fac5d9d27819e35bd1be66a8b0107487b5f5a03efc2b09142c97391d088f27",
+      "post": "dc2065dcb12c19939209febf7539d13d70ef784c2cf274e9039e8586c3233ed5",
+      "history": "e023d1025696b0635dc4db552b5a88a4a99d959e529fbd5ed7bc33a7807f8f22"
+    },
+    "000001-ma20-60-cost": {
+      "direct": "a5d78abc50dedc6ac972f9a3a39aa097d7fd2f395fb340d779f4eb702d62c945",
+      "post": "11e74ecf287e2aa2adf18e6e8ce8b75048c2bcf2567f3008e4db04b35ba77bd3",
+      "history": "06bd819a3b5656e521b266ccea029d6ed91015ed4e5f52b3b31c1b54afff798f"
+    },
+    "300750-default": {
+      "direct": "23060adae979025526da9406e19e26e9e469ad32f00e42ebd14612b0e92f7943",
+      "post": "c9c94281d1145441d9ec6b986833190c53f5db54372dfd9b37aa7ed96a146a5c",
+      "history": "0c60be71679ce8ffbc73455615976386a36a962fa93c63db365ea4f71990dabd"
+    },
+    "300750-ma10-30": {
+      "direct": "b5491ee2888991634eb113e82a9a973539c71e866d2f07e2afe6262fbd29d1ba",
+      "post": "5c6bf631e14482f234d54e2f66234a813b450970cbb8788c8af374b4e2b1ce64",
+      "history": "7e76bca90caf64e9e83c390c61a97f6a0799b870cc4a654fa0c18164cb0368ff"
+    },
+    "300750-ma20-60-cost": {
+      "direct": "70c55188d3e43c6fc108ff2c78393332ba090297230ff9f31ec67bcceb79f339",
+      "post": "efe8f16c5bc37d8b6a7a983c316c9efdb5b6bbbcca6bcb7909961e5fbb0a8cac",
+      "history": "a2bc12470dd70815a885362f0eea83cdf078767d795609b42a784c7d05d1cf29"
+    }
+  }
+}

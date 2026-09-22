@@ -1,0 +1,26 @@
+{
+  "sha": "f465ee3b0e96c7787c6d5102da4f51455b76905d",
+  "compared_to": "119a10c36c4b497ddfa0a3bb31666a6e6b803038",
+  "changed_files": [
+    "backend/app/api/v1/ai_analysis.py",
+    "backend/app/api/v1/dependencies.py",
+    "backend/app/services/ai_analysis.py",
+    "docs/V2_AI_INTEGRATION_ACCEPTANCE.md",
+    "tests/test_ai_api.py"
+  ],
+  "unchanged_paths": [
+    "backend/app/quant",
+    "backend/app/services/market_data_service.py",
+    "backend/app/data/trading_calendar.py",
+    "docs/evidence/c-delivery-20260917"
+  ],
+  "six_package_hashes": {
+    "600519_qfq_raw_20241201_20260916.json": "07f9f3af59b564f36ae40d0eef340414b4716712ef1205d1a937186b18709416",
+    "600519_qfq_normalized_20241201_20260916.json": "280eed0f779440425bf79c5c368eebc07e1abc906dba7b2ad44afdd41f95cd27",
+    "000001_qfq_raw_20241201_20260916.json": "993fa95241c78962583f97aa06c54e5a7636196ecb222547a5ee43c8cefc207c",
+    "000001_qfq_normalized_20241201_20260916.json": "d4fc99555e4a5283ab36408ef6063873e2a05e55e5a350826c3c56a3ac95aa73",
+    "300750_qfq_raw_20241201_20260916.json": "780f51e0fadd7644aef83d5881917efe9f225d28baffbcde277c74ebf57d80d8",
+    "300750_qfq_normalized_20241201_20260916.json": "b25d6e31442cdaeb37243d818b6171d69f2aad248e3f073e9500ebfcc1daf0df"
+  },
+  "nine_direct_JSON_bytes_equal": true
+}

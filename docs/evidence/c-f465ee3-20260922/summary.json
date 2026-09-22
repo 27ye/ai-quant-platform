@@ -1,0 +1,13 @@
+{
+  "sha": "f465ee3b0e96c7787c6d5102da4f51455b76905d",
+  "batch": "c-delivery-20260917",
+  "fixed_batch_decision": "PASS 9/9",
+  "history_without_LLM": "PASS actual ASGI/MySQL synthetic legacy fixture",
+  "runtime_decision": "NOT PASSED same two blockers as 119a10c",
+  "runtime_scenarios_per_database": 10,
+  "runtime_passing_per_database": 8,
+  "mysql_atomic_rollback": "PASS",
+  "overall_V2_approved": false,
+  "B_acknowledgment": "https://github.com/27ye/ai-quant-platform/issues/15#issuecomment-5769578187",
+  "B_implementation_delivered": false
+}
