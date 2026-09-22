@@ -1,0 +1,15 @@
+{
+  "source_sha": "25c11aa7b55d67fa5f77b3c603ca84b5369dc48e",
+  "baseline_sha": "9a1b9b45235c07b01b0ab30d0fcbb7ad719fea8b",
+  "changed_files": [
+    "backend/app/api/v1/dependencies.py",
+    "backend/app/api/v1/stocks.py",
+    "backend/app/services/stock_catalog_service.py",
+    "docs/API_SPEC.md",
+    "docs/V2_B_DATA_CONTRACT.md",
+    "tests/test_stock_catalog.py",
+    "tests/test_v2_error_contract.py"
+  ],
+  "added_files": [],
+  "removed_files": []
+}

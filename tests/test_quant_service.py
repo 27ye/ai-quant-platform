@@ -2,11 +2,16 @@ from datetime import date, timedelta
 
 import pandas as pd
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
 
-from backend.app.api.v1.dependencies import get_quant_service
+from backend.app.api.v1.dependencies import get_backtest_repository, get_quant_service
 from backend.app.core.errors import QuantCalculationError
 from backend.app.data.providers.base import StockDataProvider, StockDataSchemaError
+from backend.app.db.migrations import apply_migrations
 from backend.app.main import app
+from backend.app.services.backtest_service import BacktestRepository
 from backend.app.services.quant_service import QuantService
 from backend.app.services.stock_service import StockService
 
@@ -46,7 +51,17 @@ def test_legacy_positional_config_is_preserved():
 
 def _client():
     service = QuantService(stock_service=StockService(provider=FakeProvider()))
+    # V2: POST /backtests also persists a snapshot, so the repository needs a DB.
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    apply_migrations(engine)
+    session = Session(bind=engine)
+    repository = BacktestRepository(session)
     app.dependency_overrides[get_quant_service] = lambda: service
+    app.dependency_overrides[get_backtest_repository] = lambda: repository
     return TestClient(app)
 
 

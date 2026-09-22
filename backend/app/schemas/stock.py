@@ -34,3 +34,48 @@ class DailyKlineSchema(BaseModel):
     amount: Optional[float] = None
     turnover_rate: Optional[float] = None
     change_pct: Optional[float] = None
+
+
+class CatalogStatusSchema(BaseModel):
+    """Local stock-catalog state (V2 B1 bookkeeping)."""
+
+    synced: bool
+    row_count: int = 0
+    last_success_at: Optional[datetime] = None
+    last_attempt_at: Optional[datetime] = None
+    source: Optional[str] = None
+    last_error: Optional[str] = None
+
+
+class KlineFreshnessSchema(BaseModel):
+    #: ``fresh`` / ``stale`` / ``unknown`` (no usable bars at all).
+    status: str
+    stale_days: Optional[int] = None
+    max_stale_days: int
+
+
+class KlineStatusSchema(BaseModel):
+    #: How the stored bars were produced: ``live`` / ``frozen`` / ``unknown``.
+    #: ``unknown`` means no refresh metadata exists - it is never guessed.
+    mode: str
+    source: Optional[str] = None
+    rows: int = 0
+    first_trade_date: Optional[date] = None
+    last_trade_date: Optional[date] = None
+    last_refreshed_at: Optional[datetime] = None
+    #: ``known`` only when the trading calendar could prove the expected count.
+    coverage: str
+    expected_trading_days: Optional[int] = None
+    #: Last failed refresh attempt (empty when the last attempt succeeded).
+    last_attempt_at: Optional[datetime] = None
+    last_error: Optional[str] = None
+    freshness: KlineFreshnessSchema
+
+
+class StockDataStatusSchema(BaseModel):
+    """``GET /stocks/{stock_code}/data-status`` payload (V2 B2)."""
+
+    stock_code: str = Field(pattern=r"^\d{6}$")
+    catalog: CatalogStatusSchema
+    kline: KlineStatusSchema
+    as_of: datetime

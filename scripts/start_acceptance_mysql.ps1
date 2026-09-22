@@ -4,7 +4,9 @@ existing data directories. Runtime secrets/data are retained under ignored froze
 #>
 [CmdletBinding()]
 param(
-    [string]$MySqlBin = 'D:\Program Files\MySQL\MySQL Server 8.0\bin'
+    [string]$MySqlBin = 'D:\Program Files\MySQL\MySQL Server 8.0\bin',
+    [ValidateRange(1024, 65535)]
+    [int]$Port = 3307
 )
 
 $ErrorActionPreference = 'Stop'
@@ -47,9 +49,9 @@ if ($LASTEXITCODE -ne 0 -or $versionText -notmatch 'Ver 8\.0\.' -or $versionText
 }
 
 # Fail before creating files if the requested endpoint cannot be reserved.
-$listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 3307)
+$listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, $Port)
 $listener.Server.ExclusiveAddressUse = $true
-try { $listener.Start() } catch { throw 'Port 3307 is occupied or unavailable; no service was stopped.' }
+try { $listener.Start() } catch { throw "Port $Port is occupied or unavailable; no service was stopped." }
 finally { $listener.Stop() }
 
 $runtimeRoot = [IO.Path]::GetFullPath((Join-Path $repo 'frozen\_runtime'))
@@ -67,11 +69,12 @@ $baseDir = [IO.Path]::GetFullPath((Join-Path $MySqlBin '..')).Replace('\', '/')
 $dataOption = $dataDir.Replace('\', '/')
 $initError = Join-Path $runtime 'initialize.stderr.log'
 $initOutput = Join-Path $runtime 'initialize.stdout.log'
-$initialize = Start-Process -FilePath $mysqld -WindowStyle Hidden -PassThru -ArgumentList @(
-    '--no-defaults', '--initialize', '--console', "--basedir=`"$baseDir`"", "--datadir=`"$dataOption`""
-) -RedirectStandardError $initError -RedirectStandardOutput $initOutput
-if (-not $initialize.WaitForExit(60000)) { throw 'Initialization still running; data retained. Inspect the private runtime directory.' }
-if ($initialize.ExitCode -ne 0) { throw 'MySQL initialization failed; private logs and data retained.' }
+$savedErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+& $mysqld --no-defaults --initialize --console "--basedir=$baseDir" "--datadir=$dataOption" 1> $initOutput 2> $initError
+$initializeExitCode = $LASTEXITCODE
+$ErrorActionPreference = $savedErrorActionPreference
+if ($initializeExitCode -ne 0) { throw 'MySQL initialization failed; private logs and data retained.' }
 
 $rootPassword = New-LocalPassword
 $appPassword = New-LocalPassword
@@ -90,14 +93,14 @@ GRANT ALL PRIVILEGES ON ``ai\_quant\_v1\_acceptance\_%``.* TO 'acceptance'@'127.
 [IO.File]::WriteAllText($clientFile, @"
 [client]
 host=127.0.0.1
-port=3307
+port=$Port
 protocol=TCP
 user=acceptance
 password=$appPassword
 "@, [Text.Encoding]::ASCII)
 [IO.File]::WriteAllText($envFile, @"
 MYSQL_HOST=127.0.0.1
-MYSQL_PORT=3307
+MYSQL_PORT=$Port
 MYSQL_USER=acceptance
 MYSQL_PASSWORD=$appPassword
 "@, [Text.Encoding]::ASCII)
@@ -107,7 +110,7 @@ $serverOutput = Join-Path $runtime 'server.stdout.log'
 $pidFile = Join-Path $runtime 'mysql.pid'
 $server = Start-Process -FilePath $mysqld -WindowStyle Hidden -PassThru -ArgumentList @(
     '--no-defaults', '--console', "--basedir=`"$baseDir`"", "--datadir=`"$dataOption`"",
-    '--bind-address=127.0.0.1', '--port=3307', '--mysqlx=OFF', '--skip-name-resolve',
+    '--bind-address=127.0.0.1', "--port=$Port", '--mysqlx=OFF', '--skip-name-resolve',
     '--skip-log-bin', '--local-infile=OFF', '--secure-file-priv=NULL',
     "--pid-file=`"$($pidFile.Replace('\', '/'))`"",
     "--init-file=`"$($bootstrapFile.Replace('\', '/'))`""
@@ -135,7 +138,7 @@ while ([DateTime]::UtcNow -lt $deadline) {
 }
 if ($clientExit -ne 0 -or -not $identity) { throw 'Isolated MySQL readiness failed; private logs/data retained.' }
 $fields = ([string]$identity).Trim().Split("`t")
-if ($fields.Count -ne 3 -or $fields[0] -notmatch '^8\.0\.' -or $fields[1] -ne '3307') {
+if ($fields.Count -ne 3 -or $fields[0] -notmatch '^8\.0\.' -or $fields[1] -ne [string]$Port) {
     throw 'Server identity check failed; refusing further work.'
 }
 if ([IO.Path]::GetFullPath($fields[2]).TrimEnd('\', '/') -ne $dataDir.TrimEnd('\', '/')) {
@@ -149,7 +152,7 @@ $manifest = [ordered]@{
     data_directory = $dataDir
     pid = $server.Id
     host = '127.0.0.1'
-    port = 3307
+    port = $Port
     version = $fields[0]
     environment_file = $envFile
     client_options_file = $clientFile

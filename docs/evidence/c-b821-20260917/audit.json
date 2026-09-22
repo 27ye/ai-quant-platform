@@ -1,0 +1,53 @@
+{
+  "B_SHA": "821f322b988e8c1b1e3b6408185a41403e8b2cf4",
+  "D_SHA": "b4800149eeaa19037e665e3e40821462a6eabae6",
+  "previous_B_SHA": "74c74fb3370555aaf94d02bdbb0547c70ffe8b00",
+  "B_changed_files": [
+    "docs/B_DATASOURCE_DIAGNOSIS.md",
+    "docs/V2_B_DATA_EVIDENCE.md",
+    "docs/V2_B_RUNBOOK.md",
+    "docs/backend_status.md",
+    "docs/evidence/c-delivery-20260917/MANIFEST.json"
+  ],
+  "B_code_tests_unchanged": true,
+  "three_stock_sources_equal_corrected_top_note": true,
+  "historical_incorrect_wording_explicitly_preserved": true,
+  "six_data_hashes_unchanged": {
+    "600519_qfq_raw_20241201_20260916.json": "07f9f3af59b564f36ae40d0eef340414b4716712ef1205d1a937186b18709416",
+    "600519_qfq_normalized_20241201_20260916.json": "280eed0f779440425bf79c5c368eebc07e1abc906dba7b2ad44afdd41f95cd27",
+    "000001_qfq_raw_20241201_20260916.json": "993fa95241c78962583f97aa06c54e5a7636196ecb222547a5ee43c8cefc207c",
+    "000001_qfq_normalized_20241201_20260916.json": "d4fc99555e4a5283ab36408ef6063873e2a05e55e5a350826c3c56a3ac95aa73",
+    "300750_qfq_raw_20241201_20260916.json": "780f51e0fadd7644aef83d5881917efe9f225d28baffbcde277c74ebf57d80d8",
+    "300750_qfq_normalized_20241201_20260916.json": "b25d6e31442cdaeb37243d818b6171d69f2aad248e3f073e9500ebfcc1daf0df"
+  },
+  "manifest_sha256": "82c430da1d1e36cf4eec6efe3b4a042c549bbc07c6e98a8c71fd040476b8f7a5",
+  "D_tree_missing": [
+    "docs/evidence/c-delivery-20260917",
+    "docs/evidence/v1-migration-chain-20260917",
+    "scripts/verify_v1_migration_chain.py"
+  ],
+  "D_no_tencent_exporter": true,
+  "D_no_C_filename_template_option": true,
+  "D_runbook_still_schema_1_to_4": true,
+  "common_B_ancestor": "e4ef00060aef7a937c3086617256f9bfceda425a",
+  "missing_B_commits": [
+    "b7cb06a39f56142e51cbf6c8054b03785a9881a4",
+    "dedad60977511aae8237fc4bb84e7a5321490df1",
+    "5404c25c52f909ba603ed8be2513101fb5cb3419",
+    "74c74fb3370555aaf94d02bdbb0547c70ffe8b00",
+    "d63aaa051e7e3f2426ebb806c36e2942e8664d31",
+    "821f322b988e8c1b1e3b6408185a41403e8b2cf4"
+  ],
+  "source_adoption_decision": "B relays D approval in PR10 comment 5707362287; original D approval comment not found in current Issue11/PR10 comments; request D records decision with integration SHA, not a repeat approval request",
+  "no_tests_rerun": "Only manifest + four docs changed from B74c; keep prior 369 tests/35 MySQL checks at their original SHA.",
+  "B_documentation_remaining": {
+    "path": "docs/backend_status.md",
+    "line": 81,
+    "incorrect_rule": "max(ma_trend_period, ma_long_period+1)",
+    "verified_B_code_rule": "warmup_required_days returns config.ma_long_period",
+    "verified_C_code_rule": "V2 required_warmup_rows returns parameters.ma_long_period",
+    "delivery_package_minimum": 120,
+    "parameter_constraint": "2 <= short < long <= 120",
+    "scope": "documentation correction only; no algorithm change requested"
+  }
+}

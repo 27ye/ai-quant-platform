@@ -6,6 +6,8 @@ from backend.app.data.providers.base import InvalidStockCodeError, StockDataProv
 from backend.app.schemas.ai import (
     AnalysisContext,
     BacktestMetricsContext,
+    DataProvenance,
+    MarketDataProvenance,
     MarketSnapshotContext,
     NewsItemContext,
     QuantScoreContext,
@@ -26,6 +28,9 @@ class StockAnalysisService(Protocol):
         stock_code: str,
     ) -> Optional[TechnicalIndicatorContext]:
         """Return deterministic technical indicator output when available."""
+
+    def get_market_provenance(self, stock_code: str) -> MarketDataProvenance:
+        """Return source and date metadata for the request-cached market frame."""
 
 
 class QuantAnalysisService(Protocol):
@@ -81,6 +86,17 @@ class ServiceAnalysisContextProvider:
             raise InvalidParameterError() from exc
         except StockDataProviderError as exc:
             raise DataProviderError() from exc
+        # MySQL DATETIME stores second precision in the V2 schema. Freeze the
+        # timestamp at that precision before it enters either the prompt or the
+        # snapshot so POST and later history reads remain byte-consistent.
+        assembled_at = datetime.now(timezone.utc).replace(microsecond=0)
+        market_provenance = self._stock_service.get_market_provenance(stock_code)
+        provenance = DataProvenance(
+            **market_provenance.model_dump(),
+            news_status="available" if news else "empty",
+            news_count=len(news),
+            retrieved_at=assembled_at,
+        )
         return AnalysisContext(
             stock=stock,
             market_snapshot=snapshot,
@@ -88,5 +104,6 @@ class ServiceAnalysisContextProvider:
             quant_score=score,
             backtest_metrics=backtest,
             news=news,
-            data_as_of=datetime.now(timezone.utc),
+            data_as_of=assembled_at,
+            provenance=provenance,
         )

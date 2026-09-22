@@ -18,14 +18,28 @@ can be injected instead of hitting AKShare.
 
 from __future__ import annotations
 
-from datetime import date
-from typing import Callable, List, Optional
+import threading
+from datetime import date, datetime, time, timedelta
+from typing import Callable, ClassVar, List, Optional
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
 
 class TradingCalendarProvider:
     """Provide the A-share trading-day list and count days in a window."""
+
+    #: Process-shared cache for the default AKShare source.
+    #: ``get_trading_calendar_provider`` builds a new provider per request, so an
+    #: instance cache would refetch the calendar on every request. Worse, the
+    #: AKShare calendar fetch constructs a V8 (py_mini_racer) context whose
+    #: one-time native initialization is not thread-safe: concurrent first loads
+    #: abort the whole process (observed as a live cold-start crash). The
+    #: class-level lock serializes that load so it happens exactly once.
+    _shared_trade_dates: ClassVar[Optional[List[date]]] = None
+    _shared_load_lock: ClassVar[threading.Lock] = threading.Lock()
+    _market_timezone: ClassVar[ZoneInfo] = ZoneInfo("Asia/Shanghai")
+    _daily_bar_ready_at: ClassVar[time] = time(18, 0)
 
     def __init__(
         self,
@@ -36,10 +50,23 @@ class TradingCalendarProvider:
         self._fetch = fetch
 
     def get_trade_dates(self, refresh: bool = False) -> List[date]:
+        if self._trade_dates is not None and self._fetch is None:
+            if refresh:
+                # Preserve the injected-calendar refresh contract while serializing
+                # its AKShare load with the default provider's cold start.
+                with TradingCalendarProvider._shared_load_lock:
+                    self._trade_dates = self._load_from_akshare()
+            return self._trade_dates
+        if self._trade_dates is None and self._fetch is None:
+            if refresh or TradingCalendarProvider._shared_trade_dates is None:
+                with TradingCalendarProvider._shared_load_lock:
+                    if refresh or TradingCalendarProvider._shared_trade_dates is None:
+                        TradingCalendarProvider._shared_trade_dates = (
+                            self._load_from_akshare()
+                        )
+            return list(TradingCalendarProvider._shared_trade_dates)
         if refresh or self._trade_dates is None:
-            self._trade_dates = (
-                self._fetch() if self._fetch is not None else self._load_from_akshare()
-            )
+            self._trade_dates = self._fetch()
         return self._trade_dates
 
     def refresh(self) -> List[date]:
@@ -56,6 +83,28 @@ class TradingCalendarProvider:
         if dates[0] > start or dates[-1] < end:
             return None  # calendar does not bracket the window -> coverage unknown
         return sum(1 for day in dates if start <= day <= end)
+
+    def last_completed_trade_date(self, as_of: Optional[datetime] = None) -> Optional[date]:
+        """Return the latest daily bar that may be treated as complete.
+
+        A trading-day candle is eligible after 18:00 Asia/Shanghai, leaving a
+        conservative publication window after the exchange close. Unknown or
+        expired calendars return ``None`` so callers keep the failure path.
+        """
+        now = as_of or datetime.now(self._market_timezone)
+        if now.tzinfo is None:
+            raise ValueError("as_of must be timezone-aware")
+        local_now = now.astimezone(self._market_timezone)
+        dates = self.get_trade_dates()
+        today = local_now.date()
+        if not dates or dates[0] > today or dates[-1] < today:
+            return None
+        latest_eligible = (
+            today
+            if local_now.time() >= self._daily_bar_ready_at
+            else today - timedelta(days=1)
+        )
+        return next((day for day in reversed(dates) if day <= latest_eligible), None)
 
     def as_callable(self) -> Callable[[date, date], Optional[int]]:
         """Return ``(start, end) -> Optional[int]`` for injection as ``trading_days``."""

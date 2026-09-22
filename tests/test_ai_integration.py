@@ -114,13 +114,17 @@ def graph(monkeypatch):
         provider=SyntheticProvider(), requests=[], responses=[],
         llm_status=200, llm_timeout=False, fail_report=False,
         fail_read=False, rollbacks=0, market_queries=0, sessions=[],
-        market_query_calls=[], calendar_mode="unknown",
+        market_query_calls=[], calendar_mode="reliable",
     )
     state.calendar = SyntheticCalendar(state)
 
     class RecordingSession(Session):
         def commit(self):
-            if state.fail_report and any(isinstance(row, AIAnalysis) for row in self.new):
+            has_report = any(isinstance(row, AIAnalysis) for row in self.new)
+            has_report = has_report or any(
+                isinstance(row, AIAnalysis) for row in self.identity_map.values()
+            )
+            if state.fail_report and has_report:
                 raise SQLAlchemyError("secret database detail")
             return super().commit()
 
@@ -202,6 +206,12 @@ def _frame_from_api_rows(rows):
     ])
 
 
+def _portable_ai_number(value):
+    if not isinstance(value, float):
+        return value
+    return 0.0 if value == 0.0 else float(format(value, ".15g"))
+
+
 def test_real_graph_fetches_quantifies_reads_news_and_persists(graph):
     response = analyze(graph)
     assert response.status_code == 200, response.text
@@ -216,20 +226,53 @@ def test_real_graph_fetches_quantifies_reads_news_and_persists(graph):
     assert context["market_snapshot"]["trade_date"] == str(graph.provider.frame.trade_date.max())
     assert context["market_snapshot"]["turnover_rate"] == 0.012346
     assert context["news"][0]["title"] == "明确标记的模拟新闻"
+    assert context["provenance"]["source_mode"] == "live"
+    assert context["provenance"]["market_rows"] == 120
     assert data["quant_score"] == context["quant_score"]["score"]
+    assert data["report_id"] > 0
+    assert datetime.fromisoformat(data["data_as_of"].replace("Z", "+00:00")).microsecond == 0
+    assert data["context_snapshot"] == context
+    assert data["snapshot_status"] == "complete"
     with graph.factory() as db:
         assert db.query(StockDaily).count() == 120
         assert db.query(StockNews).count() == 1
         record = db.query(AIAnalysis).one()
         for key, value in data.items():
+            if key == "report_id":
+                assert record.id == value
+                continue
+            if key in {"snapshot_status", "created_at", "data_as_of"}:
+                continue
             assert getattr(record, key) == value
+        assert record.data_as_of.isoformat() == data["data_as_of"].removesuffix("Z").removesuffix("+00:00")
+
+
+def test_report_history_is_stable_and_does_not_call_external_services(graph):
+    first = analyze(graph).json()["data"]
+    second = analyze(graph).json()["data"]
+    before = (
+        list(graph.provider.events),
+        graph.market_queries,
+        len(graph.requests),
+    )
+
+    listing = graph.client.get("/api/v1/ai/reports?stock_code=600519&page=1&page_size=20")
+    detail = graph.client.get(f"/api/v1/ai/reports/{first['report_id']}")
+
+    assert listing.status_code == 200
+    items = listing.json()["data"]["items"]
+    assert [item["report_id"] for item in items] == [second["report_id"], first["report_id"]]
+    assert "context_snapshot" not in items[0]
+    assert detail.status_code == 200
+    assert detail.json()["data"] == first
+    assert (list(graph.provider.events), graph.market_queries, len(graph.requests)) == before
 
 
 def test_next_request_gets_new_market_and_reuses_fresh_news_cache(graph):
     assert analyze(graph).status_code == 200
     assert analyze(graph).status_code == 200
     assert graph.market_queries == 2
-    assert graph.provider.events.count("market") == 2  # no trusted calendar injected
+    assert graph.provider.events.count("market") == 2  # fixture data is stale versus today's request
     assert graph.provider.events.count("news") == 1
     assert len(graph.sessions) == 2
     assert graph.sessions[0] is not graph.sessions[1]
@@ -248,7 +291,10 @@ def test_reliable_fixture_calendar_serves_explicit_window_from_cache(graph):
 
     assert graph.market_queries == 2
     assert graph.provider.events.count("market") == 1
-    assert len(graph.calendar.calls) == 2
+    # Request 1 checks the cache twice under double-checked locking and then
+    # verifies the fetched replacement snapshot before publishing it. Request 2
+    # serves the verified cache with one count.
+    assert len(graph.calendar.calls) == 4
     with graph.factory() as db:
         assert db.query(AIAnalysis).count() == 0
         assert db.query(StockDaily).count() == 120
@@ -296,12 +342,25 @@ def test_stock_quant_and_ai_routes_project_same_pipeline_window_and_params(graph
     context = context_of(graph)
     backtest_data = backtest.json()["data"].copy()
     backtest_data.pop("stock_code")
+    # V2 adds saved-snapshot metadata on top of the same C projection; the
+    # calculation fields themselves must still match the direct pipeline.
+    for extra in (
+        "backtest_id",
+        "semantics_version",
+        "effective_parameters",
+        "warmup_start_date",
+        "warmup_rows",
+        "data_meta",
+        "snapshot_status",
+    ):
+        backtest_data.pop(extra, None)
+    assert backtest.json()["data"]["semantics_version"] == "v1_legacy"
 
     assert indicators.json()["data"] == pipeline["series"]["indicators"]
     assert score.json()["data"] == pipeline["score"]
     assert backtest_data == pipeline["backtest"]
     assert context["technical_indicators"] == {
-        key: pipeline["latest"].get(key)
+        key: _portable_ai_number(pipeline["latest"].get(key))
         for key in (
             "trade_date", "ma5", "ma10", "ma20", "ma60", "macd",
             "macd_signal", "macd_hist", "rsi14", "boll_upper",
@@ -314,7 +373,7 @@ def test_stock_quant_and_ai_routes_project_same_pipeline_window_and_params(graph
         "reasons": pipeline["score"]["reasons"],
     }
     assert context["backtest_metrics"] == {
-        key: pipeline["backtest"].get(key)
+        key: _portable_ai_number(pipeline["backtest"].get(key))
         for key in (
             "strategy_name", "start_date", "end_date", "total_return",
             "annual_return", "max_drawdown", "sharpe_ratio", "win_rate",
@@ -343,6 +402,8 @@ def test_genuinely_empty_news_is_not_fabricated(graph):
     graph.provider.news = []
     assert analyze(graph).status_code == 200
     assert context_of(graph)["news"] == []
+    assert context_of(graph)["provenance"]["news_status"] == "empty"
+    assert context_of(graph)["provenance"]["news_count"] == 0
     assert "新闻数据暂不可用" in graph.requests[0]["messages"][1]["content"]
 
 
@@ -411,7 +472,10 @@ def test_report_commit_failure_rolls_back_and_returns_50002(graph):
     graph.fail_report = True
     response = analyze(graph)
     assert response.json() == {"code": 50002, "message": "database error", "data": None}
-    assert graph.rollbacks == 1
+    # 2 rollbacks, not 1: the cold-miss path refreshes the session snapshot
+    # under the per-stock sync lock (1), then the failed report commit rolls
+    # back (2). The contract that matters is unchanged: 50002 and no report row.
+    assert graph.rollbacks == 2
     with graph.factory() as db:
         assert db.query(AIAnalysis).count() == 0
 
@@ -449,15 +513,18 @@ def test_full_quant_results_match_normalized_first_query_and_cache(graph):
 
 
 @pytest.mark.parametrize("missing_indices", [range(40, 45), range(5, 105, 5)])
-def test_unknown_cache_completeness_refetches_middle_holes(graph, missing_indices):
+def test_unknown_cache_completeness_preserves_snapshot(graph, missing_indices):
     assert analyze(graph).status_code == 200
     dates = graph.provider.frame.trade_date.iloc[list(missing_indices)].tolist()
     with graph.factory() as db:
         # Deletes only records in this test's fresh in-memory SQLite database.
         db.query(StockDaily).filter(StockDaily.trade_date.in_(dates)).delete(synchronize_session=False)
         db.commit()
-    assert analyze(graph).status_code == 200
-    assert graph.provider.events.count("market") == 2
+    graph.calendar_mode = "unknown"
+    response = analyze(graph)
+    assert response.status_code == 502
+    assert response.json()["code"] == 50001
+    assert graph.provider.events.count("market") == 1
     with graph.factory() as db:
-        assert db.query(StockDaily).count() == 120
-    assert context_of(graph, 0)["backtest_metrics"] == context_of(graph, 1)["backtest_metrics"]
+        assert db.query(StockDaily).count() == 120 - len(list(missing_indices))
+        assert db.query(AIAnalysis).count() == 1

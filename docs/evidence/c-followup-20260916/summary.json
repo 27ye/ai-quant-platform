@@ -1,0 +1,97 @@
+{
+  "as_of": "2026-09-16",
+  "publication_kind": "Existing completed acceptance evidence, not a new product test run",
+  "c_branch": "feature/v2-c-backtest-params",
+  "c_pr": "https://github.com/27ye/ai-quant-platform/pull/12",
+  "c_core_sha": "92df017404126e9af920e1ad82e4a136d813f8d1",
+  "b_tested_sha": "9a1b9b45235c07b01b0ab30d0fcbb7ad719fea8b",
+  "a_tested_sha": "010841099b20b500ed322b15cec32d9e7add97cd",
+  "d_last_checked_sha": "15315c6fbf9339694eceaab0172d3d3f05e7ec2e",
+  "latest_combined_acceptance": "pending_new_D_combined_SHA",
+  "test_environment": {
+    "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+    "mysql": "8.0.31",
+    "sort_buffer_size": 262144
+  },
+  "b_suite": {
+    "tests": 357,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 357,
+    "warnings": 1,
+    "warning": "Existing Starlette/AnyIO deprecation",
+    "compileall_exit_code": 0,
+    "compile_targets": [
+      "backend",
+      "scripts",
+      "tests"
+    ],
+    "raw_log_sha256": "f8e0e8da9a84ee8a3696a42e18c1c1541f3c2fda8ec68ad86f4459bd2753878f",
+    "junit_sha256": "7b45a84db0b5c79241943a2ea1fb89dd0efff97ee8bbcd72cede90a0a9dec38f"
+  },
+  "closed_at_tested_sha": [
+    "mysql_history_list_1038",
+    "new_c_result_exact_roundtrip",
+    "migrated_legacy_exact_flag",
+    "export_requires_settled_day",
+    "export_batch_and_failure_guards",
+    "a_three_panel_state_paths",
+    "a_input_hash_label"
+  ],
+  "pending": [
+    {
+      "owner": "B/D",
+      "item": "Previously synced catalog followed by refresh failure is also classified as never synced; behavior/docs must align"
+    },
+    {
+      "owner": "A",
+      "item": "50006 Chinese message and actual HTTP503 handling; absent at checked A0108410"
+    },
+    {
+      "owner": "D",
+      "item": "Integrate current fixes; V1-to-V8 with old records, browser/live API checks; identify full combined SHA"
+    },
+    {
+      "owner": "C",
+      "item": "Reverify the final D combined SHA before final sign-off"
+    },
+    {
+      "owner": "B/C",
+      "item": "New real export package not supplied; known 600519 2026-09-15 whole-package discrepancy remains"
+    }
+  ],
+  "boundaries": {
+    "v1_to_v8_tested_here": false,
+    "d_final_combination_tested_here": false,
+    "live_provider_tested_here": false,
+    "real_llm_tested_here": false,
+    "a_browser_e2e_tested_here": false,
+    "whole_new_package_accepted": false,
+    "current_algorithm_changed": false
+  },
+  "published_comments": {
+    "b843": "https://github.com/27ye/ai-quant-platform/issues/11#issuecomment-5693783029",
+    "b11c7": "https://github.com/27ye/ai-quant-platform/issues/11#issuecomment-5693920270",
+    "a0108410": "https://github.com/27ye/ai-quant-platform/issues/11#issuecomment-5693951734",
+    "b9a1": "https://github.com/27ye/ai-quant-platform/issues/11#issuecomment-5694237707"
+  },
+  "evidence": {
+    "mysql-v8.json": {
+      "source_report_sha256": "8f7a5fafcd21ef892d0402ccfe6ddf2e7bb99243aec6e72d9432a130a4d40409",
+      "published_sha256": "e04d63bad24e4afa4970ab45ea463d0008809ec0c4c30b2d87eedd81ac355d14"
+    },
+    "export-cli.json": {
+      "source_report_sha256": "93533f99e8b881072510ff142d2b9b8d7eb606d89998cd646124762c76898717",
+      "published_sha256": "b97efe98ef813a2199fe9b7f66c244ca6832a9ae6134df5b63bc1bf563c58205"
+    },
+    "a-panel-state.json": {
+      "source_report_sha256": "e5d725eba104ba8923f7ce4dbbd1c7112bd93b47edda9786d24a1ebbf7a8df2c",
+      "published_sha256": "e5d725eba104ba8923f7ce4dbbd1c7112bd93b47edda9786d24a1ebbf7a8df2c"
+    },
+    "coldstart.json": {
+      "source_report_sha256": "4b76e7f8551bd3274bdc2212225a8c96d9c766fe92734bb2118b241455c1400a",
+      "published_sha256": "4e05cce445418dbcaed139aac80f9c24c44c7afc232ab9fc48d83701fc1f0080"
+    }
+  }
+}

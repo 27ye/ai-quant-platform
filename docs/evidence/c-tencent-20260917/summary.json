@@ -1,0 +1,60 @@
+{
+  "status": "candidate_technical_checks_passed_provenance_correction_and_D_source_decision_pending",
+  "D_candidate_SHA": "cc574827c6c08d2336336a48d9f7a09e9582c60a",
+  "B_package_SHA": "dedad60977511aae8237fc4bb84e7a5321490df1",
+  "C_algorithm_SHA": "92df017404126e9af920e1ad82e4a136d813f8d1",
+  "C_tooling_SHA": "b2c372ebca1176194880e2eb88ab8b447b218fd8",
+  "B_archive_sha256": "492559fc4c7b499148ea1408e825625d1087459da82999921ee18ec6019c67bb",
+  "package_manifest_sha256": "f443d02850399d2dbae984294ef3e21c57010f0e620cee737187e1f5edcc4b67",
+  "evidence": {
+    "b-checks.json": {
+      "source_report_sha256": "cff1168ed0bc3b4e71b02e9918cc9abd5c536d89b684cb23fef8137cd825e73d",
+      "published_sha256": "fb50dcfee85434228d78528309fba1d29c4f77cb5f55fceb1c170d217fad5a3f"
+    },
+    "package-audit.json": {
+      "source_report_sha256": "b79568cf380a9c714d4ec33c14592408cfe8d0bed5f7eedc107582b458961623",
+      "published_sha256": "b40e0c0a395f349f90466fb86ff13597a8083f21601a657e26b5b213452c4484"
+    },
+    "mysql-candidate.json": {
+      "source_report_sha256": "cd26c6e3a6f9f70577115b002513f79c7f4c46eecd6d7e143073537a3e5a7287",
+      "published_sha256": "bb601dc678eb2df0216554b4463d665b9b9ca10b883b0df291bd3ea64f275232"
+    },
+    "offline-matrix.json": {
+      "source_report_sha256": "29d89d18cf4fc5e561bdd1d7ac939583a8bc35b54c4c7c52ffd2bf18282339ec",
+      "published_sha256": "ae8fd534eaa768ff127b9e865418aef265ab117efa464dc9e3cc51da7bbf2d88"
+    },
+    "expected-hashes.json": {
+      "source_report_sha256": "26b436feb1dbcd02356dfd789b581c2a6536fd730ccea01425e6ba182e291af2",
+      "published_sha256": "ac428c9fa8765d74d5f49f4fdb64c013c334cd182f97866e341e30d6321a9c8e"
+    },
+    "pair-consistency.json": {
+      "source_report_sha256": "5c1a552b37b6d61ec8a58e9c7b16a741bf7c8d5ec241e447c083905ce4b1f0d0",
+      "published_sha256": "8fe12c3a68f8509a7f437cf05889e4e65b6f11e97d9ce05330a0e4c1a0142b4e"
+    }
+  },
+  "passed": {
+    "B_pytest": 368,
+    "C_acceptance_tool_tests": 21,
+    "offline_cases": 9,
+    "candidate_HTTP_MySQL_cases": 9,
+    "curve_points_each": 283,
+    "raw_normalized_pairs": 3,
+    "rows_each": 437,
+    "hashes_verified": 6,
+    "MySQL_version": "8.0.31",
+    "genuine_V1_to_v8_and_interrupted_recovery": true
+  },
+  "not_claimed": [
+    "Final combined-SHA acceptance",
+    "D approval of Tencent as final dataset",
+    "Tencent exactly equals Eastmoney at stored precision",
+    "Real provider/calendar completeness/browser/real LLM acceptance",
+    "B remote database independently inspected"
+  ],
+  "pending": [
+    "B correct export code provenance: manifest b7cb06a lacks Tencent exporter, delivery commit is dedad609",
+    "B correct exactly equal OHLCV statement to observed precision/source differences",
+    "D explicitly accept source and freeze final SHA/package",
+    "C final-version review/sign-off after new final SHA"
+  ]
+}

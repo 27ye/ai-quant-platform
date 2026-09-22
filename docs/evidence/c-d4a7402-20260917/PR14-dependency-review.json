@@ -1,0 +1,14 @@
+{
+  "PR14_head": "540a00f604044bd046cd3935f4df9d018063b44b",
+  "base": "main",
+  "base_sha": "8062599b3d85c421f00714de9d27a9fbe11ad083",
+  "merged": false,
+  "paths": {
+    "backend/app/quant/windowed_backtest.py": false,
+    "backend/app/quant/backtest_config.py": false,
+    "backend/app/services/c_quant_entry.py": true,
+    "docs/evidence/c-delivery-20260917/MANIFEST.json": true
+  },
+  "D_head": "4a7402a35ec1a42a3a6964d9f351395d19315188",
+  "scope": "Dependency/source review; not final integrated acceptance; no test rerun because source SHAs unchanged since preceding C review."
+}

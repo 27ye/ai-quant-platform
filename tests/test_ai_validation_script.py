@@ -51,18 +51,19 @@ def test_nonlocal_mysql_is_rejected_before_connection(monkeypatch):
     import sqlalchemy
 
     monkeypatch.setattr(sqlalchemy, "create_engine", lambda *_: pytest.fail("unexpected connection"))
-    with pytest.raises(runner.AcceptanceError, match="127.0.0.1:3307"):
+    with pytest.raises(runner.AcceptanceError, match="loopback port 3307 or 3308"):
         runner.create_acceptance_database(Settings(_env_file=None, mysql_host="remote.invalid"))
 
 
+@pytest.mark.parametrize("port", [3307, 3308])
 @pytest.mark.parametrize("existing", [None, "already_there"])
-def test_mysql_creation_is_isolated_and_never_reuses_or_deletes(monkeypatch, capsys, existing):
+def test_mysql_creation_is_isolated_and_never_reuses_or_deletes(monkeypatch, capsys, existing, port):
     import sqlalchemy
 
     server = MagicMock()
     connection = server.begin.return_value.__enter__.return_value
     identity_result = MagicMock()
-    identity_result.one.return_value = ("8.0.41", 3307)
+    identity_result.one.return_value = ("8.0.41", port)
     schema_result = MagicMock()
     schema_result.scalar.return_value = existing
     create_result = MagicMock()
@@ -75,7 +76,7 @@ def test_mysql_creation_is_isolated_and_never_reuses_or_deletes(monkeypatch, cap
 
     monkeypatch.setattr(sqlalchemy, "create_engine", create_engine)
     settings = Settings(_env_file=None, mysql_host="127.0.0.1",
-                        mysql_port=3307, mysql_database="ai_quant",
+                        mysql_port=port, mysql_database="ai_quant",
                         mysql_password="secret-do-not-print")
     if existing:
         with pytest.raises(runner.AcceptanceError, match="already exists"):
@@ -133,7 +134,14 @@ def test_serve_explicitly_selects_live_or_frozen(monkeypatch, directory):
     monkeypatch.setattr(runner, "serve_acceptance", lambda *args: calls.append(args))
     args = ["--serve"] + (["--frozen-dir", directory] if directory else [])
     assert runner.main(args) == 0
-    assert calls == [(directory, None)]
+    assert calls == [(directory, None, 8000)]
+
+
+def test_serve_acceptance_port_can_be_selected(monkeypatch):
+    calls = []
+    monkeypatch.setattr(runner, "serve_acceptance", lambda *args: calls.append(args))
+    assert runner.main(["--serve", "--port", "8001"]) == 0
+    assert calls == [(None, None, 8001)]
 
 
 def test_metadata_without_frozen_is_rejected(capsys):

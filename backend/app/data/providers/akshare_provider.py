@@ -2,8 +2,8 @@ import json
 import math
 import threading
 import time
-from datetime import date, datetime
-from typing import Any, Dict, Iterable, List
+from datetime import date, datetime, timedelta
+from typing import Any, Dict, Iterable, List, Optional
 
 import pandas as pd
 
@@ -35,6 +35,7 @@ class AKShareStockProvider(StockDataProvider):
         "涨跌幅": "change_pct",
     }
     required_source_fields = ("日期", "开盘", "收盘", "最高", "最低", "成交量", "成交额")
+    tencent_required_source_fields = ("日期", "开盘", "收盘", "最高", "最低", "成交量")
     output_columns = (
         "stock_code",
         "trade_date",
@@ -64,16 +65,29 @@ class AKShareStockProvider(StockDataProvider):
     #: sequence, so a hung upstream returns 50001 quickly instead of hanging.
     call_timeout_seconds = 3.0
     retry_total_budget_seconds = 4.0
-    #: Timeout for the same-source fallback request (keeps total bounded).
+    #: Timeout for a fallback request (keeps total bounded).
     fallback_timeout_seconds = 3.0
     #: Same-source delayed-quote host used only as a fallback when the primary
     #: eastmoney hosts fail after retries (identical endpoints and field口径).
     delayed_base_url = "https://push2delay.eastmoney.com"
+    tencent_kline_url = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+    tencent_retry_attempts = 2
     #: Cap on concurrently-running (possibly hung) background AKShare calls, so
     #: repeated timeouts cannot accumulate unbounded daemon threads.
     max_background_workers = 4
     _worker_lock = threading.Lock()
     _active_workers = 0
+
+    #: Delayed-host catalog paging for the V2 stock-catalog sync. The clist
+    #: endpoint hard-caps one page at 100 rows, so a full-market sync walks
+    #: pages at low frequency; this was never viable for online search.
+    catalog_page_size = 100
+    catalog_max_pages = 80
+    catalog_market_filter = "m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048"
+    #: Which host actually served the last :meth:`fetch_stock_catalog` call.
+    last_catalog_source: Optional[str] = None
+    #: Which host actually served the last successful :meth:`get_daily_kline`.
+    last_kline_source: Optional[str] = None
 
     def _call_with_timeout(self, call, timeout):
         """Run ``call`` in a bounded daemon thread, raising if it exceeds ``timeout``.
@@ -158,12 +172,11 @@ class AKShareStockProvider(StockDataProvider):
         except StockDataProviderError:
             raise
         except _TRANSIENT_ERRORS as exc:
-            return self._daily_kline_from_delay_host(
-                stock_code, start_date, end_date, adjust, exc
-            )
+            return self._daily_kline_from_tencent(stock_code, start_date, end_date, exc)
         except Exception as exc:
             raise StockDataProviderError(f"AKShare request failed for {stock_code}: {exc}") from exc
 
+        self.last_kline_source = "akshare.stock_zh_a_hist"
         return self._normalize_daily_kline(raw_data, stock_code)
 
     def search_stocks(self, keyword: str) -> List[Dict[str, str]]:
@@ -199,6 +212,144 @@ class AKShareStockProvider(StockDataProvider):
                 continue
             result.append({"stock_code": code, "stock_name": str(row[name_col]).strip()})
         return result
+
+    def fetch_stock_catalog(self) -> List[Dict[str, str]]:
+        """Return the full A-share catalog as ``[{stock_code, stock_name}]``.
+
+        Used by the V2 catalog sync (B1), never by online search. The primary
+        source is the same full-market spot snapshot as :meth:`search_stocks`;
+        when the realtime quote cluster is blocked, the same-source delayed host
+        is paged through ``/api/qt/clist/get`` at low frequency. Either way a
+        failure raises ``StockDataProviderError`` - an unreachable source must
+        never be reported as "the market has no stocks".
+        """
+        reasons: List[str] = []
+
+        try:
+            items = self._catalog_from_primary()
+            if items:
+                self.last_catalog_source = "akshare.stock_zh_a_spot_em"
+                return items
+            reasons.append("primary returned no rows")
+        except (*_TRANSIENT_ERRORS, StockDataProviderError) as exc:
+            # ``_call_with_retry`` surfaces the raw transient error (TimeoutError
+            # is OSError-derived), so both shapes must fall through to the
+            # delayed host instead of escaping as an unhandled exception.
+            reasons.append(f"primary: {type(exc).__name__}: {exc}")
+
+        try:
+            items = self._catalog_from_delay_host()
+            if items:
+                self.last_catalog_source = (
+                    f"{self.delayed_base_url}/api/qt/clist/get"
+                )
+                return items
+            reasons.append("delayed host returned no rows")
+        except (*_TRANSIENT_ERRORS, StockDataProviderError) as exc:
+            reasons.append(f"delayed host: {type(exc).__name__}: {exc}")
+
+        raise StockDataProviderError(
+            "stock catalog unavailable (" + "; ".join(reasons) + ")"
+        )
+
+    def _catalog_from_primary(self) -> List[Dict[str, str]]:
+        import akshare as ak
+
+        raw = self._call_with_retry(lambda: ak.stock_zh_a_spot_em())
+        if raw is None or raw.empty:
+            return []
+        code_col = self._pick_column(raw, ("代码", "code", "股票代码"))
+        name_col = self._pick_column(raw, ("名称", "name", "股票简称"))
+        if code_col is None or name_col is None:
+            raise StockDataSchemaError("AKShare spot response missing code/name columns")
+        return self._normalize_catalog_rows(
+            (row[code_col], row[name_col]) for _, row in raw.iterrows()
+        )
+
+    def _catalog_from_delay_host(self) -> List[Dict[str, str]]:
+        import requests
+
+        url = self.delayed_base_url + "/api/qt/clist/get"
+        collected: Dict[str, str] = {}
+        total: Optional[int] = None
+
+        for page in range(1, self.catalog_max_pages + 1):
+            try:
+                response = requests.get(
+                    url,
+                    params={
+                        "pn": str(page),
+                        "pz": str(self.catalog_page_size),
+                        "po": "1",
+                        "np": "1",
+                        "fltt": "2",
+                        "invt": "2",
+                        "fid": "f12",
+                        "fs": self.catalog_market_filter,
+                        "fields": "f12,f14",
+                    },
+                    timeout=self.fallback_timeout_seconds,
+                )
+                if response.status_code != 200:
+                    raise StockDataProviderError(
+                        f"delayed host catalog HTTP {response.status_code}"
+                    )
+                payload = response.json()
+            except StockDataProviderError:
+                raise
+            except Exception as exc:
+                raise StockDataProviderError(
+                    f"delayed host catalog request failed: {exc}"
+                ) from exc
+
+            if not isinstance(payload, dict) or payload.get("rc", 0) != 0:
+                raise StockDataProviderError("delayed host catalog returned a bad payload")
+            data = payload.get("data")
+            if not isinstance(data, dict):
+                raise StockDataProviderError(
+                    "delayed host catalog payload.data is not an object"
+                )
+            rows = data.get("diff")
+            if not isinstance(rows, list):
+                raise StockDataProviderError(
+                    "delayed host catalog payload.diff is not a list"
+                )
+            if total is None and isinstance(data.get("total"), int):
+                total = data["total"]
+
+            rows = [row for row in rows if isinstance(row, dict)]
+            for item in self._normalize_catalog_rows(
+                (row.get("f12"), row.get("f14")) for row in rows
+            ):
+                collected[item["stock_code"]] = item["stock_name"]
+
+            if not rows:
+                break
+            if total is not None and len(collected) >= total:
+                break
+
+        return [
+            {"stock_code": code, "stock_name": name}
+            for code, name in sorted(collected.items())
+        ]
+
+    @staticmethod
+    def _normalize_catalog_rows(pairs: Iterable) -> List[Dict[str, str]]:
+        """Normalize ``(code, name)`` pairs, dropping blank/invalid codes."""
+        items: Dict[str, str] = {}
+        for code_value, name_value in pairs:
+            code = AKShareStockProvider._cell_text(code_value)
+            name = AKShareStockProvider._cell_text(name_value)
+            if not code or not name:
+                continue
+            code = str(code).strip().zfill(6)
+            if len(code) != 6 or not code.isdigit():
+                continue
+            items[code] = str(name).strip()
+        return [
+            {"stock_code": code, "stock_name": name}
+            for code, name in sorted(items.items())
+        ]
 
     def get_stock_info(self, stock_code: str) -> Dict[str, Any]:
         """Return basic stock info (name, industry, market caps) via AKShare."""
@@ -306,88 +457,117 @@ class AKShareStockProvider(StockDataProvider):
             "float_market_cap": self._cell_float(data.get("f117")),
         }
 
-    def _daily_kline_from_delay_host(
+    def _daily_kline_from_tencent(
         self,
         stock_code: str,
         start_date: date,
         end_date: date,
-        adjust: str,
         cause: Exception,
     ) -> pd.DataFrame:
-        """Fallback qfq daily kline from the same-source delayed-quote host."""
+        """Fetch qfq bars only after the Eastmoney K-line request fails."""
         import requests
 
         def build_failure(reason: str) -> StockDataProviderError:
-            """Report the primary failure *and* why the fallback gave up."""
             return StockDataProviderError(
                 f"AKShare request failed for {stock_code}: {cause} "
-                f"(delayed-host fallback also failed: {reason})"
+                f"(Tencent qfq fallback also failed: {reason})"
             )
 
-        market = "1" if stock_code.startswith("6") else "0"
-        try:
-            response = requests.get(
-                self.delayed_base_url + "/api/qt/stock/kline/get",
-                params={
-                    "secid": f"{market}.{stock_code}",
-                    "klt": "101",  # daily
-                    "fqt": "1" if adjust == "qfq" else "0",
-                    "fields1": "f1,f2,f3,f4,f5,f6",
-                    "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
-                    "beg": start_date.strftime("%Y%m%d"),
-                    "end": end_date.strftime("%Y%m%d"),
-                },
-                timeout=self.fallback_timeout_seconds,
-            )
-            if response.status_code != 200:
-                raise build_failure(f"HTTP {response.status_code}")
-            payload = response.json()
-        except StockDataProviderError:
-            raise
-        except Exception as exc:
-            raise build_failure(f"{type(exc).__name__}: {exc}") from exc
-
-        if not isinstance(payload, dict) or payload.get("rc", 0) != 0:
-            raise build_failure(
-                f"rc={payload.get('rc') if isinstance(payload, dict) else 'n/a'}"
-            )
-        data = payload.get("data")
-        if not isinstance(data, dict):
-            raise build_failure("payload.data is not an object")
-        klines = data.get("klines")
-        if not isinstance(klines, list) or not klines:
-            # A data-source failure must surface as 50001, never be masked as
-            # "empty history" (which StockService would turn into 40003).
-            raise build_failure(
-                "upstream returned no klines (empty or rate-limited payload)"
-            )
+        if stock_code.startswith("6"):
+            symbol = f"sh{stock_code}"
+        elif stock_code.startswith(("0", "3")):
+            symbol = f"sz{stock_code}"
+        elif stock_code.startswith(("4", "8")):
+            symbol = f"bj{stock_code}"
+        else:
+            raise build_failure("unsupported stock market prefix")
         rows = []
-        for line in klines:
-            parts = str(line).split(",")
-            if len(parts) < 11:
-                # A truncated upstream row means a corrupt payload: fail loudly
-                # (50001) rather than silently dropping bars.
-                raise StockDataSchemaError(
-                    f"delayed host daily kline row is malformed for {stock_code}"
+        chunk_start = start_date
+        while chunk_start <= end_date:
+            # The endpoint silently truncates long requests (a five-year probe
+            # returned only the latest ~640 bars). Two-year chunks stay below
+            # that observed cap and preserve the entire requested window.
+            chunk_end = min(end_date, chunk_start + timedelta(days=729))
+            # Include the previous close so each chunk's first requested day
+            # derives change_pct the same way as the frozen delivery batch.
+            fetch_from = chunk_start - timedelta(days=15)
+            url = (
+                f"{self.tencent_kline_url}?param={symbol},day,"
+                f"{fetch_from.isoformat()},{chunk_end.isoformat()},1000,qfq"
+            )
+            for attempt in range(self.tencent_retry_attempts):
+                try:
+                    response = requests.get(url, timeout=self.fallback_timeout_seconds)
+                    if response.status_code != 200:
+                        raise build_failure(f"HTTP {response.status_code}")
+                    payload = response.json()
+                    break
+                except StockDataProviderError:
+                    raise
+                except Exception as exc:
+                    if attempt + 1 < self.tencent_retry_attempts and isinstance(
+                        exc, (OSError, requests.RequestException, json.JSONDecodeError)
+                    ):
+                        continue
+                    raise build_failure(f"{type(exc).__name__}: {exc}") from exc
+
+            if not isinstance(payload, dict):
+                raise build_failure("payload is not an object")
+            data = payload.get("data")
+            if not isinstance(data, dict):
+                raise build_failure("payload.data is not an object")
+            node = data.get(symbol)
+            if not isinstance(node, dict):
+                raise build_failure(f"payload.data.{symbol} is not an object")
+            # Never use the unadjusted `day` series in place of qfqday.
+            klines = node.get("qfqday")
+            if not isinstance(klines, list) or not klines:
+                raise build_failure("upstream returned no qfqday rows")
+            previous_close = None
+            chunk_rows = []
+            for parts in klines:
+                if not isinstance(parts, list) or len(parts) < 6:
+                    raise StockDataSchemaError(
+                        f"Tencent qfq daily kline row is malformed for {stock_code}"
+                    )
+                try:
+                    close = float(parts[2])
+                    if not math.isfinite(close) or close <= 0:
+                        raise ValueError("invalid close")
+                except (TypeError, ValueError) as exc:
+                    raise StockDataSchemaError(
+                        f"Tencent qfq daily kline has invalid close for {stock_code}"
+                    ) from exc
+                change_pct = (
+                    None if previous_close is None else (close - previous_close) / previous_close
                 )
-            rows.append(
-                {
-                    "日期": parts[0],
-                    "开盘": parts[1],
-                    "收盘": parts[2],
-                    "最高": parts[3],
-                    "最低": parts[4],
-                    "成交量": parts[5],
-                    "成交额": parts[6],
-                    "涨跌幅": parts[8],
-                    "换手率": parts[10],
-                }
-            )
-        if not rows:
-            raise StockDataSchemaError(
-                f"delayed host daily kline rows are malformed for {stock_code}"
-            )
-        return self._normalize_daily_kline(pd.DataFrame(rows), stock_code)
+                previous_close = close
+                if not (chunk_start.isoformat() <= str(parts[0]) <= chunk_end.isoformat()):
+                    continue
+                chunk_rows.append(
+                    {
+                        "日期": parts[0],
+                        "开盘": parts[1],
+                        "收盘": parts[2],
+                        "最高": parts[3],
+                        "最低": parts[4],
+                        "成交量": parts[5],
+                        # Normalization converts source percentages to ratios.
+                        "涨跌幅": None if change_pct is None else change_pct * 100,
+                    }
+                )
+            if not chunk_rows:
+                raise build_failure("upstream returned no qfqday rows inside the requested window")
+            rows.extend(chunk_rows)
+            chunk_start = chunk_end + timedelta(days=1)
+        normalized = self._normalize_daily_kline(
+            pd.DataFrame(rows),
+            stock_code,
+            required_source_fields=self.tencent_required_source_fields,
+            required_numeric_columns=("open", "high", "low", "close", "volume"),
+        )
+        self.last_kline_source = self.tencent_kline_url
+        return normalized
 
     def get_stock_news(self, stock_code: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Fetch recent East Money news for a stock and return normalized dicts.
@@ -501,11 +681,19 @@ class AKShareStockProvider(StockDataProvider):
             return None
         return parsed.to_pydatetime() if not pd.isna(parsed) else None
 
-    def _normalize_daily_kline(self, raw_data: pd.DataFrame, stock_code: str) -> pd.DataFrame:
+    def _normalize_daily_kline(
+        self,
+        raw_data: pd.DataFrame,
+        stock_code: str,
+        *,
+        required_source_fields: Optional[Iterable[str]] = None,
+        required_numeric_columns: Optional[Iterable[str]] = None,
+    ) -> pd.DataFrame:
         if raw_data is None or raw_data.empty:
             raise EmptyStockDataError(f"AKShare returned empty daily kline for {stock_code}")
 
-        missing_fields = [field for field in self.required_source_fields if field not in raw_data.columns]
+        required_fields = required_source_fields or self.required_source_fields
+        missing_fields = [field for field in required_fields if field not in raw_data.columns]
         if missing_fields:
             raise StockDataSchemaError(f"AKShare daily kline missing fields: {missing_fields}")
 
@@ -527,7 +715,7 @@ class AKShareStockProvider(StockDataProvider):
         if data["trade_date"].isna().any():
             raise StockDataSchemaError("AKShare daily kline contains invalid trade_date values")
 
-        for column in self._numeric_required_columns():
+        for column in required_numeric_columns or self._numeric_required_columns():
             if column in data.columns and data[column].isna().any():
                 raise StockDataSchemaError(f"AKShare daily kline contains invalid numeric values in {column}")
 

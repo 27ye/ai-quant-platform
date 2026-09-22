@@ -1,4 +1,7 @@
-from datetime import date
+from datetime import date, datetime, timezone
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
+from time import sleep
 
 from backend.app.data.trading_calendar import TradingCalendarProvider
 
@@ -46,3 +49,63 @@ def test_refresh_reloads_calendar():
 
     provider.refresh()
     assert len(calls) == 2
+
+
+def test_static_calendar_refresh_reloads_from_akshare(monkeypatch):
+    calls = []
+
+    def load():
+        calls.append(1)
+        return [date(2025, 1, 3)]
+
+    monkeypatch.setattr(TradingCalendarProvider, "_load_from_akshare", staticmethod(load))
+    provider = TradingCalendarProvider(trade_dates=[date(2025, 1, 2)])
+
+    assert provider.get_trade_dates() == [date(2025, 1, 2)]
+    assert calls == []
+    assert provider.refresh() == [date(2025, 1, 3)]
+    assert calls == [1]
+
+
+def test_default_calendar_cold_start_loads_once_across_instances(monkeypatch):
+    calls = []
+    calls_lock = Lock()
+
+    def load():
+        with calls_lock:
+            calls.append(1)
+        sleep(0.01)
+        return [date(2025, 1, 2)]
+
+    monkeypatch.setattr(TradingCalendarProvider, "_load_from_akshare", staticmethod(load))
+    monkeypatch.setattr(TradingCalendarProvider, "_shared_trade_dates", None)
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(lambda _: TradingCalendarProvider().get_trade_dates(), range(8)))
+
+    assert results == [[date(2025, 1, 2)]] * 8
+    assert calls == [1]
+
+
+def test_last_completed_trade_date_respects_publication_time_and_holidays():
+    provider = TradingCalendarProvider(
+        trade_dates=[date(2026, 9, 17), date(2026, 9, 18), date(2026, 9, 21)]
+    )
+
+    assert provider.last_completed_trade_date(
+        datetime(2026, 9, 18, 9, 0, tzinfo=timezone.utc)
+    ) == date(2026, 9, 17)  # 17:00 Asia/Shanghai
+    assert provider.last_completed_trade_date(
+        datetime(2026, 9, 18, 10, 0, tzinfo=timezone.utc)
+    ) == date(2026, 9, 18)  # 18:00 Asia/Shanghai
+    assert provider.last_completed_trade_date(
+        datetime(2026, 9, 20, 10, 0, tzinfo=timezone.utc)
+    ) == date(2026, 9, 18)  # Sunday
+
+
+def test_last_completed_trade_date_is_unknown_when_calendar_is_expired():
+    provider = TradingCalendarProvider(trade_dates=[date(2026, 9, 17)])
+
+    assert provider.last_completed_trade_date(
+        datetime(2026, 9, 18, 4, 0, tzinfo=timezone.utc)
+    ) is None

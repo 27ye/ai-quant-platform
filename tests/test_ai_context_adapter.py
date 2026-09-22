@@ -83,6 +83,9 @@ class FakeStockService:
         )
         return [DailyKlineSchema(**row) for row in frame.iloc[::-1].to_dict("records")]
 
+    def get_query_provenance(self, stock_code):
+        return {"source_mode": "cache", "provider": "test-provider"}
+
 
 def test_adapter_maps_all_context_fields_and_reuses_one_quant_run():
     stock_service = FakeStockService()
@@ -117,6 +120,12 @@ def test_adapter_maps_all_context_fields_and_reuses_one_quant_run():
     assert backtest.total_return == 0.21
     assert backtest.sharpe_ratio is None
     assert backtest.win_rate is None
+    provenance = adapter.get_market_provenance("600519")
+    assert provenance.source_mode == "cache"
+    assert provenance.provider == "test-provider"
+    assert provenance.market_rows == 2
+    assert provenance.market_start_date == date(2026, 8, 28)
+    assert provenance.market_end_date == date(2026, 8, 31)
     assert stock_service.kline_calls == 1
     assert len(pipeline_calls) == 1
 
@@ -213,6 +222,9 @@ def test_real_quant_pipeline_and_request_local_cache():
         def query_daily(self, stock_code, **kwargs):
             calls.append("market")
             return list(reversed(rows))
+
+        def get_query_provenance(self, stock_code):
+            return {"source_mode": "cache", "provider": "test-provider"}
 
     def pipeline(frame):
         calls.append("quant")

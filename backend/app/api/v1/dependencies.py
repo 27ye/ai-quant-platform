@@ -10,14 +10,21 @@ from backend.app.data.providers.base import StockDataProvider
 from backend.app.db.session import get_db
 from backend.app.services.ai_analysis import (
     AIAnalysisService,
+    AIReportHistoryService,
     SQLAlchemyAIAnalysisRepository,
 )
 from backend.app.services.ai_context_adapter import StockQuantAnalysisAdapter
+from backend.app.services.backtest_service import BacktestRepository, BacktestService
+from backend.app.services.data_status_service import DataStatusService
 from backend.app.services.market_data_service import (
     MarketDataRepository, MarketDataService, MarketDataSource,
 )
 from backend.app.services.news_service import NewsRepository, NewsService
 from backend.app.services.quant_service import QuantService
+from backend.app.services.stock_catalog_service import (
+    StockCatalogRepository,
+    StockCatalogService,
+)
 from backend.app.services.stock_service import StockService
 from backend.app.services.analysis_context import (
     AnalysisContextProvider,
@@ -37,6 +44,17 @@ def get_stock_service(
     provider: StockDataProvider = Depends(get_data_provider),
 ) -> StockService:
     return StockService(provider=provider)
+
+
+def get_stock_catalog_service(
+    provider: StockDataProvider = Depends(get_data_provider),
+    db: Session = Depends(get_db),
+) -> StockCatalogService:
+    """Catalog-backed search: answered from local MySQL, never from the provider."""
+    return StockCatalogService(
+        provider=provider,
+        repository=StockCatalogRepository(db),
+    )
 
 
 def get_trading_calendar_provider() -> TradingCalendarProvider:
@@ -60,6 +78,28 @@ def get_market_data_source(
         stock_service=stock_service,
         repository=MarketDataRepository(db),
         trading_days=count_trading_days,
+        completed_through=getattr(trading_calendar, "last_completed_trade_date", None),
+    )
+
+
+def get_data_status_service(
+    db: Session = Depends(get_db),
+    trading_calendar: TradingCalendarProvider = Depends(get_trading_calendar_provider),
+) -> DataStatusService:
+    """Data provenance/freshness for one stock (V2 B2)."""
+
+    def count_trading_days(start, end):
+        try:
+            return trading_calendar.count_between(start, end)
+        except DataProviderError:
+            raise
+        except Exception as exc:
+            raise DataProviderError("trading calendar error") from exc
+
+    return DataStatusService(
+        market_repository=MarketDataRepository(db),
+        catalog_repository=StockCatalogRepository(db),
+        trading_days=count_trading_days,
     )
 
 
@@ -68,6 +108,23 @@ def get_quant_service(
     market_data_source: MarketDataSource = Depends(get_market_data_source),
 ) -> QuantService:
     return QuantService(stock_service=stock_service, market_data_source=market_data_source)
+
+
+def get_backtest_repository(db: Session = Depends(get_db)) -> BacktestRepository:
+    return BacktestRepository(db)
+
+
+def get_backtest_service(
+    quant_service: QuantService = Depends(get_quant_service),
+    market_data_source: MarketDataSource = Depends(get_market_data_source),
+    repository: BacktestRepository = Depends(get_backtest_repository),
+) -> BacktestService:
+    """V2 B3: parameterised backtests with warmup fetch and snapshot storage."""
+    return BacktestService(
+        quant_service=quant_service,
+        market_data_source=market_data_source,
+        repository=repository,
+    )
 
 
 def get_stock_quant_analysis_adapter(
@@ -138,3 +195,9 @@ def get_ai_analysis_service(
         llm_client=llm_client,
         repository=SQLAlchemyAIAnalysisRepository(db),
     )
+
+
+def get_ai_report_history_service(
+    db: Session = Depends(get_db),
+) -> AIReportHistoryService:
+    return AIReportHistoryService(repository=SQLAlchemyAIAnalysisRepository(db))

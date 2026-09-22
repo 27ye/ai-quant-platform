@@ -1,0 +1,18 @@
+{
+  "PR13_SHA": "d7ba01c63eed07b23fff6939753d7ee591c140fb",
+  "path": "frontend/src/views/BacktestDetailView.vue",
+  "hash_related_lines": [
+    {
+      "line": 113,
+      "text": "// 数据元信息：frame_digest 与 c_data_hash 是两个不同的哈希，分开展示"
+    },
+    {
+      "line": 134,
+      "text": "  // 哈希统一读 data_meta.c_data_hash：C 自身结果的哈希（与 B 的 frame_digest 分开）"
+    },
+    {
+      "line": 135,
+      "text": "  rows.push({ label: 'C 结果哈希', value: short(meta.c_data_hash) })"
+    }
+  ]
+}

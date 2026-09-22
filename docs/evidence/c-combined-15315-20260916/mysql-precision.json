@@ -1,0 +1,821 @@
+{
+  "combined_SHA": "15315c6fbf9339694eceaab0172d3d3f05e7ec2e",
+  "scope": "Offline exact analysis of saved direct/POST/MySQL GET evidence; no network or database access",
+  "acceptance_rule": "Exact equality remains required; no tolerance substituted",
+  "cases": [
+    {
+      "case": "000001-default",
+      "full_c_result_exact": false,
+      "difference_count": 189,
+      "all_differences_numeric_leaves": true,
+      "max_absolute_difference": 1.4551915228366852e-11,
+      "max_ULP_distance": 1,
+      "ULP_histogram": {
+        "1": 189
+      },
+      "differences_by_top_level_field": {
+        "benchmark_curve": 61,
+        "drawdown_curve": 24,
+        "equity_curve": 85,
+        "final_equity": 1,
+        "trades": 18
+      },
+      "direct_POST_C_fields_exact": true,
+      "POST_five_effective_parameters_exact": true,
+      "direct_equal_SQLite_direct": true,
+      "SQLite_full_C_readback_exact": true,
+      "input_snapshot_exact": true,
+      "input_snapshot_difference_count": 0,
+      "data_hash_string_equal": true,
+      "direct_snapshot_hash_check": {
+        "declared_data_hash": "e2b8e974fdd225a102457ec79a967262933c8d11d7ca9f565f12865baff20aff",
+        "declared_snapshot_sha256": "e2b8e974fdd225a102457ec79a967262933c8d11d7ca9f565f12865baff20aff",
+        "recomputed_sha256": "e2b8e974fdd225a102457ec79a967262933c8d11d7ca9f565f12865baff20aff",
+        "all_equal": true
+      },
+      "MySQL_snapshot_hash_check": {
+        "declared_data_hash": "e2b8e974fdd225a102457ec79a967262933c8d11d7ca9f565f12865baff20aff",
+        "declared_snapshot_sha256": "e2b8e974fdd225a102457ec79a967262933c8d11d7ca9f565f12865baff20aff",
+        "recomputed_sha256": "e2b8e974fdd225a102457ec79a967262933c8d11d7ca9f565f12865baff20aff",
+        "all_equal": true
+      },
+      "dates_counts_parameters_order_discrete_fields_exact": true,
+      "all_C_fields_that_remain_exact": [
+        "strategy_name",
+        "start_date",
+        "end_date",
+        "initial_cash",
+        "total_return",
+        "annual_return",
+        "max_drawdown",
+        "sharpe_ratio",
+        "win_rate",
+        "trade_count",
+        "order_count",
+        "benchmark_return",
+        "current_position",
+        "parameters",
+        "stock_code",
+        "semantics_version",
+        "algorithm_version",
+        "requested_start_date",
+        "requested_end_date",
+        "effective_parameters",
+        "warmup",
+        "initial_equity",
+        "execution_assumptions",
+        "input_snapshot",
+        "data_hash"
+      ],
+      "MySQL_outer_curves_orders_equal_C_envelope": true,
+      "largest_difference_example": {
+        "path": "$.benchmark_curve[4].benchmark_equity",
+        "kind": "numeric_leaf",
+        "expected": 107063.82978723405,
+        "actual": 107063.82978723403,
+        "absolute_difference": 1.4551915228366852e-11,
+        "ULP_distance": 1
+      },
+      "first_difference": {
+        "path": "$.benchmark_curve[4].benchmark_equity",
+        "kind": "numeric_leaf",
+        "expected": 107063.82978723405,
+        "actual": 107063.82978723403,
+        "absolute_difference": 1.4551915228366852e-11,
+        "ULP_distance": 1
+      },
+      "source_files_sha256": {
+        "direct": "9a5b391a9e1c6ee39c46f6a9bc350fce1d0400cc8367e5d246aa412ee381f595",
+        "post": "51360381cbe3127e645a73ed43da98f5d9fc887e7b59d505ecadc4249ac0bfe4",
+        "history": "26aeba62467f306b2c0b42997bc82e0cbac465bda233595bff0321edcf058f30",
+        "sqlite_direct": "9a5b391a9e1c6ee39c46f6a9bc350fce1d0400cc8367e5d246aa412ee381f595",
+        "sqlite_history": "593e9d6a80d3ba3b761791c21ca50a03771db35639458eee2f570c6368513f88"
+      }
+    },
+    {
+      "case": "000001-ma10-30",
+      "full_c_result_exact": false,
+      "difference_count": 192,
+      "all_differences_numeric_leaves": true,
+      "max_absolute_difference": 1.4551915228366852e-11,
+      "max_ULP_distance": 1,
+      "ULP_histogram": {
+        "1": 192
+      },
+      "differences_by_top_level_field": {
+        "benchmark_curve": 61,
+        "drawdown_curve": 31,
+        "equity_curve": 89,
+        "trades": 11
+      },
+      "direct_POST_C_fields_exact": true,
+      "POST_five_effective_parameters_exact": true,
+      "direct_equal_SQLite_direct": true,
+      "SQLite_full_C_readback_exact": true,
+      "input_snapshot_exact": true,
+      "input_snapshot_difference_count": 0,
+      "data_hash_string_equal": true,
+      "direct_snapshot_hash_check": {
+        "declared_data_hash": "6e30eed1d794846e987106ac27912b97b6f6526f7e2d33ad8d3204d7848ac5ea",
+        "declared_snapshot_sha256": "6e30eed1d794846e987106ac27912b97b6f6526f7e2d33ad8d3204d7848ac5ea",
+        "recomputed_sha256": "6e30eed1d794846e987106ac27912b97b6f6526f7e2d33ad8d3204d7848ac5ea",
+        "all_equal": true
+      },
+      "MySQL_snapshot_hash_check": {
+        "declared_data_hash": "6e30eed1d794846e987106ac27912b97b6f6526f7e2d33ad8d3204d7848ac5ea",
+        "declared_snapshot_sha256": "6e30eed1d794846e987106ac27912b97b6f6526f7e2d33ad8d3204d7848ac5ea",
+        "recomputed_sha256": "6e30eed1d794846e987106ac27912b97b6f6526f7e2d33ad8d3204d7848ac5ea",
+        "all_equal": true
+      },
+      "dates_counts_parameters_order_discrete_fields_exact": true,
+      "all_C_fields_that_remain_exact": [
+        "strategy_name",
+        "start_date",
+        "end_date",
+        "initial_cash",
+        "final_equity",
+        "total_return",
+        "annual_return",
+        "max_drawdown",
+        "sharpe_ratio",
+        "win_rate",
+        "trade_count",
+        "order_count",
+        "benchmark_return",
+        "current_position",
+        "parameters",
+        "stock_code",
+        "semantics_version",
+        "algorithm_version",
+        "requested_start_date",
+        "requested_end_date",
+        "effective_parameters",
+        "warmup",
+        "initial_equity",
+        "execution_assumptions",
+        "input_snapshot",
+        "data_hash"
+      ],
+      "MySQL_outer_curves_orders_equal_C_envelope": true,
+      "largest_difference_example": {
+        "path": "$.benchmark_curve[4].benchmark_equity",
+        "kind": "numeric_leaf",
+        "expected": 107063.82978723405,
+        "actual": 107063.82978723403,
+        "absolute_difference": 1.4551915228366852e-11,
+        "ULP_distance": 1
+      },
+      "first_difference": {
+        "path": "$.benchmark_curve[4].benchmark_equity",
+        "kind": "numeric_leaf",
+        "expected": 107063.82978723405,
+        "actual": 107063.82978723403,
+        "absolute_difference": 1.4551915228366852e-11,
+        "ULP_distance": 1
+      },
+      "source_files_sha256": {
+        "direct": "59a5082cd2539716b64678cfd99ccbb5ca209c81b4f940b580f72e59e8c8a25f",
+        "post": "6ab279f86af6eb65424d8a1ec6e8480c80116e4a4f47daaa6bc0d257ce6e8fa2",
+        "history": "9398ab16a6f7a6f8739aba60dfca29e2f1154d2daf3164ae178737f7f9c0dd12",
+        "sqlite_direct": "59a5082cd2539716b64678cfd99ccbb5ca209c81b4f940b580f72e59e8c8a25f",
+        "sqlite_history": "9b36f9f78e98904c1fa1b056c9b49c01aac16ff1cf78edd12dfea6ff18d8500c"
+      }
+    },
+    {
+      "case": "000001-ma20-60-cost",
+      "full_c_result_exact": false,
+      "difference_count": 245,
+      "all_differences_numeric_leaves": true,
+      "max_absolute_difference": 2.9103830456733704e-11,
+      "max_ULP_distance": 1,
+      "ULP_histogram": {
+        "1": 245
+      },
+      "differences_by_top_level_field": {
+        "benchmark_curve": 52,
+        "drawdown_curve": 97,
+        "equity_curve": 92,
+        "trades": 4
+      },
+      "direct_POST_C_fields_exact": true,
+      "POST_five_effective_parameters_exact": true,
+      "direct_equal_SQLite_direct": true,
+      "SQLite_full_C_readback_exact": true,
+      "input_snapshot_exact": true,
+      "input_snapshot_difference_count": 0,
+      "data_hash_string_equal": true,
+      "direct_snapshot_hash_check": {
+        "declared_data_hash": "d472958981a6f0c157c5d405f308715f369fefa9629aa1691e6bb5c3a5cd62d1",
+        "declared_snapshot_sha256": "d472958981a6f0c157c5d405f308715f369fefa9629aa1691e6bb5c3a5cd62d1",
+        "recomputed_sha256": "d472958981a6f0c157c5d405f308715f369fefa9629aa1691e6bb5c3a5cd62d1",
+        "all_equal": true
+      },
+      "MySQL_snapshot_hash_check": {
+        "declared_data_hash": "d472958981a6f0c157c5d405f308715f369fefa9629aa1691e6bb5c3a5cd62d1",
+        "declared_snapshot_sha256": "d472958981a6f0c157c5d405f308715f369fefa9629aa1691e6bb5c3a5cd62d1",
+        "recomputed_sha256": "d472958981a6f0c157c5d405f308715f369fefa9629aa1691e6bb5c3a5cd62d1",
+        "all_equal": true
+      },
+      "dates_counts_parameters_order_discrete_fields_exact": true,
+      "all_C_fields_that_remain_exact": [
+        "strategy_name",
+        "start_date",
+        "end_date",
+        "initial_cash",
+        "final_equity",
+        "total_return",
+        "annual_return",
+        "max_drawdown",
+        "sharpe_ratio",
+        "win_rate",
+        "trade_count",
+        "order_count",
+        "benchmark_return",
+        "current_position",
+        "parameters",
+        "stock_code",
+        "semantics_version",
+        "algorithm_version",
+        "requested_start_date",
+        "requested_end_date",
+        "effective_parameters",
+        "warmup",
+        "initial_equity",
+        "execution_assumptions",
+        "input_snapshot",
+        "data_hash"
+      ],
+      "MySQL_outer_curves_orders_equal_C_envelope": true,
+      "largest_difference_example": {
+        "path": "$.benchmark_curve[11].benchmark_equity",
+        "kind": "numeric_leaf",
+        "expected": 204425.53191489363,
+        "actual": 204425.53191489365,
+        "absolute_difference": 2.9103830456733704e-11,
+        "ULP_distance": 1
+      },
+      "first_difference": {
+        "path": "$.benchmark_curve[11].benchmark_equity",
+        "kind": "numeric_leaf",
+        "expected": 204425.53191489363,
+        "actual": 204425.53191489365,
+        "absolute_difference": 2.9103830456733704e-11,
+        "ULP_distance": 1
+      },
+      "source_files_sha256": {
+        "direct": "5a7853c8cef08e24c5edf0c94dd59724554c5b56ad5f22f4c599132a8da6d565",
+        "post": "b5c53d4a7f2fc7af8f1a6aa1332c84034b0c04705dbec14837b73af969638d05",
+        "history": "3cb0c9229ac4074b7f93b441cee7cfab067786437109cee7c45bd7dc37050df8",
+        "sqlite_direct": "5a7853c8cef08e24c5edf0c94dd59724554c5b56ad5f22f4c599132a8da6d565",
+        "sqlite_history": "7a5b24969fa91f5ed8b4ab26261336509ad05647baa1e5aebd52dcdb36346eb0"
+      }
+    },
+    {
+      "case": "300750-default",
+      "full_c_result_exact": false,
+      "difference_count": 133,
+      "all_differences_numeric_leaves": true,
+      "max_absolute_difference": 2.9103830456733704e-11,
+      "max_ULP_distance": 1,
+      "ULP_histogram": {
+        "1": 133
+      },
+      "differences_by_top_level_field": {
+        "benchmark_curve": 22,
+        "drawdown_curve": 40,
+        "equity_curve": 53,
+        "trades": 18
+      },
+      "direct_POST_C_fields_exact": true,
+      "POST_five_effective_parameters_exact": true,
+      "direct_equal_SQLite_direct": true,
+      "SQLite_full_C_readback_exact": true,
+      "input_snapshot_exact": true,
+      "input_snapshot_difference_count": 0,
+      "data_hash_string_equal": true,
+      "direct_snapshot_hash_check": {
+        "declared_data_hash": "96598d8639c4137c59aaf1ce2aa424f9534759c2aff7e3c6b339a2aa41a7e196",
+        "declared_snapshot_sha256": "96598d8639c4137c59aaf1ce2aa424f9534759c2aff7e3c6b339a2aa41a7e196",
+        "recomputed_sha256": "96598d8639c4137c59aaf1ce2aa424f9534759c2aff7e3c6b339a2aa41a7e196",
+        "all_equal": true
+      },
+      "MySQL_snapshot_hash_check": {
+        "declared_data_hash": "96598d8639c4137c59aaf1ce2aa424f9534759c2aff7e3c6b339a2aa41a7e196",
+        "declared_snapshot_sha256": "96598d8639c4137c59aaf1ce2aa424f9534759c2aff7e3c6b339a2aa41a7e196",
+        "recomputed_sha256": "96598d8639c4137c59aaf1ce2aa424f9534759c2aff7e3c6b339a2aa41a7e196",
+        "all_equal": true
+      },
+      "dates_counts_parameters_order_discrete_fields_exact": true,
+      "all_C_fields_that_remain_exact": [
+        "strategy_name",
+        "start_date",
+        "end_date",
+        "initial_cash",
+        "final_equity",
+        "total_return",
+        "annual_return",
+        "max_drawdown",
+        "sharpe_ratio",
+        "win_rate",
+        "trade_count",
+        "order_count",
+        "benchmark_return",
+        "current_position",
+        "parameters",
+        "stock_code",
+        "semantics_version",
+        "algorithm_version",
+        "requested_start_date",
+        "requested_end_date",
+        "effective_parameters",
+        "warmup",
+        "initial_equity",
+        "execution_assumptions",
+        "input_snapshot",
+        "data_hash"
+      ],
+      "MySQL_outer_curves_orders_equal_C_envelope": true,
+      "largest_difference_example": {
+        "path": "$.benchmark_curve[59].benchmark_equity",
+        "kind": "numeric_leaf",
+        "expected": 150387.17246773563,
+        "actual": 150387.17246773565,
+        "absolute_difference": 2.9103830456733704e-11,
+        "ULP_distance": 1
+      },
+      "first_difference": {
+        "path": "$.benchmark_curve[4].benchmark_equity",
+        "kind": "numeric_leaf",
+        "expected": 102733.67227219399,
+        "actual": 102733.672272194,
+        "absolute_difference": 1.4551915228366852e-11,
+        "ULP_distance": 1
+      },
+      "source_files_sha256": {
+        "direct": "14a019eb34c2ded37f8bbeace4103df7088ad96955024eaf8ca6e23f20559cd6",
+        "post": "4615e93e3c040f943672be0942f8c661f86bf99f5ba54b6b3fcc06307496d937",
+        "history": "c60cd3a618a0416ca3cc6247717f07f1ee4f008bf7b58d377b8fa3400c73ad14",
+        "sqlite_direct": "14a019eb34c2ded37f8bbeace4103df7088ad96955024eaf8ca6e23f20559cd6",
+        "sqlite_history": "973d2228d9bb2e72116316706d997eb9b7cb18875e1c4c372e92168814ca7c2f"
+      }
+    },
+    {
+      "case": "300750-ma10-30",
+      "full_c_result_exact": false,
+      "difference_count": 116,
+      "all_differences_numeric_leaves": true,
+      "max_absolute_difference": 2.9103830456733704e-11,
+      "max_ULP_distance": 1,
+      "ULP_histogram": {
+        "1": 116
+      },
+      "differences_by_top_level_field": {
+        "benchmark_curve": 22,
+        "drawdown_curve": 35,
+        "equity_curve": 49,
+        "final_equity": 1,
+        "max_drawdown": 1,
+        "trades": 8
+      },
+      "direct_POST_C_fields_exact": true,
+      "POST_five_effective_parameters_exact": true,
+      "direct_equal_SQLite_direct": true,
+      "SQLite_full_C_readback_exact": true,
+      "input_snapshot_exact": true,
+      "input_snapshot_difference_count": 0,
+      "data_hash_string_equal": true,
+      "direct_snapshot_hash_check": {
+        "declared_data_hash": "0a9da34e046da9ccb515a637b4ed657daa7c4ffe94c5f6fb2a0ba01d652d1af3",
+        "declared_snapshot_sha256": "0a9da34e046da9ccb515a637b4ed657daa7c4ffe94c5f6fb2a0ba01d652d1af3",
+        "recomputed_sha256": "0a9da34e046da9ccb515a637b4ed657daa7c4ffe94c5f6fb2a0ba01d652d1af3",
+        "all_equal": true
+      },
+      "MySQL_snapshot_hash_check": {
+        "declared_data_hash": "0a9da34e046da9ccb515a637b4ed657daa7c4ffe94c5f6fb2a0ba01d652d1af3",
+        "declared_snapshot_sha256": "0a9da34e046da9ccb515a637b4ed657daa7c4ffe94c5f6fb2a0ba01d652d1af3",
+        "recomputed_sha256": "0a9da34e046da9ccb515a637b4ed657daa7c4ffe94c5f6fb2a0ba01d652d1af3",
+        "all_equal": true
+      },
+      "dates_counts_parameters_order_discrete_fields_exact": true,
+      "all_C_fields_that_remain_exact": [
+        "strategy_name",
+        "start_date",
+        "end_date",
+        "initial_cash",
+        "total_return",
+        "annual_return",
+        "sharpe_ratio",
+        "win_rate",
+        "trade_count",
+        "order_count",
+        "benchmark_return",
+        "current_position",
+        "parameters",
+        "stock_code",
+        "semantics_version",
+        "algorithm_version",
+        "requested_start_date",
+        "requested_end_date",
+        "effective_parameters",
+        "warmup",
+        "initial_equity",
+        "execution_assumptions",
+        "input_snapshot",
+        "data_hash"
+      ],
+      "MySQL_outer_curves_orders_equal_C_envelope": true,
+      "largest_difference_example": {
+        "path": "$.benchmark_curve[59].benchmark_equity",
+        "kind": "numeric_leaf",
+        "expected": 150387.17246773563,
+        "actual": 150387.17246773565,
+        "absolute_difference": 2.9103830456733704e-11,
+        "ULP_distance": 1
+      },
+      "first_difference": {
+        "path": "$.benchmark_curve[4].benchmark_equity",
+        "kind": "numeric_leaf",
+        "expected": 102733.67227219399,
+        "actual": 102733.672272194,
+        "absolute_difference": 1.4551915228366852e-11,
+        "ULP_distance": 1
+      },
+      "source_files_sha256": {
+        "direct": "e33bd868571d2662f8e423705cb4fd6533ab5522805ba78a9b7e57c3d2171e00",
+        "post": "21578db5f29d893af9b332ae155058fa3255cec4cf9c86f92dc6a13e5459cfcc",
+        "history": "6fb411bbdaa6d255235693e34ddecb494a788bf84c4e0430872c33af3588596c",
+        "sqlite_direct": "e33bd868571d2662f8e423705cb4fd6533ab5522805ba78a9b7e57c3d2171e00",
+        "sqlite_history": "242008ea898cc15bcb9b26a6da1ca07726c054dab72e59eb2978d7b660ab7a07"
+      }
+    },
+    {
+      "case": "300750-ma20-60-cost",
+      "full_c_result_exact": false,
+      "difference_count": 47,
+      "all_differences_numeric_leaves": true,
+      "max_absolute_difference": 2.9103830456733704e-11,
+      "max_ULP_distance": 1,
+      "ULP_histogram": {
+        "1": 47
+      },
+      "differences_by_top_level_field": {
+        "benchmark_curve": 12,
+        "drawdown_curve": 22,
+        "equity_curve": 10,
+        "trades": 3
+      },
+      "direct_POST_C_fields_exact": true,
+      "POST_five_effective_parameters_exact": true,
+      "direct_equal_SQLite_direct": true,
+      "SQLite_full_C_readback_exact": true,
+      "input_snapshot_exact": true,
+      "input_snapshot_difference_count": 0,
+      "data_hash_string_equal": true,
+      "direct_snapshot_hash_check": {
+        "declared_data_hash": "c5f75be0b74df9f42bb38eb1ec20e9e6f235d32ff43d3315ff254d3ede6e5ab1",
+        "declared_snapshot_sha256": "c5f75be0b74df9f42bb38eb1ec20e9e6f235d32ff43d3315ff254d3ede6e5ab1",
+        "recomputed_sha256": "c5f75be0b74df9f42bb38eb1ec20e9e6f235d32ff43d3315ff254d3ede6e5ab1",
+        "all_equal": true
+      },
+      "MySQL_snapshot_hash_check": {
+        "declared_data_hash": "c5f75be0b74df9f42bb38eb1ec20e9e6f235d32ff43d3315ff254d3ede6e5ab1",
+        "declared_snapshot_sha256": "c5f75be0b74df9f42bb38eb1ec20e9e6f235d32ff43d3315ff254d3ede6e5ab1",
+        "recomputed_sha256": "c5f75be0b74df9f42bb38eb1ec20e9e6f235d32ff43d3315ff254d3ede6e5ab1",
+        "all_equal": true
+      },
+      "dates_counts_parameters_order_discrete_fields_exact": true,
+      "all_C_fields_that_remain_exact": [
+        "strategy_name",
+        "start_date",
+        "end_date",
+        "initial_cash",
+        "final_equity",
+        "total_return",
+        "annual_return",
+        "max_drawdown",
+        "sharpe_ratio",
+        "win_rate",
+        "trade_count",
+        "order_count",
+        "benchmark_return",
+        "current_position",
+        "parameters",
+        "stock_code",
+        "semantics_version",
+        "algorithm_version",
+        "requested_start_date",
+        "requested_end_date",
+        "effective_parameters",
+        "warmup",
+        "initial_equity",
+        "execution_assumptions",
+        "input_snapshot",
+        "data_hash"
+      ],
+      "MySQL_outer_curves_orders_equal_C_envelope": true,
+      "largest_difference_example": {
+        "path": "$.benchmark_curve[4].benchmark_equity",
+        "kind": "numeric_leaf",
+        "expected": 205467.34454438798,
+        "actual": 205467.344544388,
+        "absolute_difference": 2.9103830456733704e-11,
+        "ULP_distance": 1
+      },
+      "first_difference": {
+        "path": "$.benchmark_curve[4].benchmark_equity",
+        "kind": "numeric_leaf",
+        "expected": 205467.34454438798,
+        "actual": 205467.344544388,
+        "absolute_difference": 2.9103830456733704e-11,
+        "ULP_distance": 1
+      },
+      "source_files_sha256": {
+        "direct": "15777bbac10361181eb88d0a2fa12c55c27f9eba0c21378db26e27909a1b1724",
+        "post": "bd0384307ae68cd86b08e794c2331717c308e63e550fc97c6e5ed6a9b41244b6",
+        "history": "3294b167e6b236e47a62caead1274a06534177ffffa803ae5f0e4c1f9e246bb6",
+        "sqlite_direct": "15777bbac10361181eb88d0a2fa12c55c27f9eba0c21378db26e27909a1b1724",
+        "sqlite_history": "18f730bf553ec4c74e66cd41addfe57593b0d56cbcdaa01fc212508d2aada2f8"
+      }
+    },
+    {
+      "case": "600519-default",
+      "full_c_result_exact": false,
+      "difference_count": 220,
+      "all_differences_numeric_leaves": true,
+      "max_absolute_difference": 1.4551915228366852e-11,
+      "max_ULP_distance": 1,
+      "ULP_histogram": {
+        "1": 220
+      },
+      "differences_by_top_level_field": {
+        "annual_return": 1,
+        "benchmark_curve": 86,
+        "drawdown_curve": 34,
+        "equity_curve": 88,
+        "trades": 11
+      },
+      "direct_POST_C_fields_exact": true,
+      "POST_five_effective_parameters_exact": true,
+      "direct_equal_SQLite_direct": true,
+      "SQLite_full_C_readback_exact": true,
+      "input_snapshot_exact": true,
+      "input_snapshot_difference_count": 0,
+      "data_hash_string_equal": true,
+      "direct_snapshot_hash_check": {
+        "declared_data_hash": "ff26a496178036f241627f570f72759c64247be75ebb96f80c60ecd391f41e93",
+        "declared_snapshot_sha256": "ff26a496178036f241627f570f72759c64247be75ebb96f80c60ecd391f41e93",
+        "recomputed_sha256": "ff26a496178036f241627f570f72759c64247be75ebb96f80c60ecd391f41e93",
+        "all_equal": true
+      },
+      "MySQL_snapshot_hash_check": {
+        "declared_data_hash": "ff26a496178036f241627f570f72759c64247be75ebb96f80c60ecd391f41e93",
+        "declared_snapshot_sha256": "ff26a496178036f241627f570f72759c64247be75ebb96f80c60ecd391f41e93",
+        "recomputed_sha256": "ff26a496178036f241627f570f72759c64247be75ebb96f80c60ecd391f41e93",
+        "all_equal": true
+      },
+      "dates_counts_parameters_order_discrete_fields_exact": true,
+      "all_C_fields_that_remain_exact": [
+        "strategy_name",
+        "start_date",
+        "end_date",
+        "initial_cash",
+        "final_equity",
+        "total_return",
+        "max_drawdown",
+        "sharpe_ratio",
+        "win_rate",
+        "trade_count",
+        "order_count",
+        "benchmark_return",
+        "current_position",
+        "parameters",
+        "stock_code",
+        "semantics_version",
+        "algorithm_version",
+        "requested_start_date",
+        "requested_end_date",
+        "effective_parameters",
+        "warmup",
+        "initial_equity",
+        "execution_assumptions",
+        "input_snapshot",
+        "data_hash"
+      ],
+      "MySQL_outer_curves_orders_equal_C_envelope": true,
+      "largest_difference_example": {
+        "path": "$.benchmark_curve[1].benchmark_equity",
+        "kind": "numeric_leaf",
+        "expected": 99633.35582084299,
+        "actual": 99633.355820843,
+        "absolute_difference": 1.4551915228366852e-11,
+        "ULP_distance": 1
+      },
+      "first_difference": {
+        "path": "$.annual_return",
+        "kind": "numeric_leaf",
+        "expected": -0.09368913987128313,
+        "actual": -0.09368913987128312,
+        "absolute_difference": 1.3877787807814457e-17,
+        "ULP_distance": 1
+      },
+      "source_files_sha256": {
+        "direct": "fecb4600eea4e4eadb198b061aaf7adb29f27e25654d335e4d051272b226c3df",
+        "post": "3bae9a65fa5c9d4c3d09fc18413467080747fb83f47eddcb3906c715ab7f08b7",
+        "history": "d13c787b84585a974e32061d517660aa8485edaca921b1dc4def77ff641bb8d0",
+        "sqlite_direct": "fecb4600eea4e4eadb198b061aaf7adb29f27e25654d335e4d051272b226c3df",
+        "sqlite_history": "3c4ad4411c5486e8dac80a1e394d3972ddaf4fa9351ca072e1cd35154bb76c8b"
+      }
+    },
+    {
+      "case": "600519-ma10-30",
+      "full_c_result_exact": false,
+      "difference_count": 127,
+      "all_differences_numeric_leaves": true,
+      "max_absolute_difference": 1.4551915228366852e-11,
+      "max_ULP_distance": 1,
+      "ULP_histogram": {
+        "1": 127
+      },
+      "differences_by_top_level_field": {
+        "benchmark_curve": 86,
+        "drawdown_curve": 13,
+        "equity_curve": 20,
+        "trades": 8
+      },
+      "direct_POST_C_fields_exact": true,
+      "POST_five_effective_parameters_exact": true,
+      "direct_equal_SQLite_direct": true,
+      "SQLite_full_C_readback_exact": true,
+      "input_snapshot_exact": true,
+      "input_snapshot_difference_count": 0,
+      "data_hash_string_equal": true,
+      "direct_snapshot_hash_check": {
+        "declared_data_hash": "cc47a5450a66f18b91520182436910b93c5c1d9303faada81ff7054d5f11a73b",
+        "declared_snapshot_sha256": "cc47a5450a66f18b91520182436910b93c5c1d9303faada81ff7054d5f11a73b",
+        "recomputed_sha256": "cc47a5450a66f18b91520182436910b93c5c1d9303faada81ff7054d5f11a73b",
+        "all_equal": true
+      },
+      "MySQL_snapshot_hash_check": {
+        "declared_data_hash": "cc47a5450a66f18b91520182436910b93c5c1d9303faada81ff7054d5f11a73b",
+        "declared_snapshot_sha256": "cc47a5450a66f18b91520182436910b93c5c1d9303faada81ff7054d5f11a73b",
+        "recomputed_sha256": "cc47a5450a66f18b91520182436910b93c5c1d9303faada81ff7054d5f11a73b",
+        "all_equal": true
+      },
+      "dates_counts_parameters_order_discrete_fields_exact": true,
+      "all_C_fields_that_remain_exact": [
+        "strategy_name",
+        "start_date",
+        "end_date",
+        "initial_cash",
+        "final_equity",
+        "total_return",
+        "annual_return",
+        "max_drawdown",
+        "sharpe_ratio",
+        "win_rate",
+        "trade_count",
+        "order_count",
+        "benchmark_return",
+        "current_position",
+        "parameters",
+        "stock_code",
+        "semantics_version",
+        "algorithm_version",
+        "requested_start_date",
+        "requested_end_date",
+        "effective_parameters",
+        "warmup",
+        "initial_equity",
+        "execution_assumptions",
+        "input_snapshot",
+        "data_hash"
+      ],
+      "MySQL_outer_curves_orders_equal_C_envelope": true,
+      "largest_difference_example": {
+        "path": "$.benchmark_curve[1].benchmark_equity",
+        "kind": "numeric_leaf",
+        "expected": 99633.35582084299,
+        "actual": 99633.355820843,
+        "absolute_difference": 1.4551915228366852e-11,
+        "ULP_distance": 1
+      },
+      "first_difference": {
+        "path": "$.benchmark_curve[1].benchmark_equity",
+        "kind": "numeric_leaf",
+        "expected": 99633.35582084299,
+        "actual": 99633.355820843,
+        "absolute_difference": 1.4551915228366852e-11,
+        "ULP_distance": 1
+      },
+      "source_files_sha256": {
+        "direct": "b364d29bf9ae6b17fe91f1e550ad9299b5607458f9dfa2a0702805b0d5d617cc",
+        "post": "06f741145460dec7346ff3f0761933f638fbd749b7bbed104b46fb50db3e10b4",
+        "history": "8de305e9bea1c0995b17683bc4b58ec27d7eb47e28f248fad0e2c5d7c69e3a58",
+        "sqlite_direct": "b364d29bf9ae6b17fe91f1e550ad9299b5607458f9dfa2a0702805b0d5d617cc",
+        "sqlite_history": "aea82434f82ae3ff75206d27807c985314ee9384536f4d5428982ecdc8b63029"
+      }
+    },
+    {
+      "case": "600519-ma20-60-cost",
+      "full_c_result_exact": false,
+      "difference_count": 170,
+      "all_differences_numeric_leaves": true,
+      "max_absolute_difference": 2.9103830456733704e-11,
+      "max_ULP_distance": 1,
+      "ULP_histogram": {
+        "1": 170
+      },
+      "differences_by_top_level_field": {
+        "annual_return": 1,
+        "benchmark_curve": 51,
+        "drawdown_curve": 11,
+        "equity_curve": 101,
+        "trades": 6
+      },
+      "direct_POST_C_fields_exact": true,
+      "POST_five_effective_parameters_exact": true,
+      "direct_equal_SQLite_direct": true,
+      "SQLite_full_C_readback_exact": true,
+      "input_snapshot_exact": true,
+      "input_snapshot_difference_count": 0,
+      "data_hash_string_equal": true,
+      "direct_snapshot_hash_check": {
+        "declared_data_hash": "69cea63c601f382dfa0e3804ff5d4a60884e436afa231d32cb3963f496ff3f73",
+        "declared_snapshot_sha256": "69cea63c601f382dfa0e3804ff5d4a60884e436afa231d32cb3963f496ff3f73",
+        "recomputed_sha256": "69cea63c601f382dfa0e3804ff5d4a60884e436afa231d32cb3963f496ff3f73",
+        "all_equal": true
+      },
+      "MySQL_snapshot_hash_check": {
+        "declared_data_hash": "69cea63c601f382dfa0e3804ff5d4a60884e436afa231d32cb3963f496ff3f73",
+        "declared_snapshot_sha256": "69cea63c601f382dfa0e3804ff5d4a60884e436afa231d32cb3963f496ff3f73",
+        "recomputed_sha256": "69cea63c601f382dfa0e3804ff5d4a60884e436afa231d32cb3963f496ff3f73",
+        "all_equal": true
+      },
+      "dates_counts_parameters_order_discrete_fields_exact": true,
+      "all_C_fields_that_remain_exact": [
+        "strategy_name",
+        "start_date",
+        "end_date",
+        "initial_cash",
+        "final_equity",
+        "total_return",
+        "max_drawdown",
+        "sharpe_ratio",
+        "win_rate",
+        "trade_count",
+        "order_count",
+        "benchmark_return",
+        "current_position",
+        "parameters",
+        "stock_code",
+        "semantics_version",
+        "algorithm_version",
+        "requested_start_date",
+        "requested_end_date",
+        "effective_parameters",
+        "warmup",
+        "initial_equity",
+        "execution_assumptions",
+        "input_snapshot",
+        "data_hash"
+      ],
+      "MySQL_outer_curves_orders_equal_C_envelope": true,
+      "largest_difference_example": {
+        "path": "$.benchmark_curve[1].benchmark_equity",
+        "kind": "numeric_leaf",
+        "expected": 199266.71164168598,
+        "actual": 199266.711641686,
+        "absolute_difference": 2.9103830456733704e-11,
+        "ULP_distance": 1
+      },
+      "first_difference": {
+        "path": "$.annual_return",
+        "kind": "numeric_leaf",
+        "expected": -0.11334289860444169,
+        "actual": -0.11334289860444167,
+        "absolute_difference": 1.3877787807814457e-17,
+        "ULP_distance": 1
+      },
+      "source_files_sha256": {
+        "direct": "9553351bcc51dd4b755263f158cb5ce10c77531252f41a006e9573d24b5d2cbb",
+        "post": "653b4ecd2d03584e3d0d84bc7cf1ceef4b2bfcc98a0139bdbeab36748e75bbd2",
+        "history": "a72e1ea7614708240f36b50b412f753acfcbd0b0ca9d849e602ffc7647a32021",
+        "sqlite_direct": "9553351bcc51dd4b755263f158cb5ce10c77531252f41a006e9573d24b5d2cbb",
+        "sqlite_history": "e6829a4a5d63adcf458d926ade6a29866f537ef1586877cb803e18aeafe9cb13"
+      }
+    }
+  ],
+  "summary": {
+    "full_exact_passed": 0,
+    "full_exact_failed": 9,
+    "total_numeric_differences": 1439,
+    "only_numeric_leaf_differences": true,
+    "max_absolute_difference": 2.9103830456733704e-11,
+    "max_ULP_distance": 1,
+    "all_POST_direct_exact": true,
+    "all_SQLite_exact": true,
+    "all_input_snapshots_exact": true,
+    "all_snapshot_hash_checks_passed": true,
+    "all_discrete_fields_exact": true
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "source_sha": "2871253240edb3d0ecc8ade946a754b2326a9274",
+  "scope": "synthetic checker probes; isolated archive without .env, no provider or database operation",
+  "cases": [
+    {
+      "case": "valid_4dp_rounding",
+      "expected": "pass",
+      "actual": "pass",
+      "satisfied": true,
+      "result": {
+        "raw_file": "raw.json",
+        "normalized_file": "normalized.json",
+        "rows": 1,
+        "structural_problems": [],
+        "rounding_only_rows": 1,
+        "materially_different_rows": []
+      }
+    },
+    {
+      "case": "wrong_stock_code",
+      "expected": "fail",
+      "actual": "fail",
+      "satisfied": true,
+      "result": {
+        "raw_file": "raw.json",
+        "normalized_file": "normalized.json",
+        "rows": 1,
+        "structural_problems": [
+          "stock_code differs: raw=['600519'] normalized=['000001']"
+        ],
+        "rounding_only_rows": 1,
+        "materially_different_rows": []
+      }
+    },
+    {
+      "case": "duplicate_date",
+      "expected": "fail",
+      "actual": "fail",
+      "satisfied": true,
+      "result": {
+        "raw_file": "raw.json",
+        "normalized_file": "normalized.json",
+        "rows": null,
+        "structural_problems": [
+          "raw.json: duplicate trade_date 2026-08-31"
+        ],
+        "rounding_only_rows": null,
+        "materially_different_rows": []
+      }
+    },
+    {
+      "case": "nonfinite_value",
+      "expected": "fail",
+      "actual": "fail",
+      "satisfied": true,
+      "result": {
+        "raw_file": "raw.json",
+        "normalized_file": "normalized.json",
+        "rows": null,
+        "structural_problems": [
+          "raw.json: '2026-08-31': close=nan is not a finite number"
+        ],
+        "rounding_only_rows": null,
+        "materially_different_rows": []
+      }
+    },
+    {
+      "case": "matching_optional_null",
+      "expected": "pass",
+      "actual": "pass",
+      "satisfied": true,
+      "result": {
+        "raw_file": "raw.json",
+        "normalized_file": "normalized.json",
+        "rows": 1,
+        "structural_problems": [],
+        "rounding_only_rows": 1,
+        "materially_different_rows": []
+      }
+    }
+  ]
+}

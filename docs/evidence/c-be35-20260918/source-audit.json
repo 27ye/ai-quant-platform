@@ -1,0 +1,53 @@
+{
+  "sha": "be35e5febe1acebce32ea9eb495affd6bd730875",
+  "C_core_12_files_unchanged_from": "85b7617149fbff67189e52f6527c9921ff09d388",
+  "package_six_hashes": {
+    "600519_qfq_raw_20241201_20260916.json": "07f9f3af59b564f36ae40d0eef340414b4716712ef1205d1a937186b18709416",
+    "600519_qfq_normalized_20241201_20260916.json": "280eed0f779440425bf79c5c368eebc07e1abc906dba7b2ad44afdd41f95cd27",
+    "000001_qfq_raw_20241201_20260916.json": "993fa95241c78962583f97aa06c54e5a7636196ecb222547a5ee43c8cefc207c",
+    "000001_qfq_normalized_20241201_20260916.json": "d4fc99555e4a5283ab36408ef6063873e2a05e55e5a350826c3c56a3ac95aa73",
+    "300750_qfq_raw_20241201_20260916.json": "780f51e0fadd7644aef83d5881917efe9f225d28baffbcde277c74ebf57d80d8",
+    "300750_qfq_normalized_20241201_20260916.json": "b25d6e31442cdaeb37243d818b6171d69f2aad248e3f073e9500ebfcc1daf0df"
+  },
+  "nine_direct_results_unchanged": true,
+  "a_sha": "8615d86db38ed3281e9bff4b101a32f6b6e6bc1d",
+  "a_commit_patch": "@@ -351,7 +351,7 @@ export interface PaginatedBacktests {\n \n /**\n  * 回测详情的数据元信息（B 契约字段；frame_digest 是 B 交给 C 的数据帧摘要，\n- * c_data_hash 是 C 自身结果的哈希——两者分开，不可混用）\n+ * c_data_hash 是 C 输入快照的 SHA-256——两者分开，不可混用）\n  */\n export interface BacktestDataMeta {\n   requested_start_date?: string\n@@ -388,7 +388,7 @@ export interface BacktestDetail extends BacktestSummary {\n   /** v8 无损文本列保存为 true；v8 前 JSON 列旧记录为 false（数值经 MySQL 归一化） */\n   c_result_exact?: boolean\n   c_algorithm_version?: string | null\n-  /** C 自身结果的哈希；详情默认平铺返回，与 data_meta.c_data_hash 同源 */\n+  /** C 输入快照的 SHA-256；详情默认平铺返回，与 data_meta.c_data_hash 同源 */\n   c_data_hash?: string | null\n   /** C 记录的初始权益锚点（首日） */\n   c_initial_equity?: {",
+  "a_contract_lines": {
+    "frontend/src/types/api.ts": [
+      {
+        "line": 354,
+        "text": "* c_data_hash 是 C 输入快照的 SHA-256——两者分开，不可混用）"
+      },
+      {
+        "line": 366,
+        "text": "c_data_hash?: string | null"
+      },
+      {
+        "line": 391,
+        "text": "/** C 输入快照的 SHA-256；详情默认平铺返回，与 data_meta.c_data_hash 同源 */"
+      },
+      {
+        "line": 392,
+        "text": "c_data_hash?: string | null"
+      }
+    ],
+    "frontend/src/views/BacktestDetailView.vue": [
+      {
+        "line": 113,
+        "text": "// 数据元信息：frame_digest 与 c_data_hash 是两个不同的哈希，分开展示"
+      },
+      {
+        "line": 134,
+        "text": "// 哈希统一读 data_meta.c_data_hash：C 输入快照的哈希（与 B 的 frame_digest 分开）"
+      },
+      {
+        "line": 135,
+        "text": "rows.push({ label: 'C 输入快照哈希', value: short(meta.c_data_hash) })"
+      }
+    ]
+  },
+  "a_commit_files": [
+    "frontend/src/types/api.ts"
+  ],
+  "a_verified_scope": "source comments and field paths; no browser/build rerun"
+}

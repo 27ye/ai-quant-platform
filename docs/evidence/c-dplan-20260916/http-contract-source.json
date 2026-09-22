@@ -1,0 +1,27 @@
+{
+  "combined_sha": "cc574827c6c08d2336336a48d9f7a09e9582c60a",
+  "scope": "Static exact-source checks, not browser or frontend build verification",
+  "checks": {
+    "five_C_detail_fields_present": true,
+    "no_fake_nested_input_snapshot_in_metadata_type": true,
+    "no_fake_snapshot_property_in_backtest_mock": true,
+    "detail_view_hash_uses_metadata_c_data_hash": true,
+    "top_level_snapshot_flags_retained": true,
+    "50006_chinese_mapping": true,
+    "AI_404_comment_and_mock_40006": true,
+    "backend_metadata_maps_C_input_hash": true
+  },
+  "source_files": {
+    "frontend/src/types/api.ts": "d26576555275ee224ddeb2f719d62ab937d85792f6bb46ed49a3944622c8846c",
+    "frontend/src/api/http.ts": "2de9dd5898112b30223a125317588dad1b56a1fa65a86dd6b8928f71721536df",
+    "frontend/src/views/BacktestDetailView.vue": "21e891433124a4d16840cf3d4aef985dfd12dc69bcaceecd3810901e4e5ceb88",
+    "frontend/src/mocks/backtests.ts": "df2549379c9fbb51730dc5e74fd1b59ff32e1d23fdf363e0e2d6c3ec69ae75bc",
+    "frontend/src/mocks/ai.ts": "810ef34282a57a798a8d42be86de3ef496f1447a22e5d1d3068564ef06472dec",
+    "frontend/src/api/ai.ts": "0195186887fc6bf65a80100f199c51972e17e4536560a128ac551141bc8ff7ff",
+    "backend/app/services/backtest_service.py": "37e088334cfa7a5cb9c51be3d0ab5d0211f9f6ac9b9ae40fdd2b8a7b73cc6aa3"
+  },
+  "nonblocking_comment_corrections": [
+    "frontend/src/types/api.ts:354 describes c_data_hash as result hash; it is C input snapshot hash.",
+    "backend/app/services/backtest_service.py:629 describes C data_hash as covering result; it covers C input snapshot."
+  ]
+}

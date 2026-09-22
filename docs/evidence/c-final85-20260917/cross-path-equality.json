@@ -1,0 +1,119 @@
+{
+  "tested_SHA": "85b7617149fbff67189e52f6527c9921ff09d388",
+  "data_mode_note": "Initial input_json offline run differs only in snapshot data_mode and dependent hashes. Rerun with --data-mode dataframe to match actual B input metadata; nine full results match exactly. Provider provenance remains Tencent as recorded in manifest.",
+  "cases": [
+    {
+      "case": "600519-default",
+      "full_offline_direct_POST_GET_exact": true,
+      "data_mode": "dataframe",
+      "data_hash": "0fa1aa408689f559a12c37afe6c726c01be0e80b3a70d07363c59ec86e465153",
+      "evidence_files": {
+        "600519-default.result.json": "c30a1ab35c67bb0a4e1d8c3dce95779a5258f608abf3d7fdc2c43b179c2b5a98",
+        "600519-default.direct.json": "49411ad801c76bea4b77748a2f9776c41558aa9772f5313d852a3b759a88fcc1",
+        "600519-default.post.json": "f83c85b578b4a245f803f7c345bb760891fcd23b1467c4ef1929d067c421113b",
+        "600519-default.history.json": "3baa2cee59a26ea83e344d5831ce240c95ee42c40dda857ff4319d8abd008388"
+      }
+    },
+    {
+      "case": "600519-ma10-30",
+      "full_offline_direct_POST_GET_exact": true,
+      "data_mode": "dataframe",
+      "data_hash": "9ab75c3158920dd2fe73b29ada28d367c333c9dde66e26e2025941418bfa989d",
+      "evidence_files": {
+        "600519-ma10-30.result.json": "5ce7460c1638466841dcdc55404654a33bbb2c664f47410acf36fa128ca3bccc",
+        "600519-ma10-30.direct.json": "5866315f2f1a8b4929f73e4cd40c04d2ff9705172f7572f803f4fed51e2a0eb3",
+        "600519-ma10-30.post.json": "8d8fd9b7fb6b39d3b1f9f723848a1aa49c0f3de622ca63308d3beaa7eab7a4dd",
+        "600519-ma10-30.history.json": "94072fe7ca6276eac7133165194f1293cf2fe1499721966cd6833f60aa2c57b2"
+      }
+    },
+    {
+      "case": "600519-ma20-60-cost",
+      "full_offline_direct_POST_GET_exact": true,
+      "data_mode": "dataframe",
+      "data_hash": "97e7e76a66dadda99ebe307dfb72a6a3c5e39ed81e8c5fa9cb88c20c8c1fb888",
+      "evidence_files": {
+        "600519-ma20-60-cost.result.json": "70ef98b41527db551f512f5886180a029be8938fc87bdd32112e0e69a5cb5a48",
+        "600519-ma20-60-cost.direct.json": "b2b5cd32711a9d1593418b2a64ac66a5682e4ffe338e9a5c3270b9cd4ebc4658",
+        "600519-ma20-60-cost.post.json": "437bf05337fd2f5c0bab73bda15cd4d1283d92447a5d2c30e775133f75dc1c2f",
+        "600519-ma20-60-cost.history.json": "928271f465e49783cb1353f40694c78ab9585ddabeb7fa45b06afc16a8a7d261"
+      }
+    },
+    {
+      "case": "000001-default",
+      "full_offline_direct_POST_GET_exact": true,
+      "data_mode": "dataframe",
+      "data_hash": "6f3b5ec3699fa71c8fef97c5131aea893cc4b1e1ec963b892db5dffb371444d3",
+      "evidence_files": {
+        "000001-default.result.json": "4401a0399037650a6e7f30aeac927bd3948b4130b9779e777067a22756d7b8d0",
+        "000001-default.direct.json": "ba7e3d313bb11e2c34cd7c7e895e3dff77cdb427d8246b0da9d2782607991e69",
+        "000001-default.post.json": "2982ea65bcfef8be9e37bf312a48c07753357b5ad95622b1fafca729798d2840",
+        "000001-default.history.json": "1a1098b77d41797ae0d357c9e9f38bfb60cba3c7a3ed498be9111a2b106960e4"
+      }
+    },
+    {
+      "case": "000001-ma10-30",
+      "full_offline_direct_POST_GET_exact": true,
+      "data_mode": "dataframe",
+      "data_hash": "8f00d96ee1e9f6395ab9dcc22e084d98ebf5abe606bdf2ff83bf01f94e00ea73",
+      "evidence_files": {
+        "000001-ma10-30.result.json": "1a68b3dc1b1d90afbf219b2a04762bb687645af2f0dede1c9d12a96334df20aa",
+        "000001-ma10-30.direct.json": "07fac5d9d27819e35bd1be66a8b0107487b5f5a03efc2b09142c97391d088f27",
+        "000001-ma10-30.post.json": "dc2065dcb12c19939209febf7539d13d70ef784c2cf274e9039e8586c3233ed5",
+        "000001-ma10-30.history.json": "93b6ed0eac39345f847f419b70b75227c41845cc13bd00b81e280fb513660cf7"
+      }
+    },
+    {
+      "case": "000001-ma20-60-cost",
+      "full_offline_direct_POST_GET_exact": true,
+      "data_mode": "dataframe",
+      "data_hash": "51d7fdc9e326a3156b8a78ae7052b5b0cc9781dd322270116ed9f311a289d9e8",
+      "evidence_files": {
+        "000001-ma20-60-cost.result.json": "dab609d7d7476979880f68fb1181acef008b17c1247be72b118ddfac613c6f37",
+        "000001-ma20-60-cost.direct.json": "a5d78abc50dedc6ac972f9a3a39aa097d7fd2f395fb340d779f4eb702d62c945",
+        "000001-ma20-60-cost.post.json": "11e74ecf287e2aa2adf18e6e8ce8b75048c2bcf2567f3008e4db04b35ba77bd3",
+        "000001-ma20-60-cost.history.json": "0a21a536c2ea6b8a299b48a5107b31c4002024ef3da3749212ceaf602fe1694e"
+      }
+    },
+    {
+      "case": "300750-default",
+      "full_offline_direct_POST_GET_exact": true,
+      "data_mode": "dataframe",
+      "data_hash": "fc03a520077a4632c771c767984dbcfff35ceaac8a35d7c10e635940ee0a981a",
+      "evidence_files": {
+        "300750-default.result.json": "2efe2b41650b5d5f9eb1cddc96beb16280b3c76a381bfb14ff9ea539abc6895c",
+        "300750-default.direct.json": "23060adae979025526da9406e19e26e9e469ad32f00e42ebd14612b0e92f7943",
+        "300750-default.post.json": "c9c94281d1145441d9ec6b986833190c53f5db54372dfd9b37aa7ed96a146a5c",
+        "300750-default.history.json": "eeb9ef7fc63e8d0cc3fcbbdd9380a83f57e2d86a0e8553b5e19231bebd20e397"
+      }
+    },
+    {
+      "case": "300750-ma10-30",
+      "full_offline_direct_POST_GET_exact": true,
+      "data_mode": "dataframe",
+      "data_hash": "409f040e25a58fd8eb610f8af2bad69137b82a32088bb5747045bfdf787205e0",
+      "evidence_files": {
+        "300750-ma10-30.result.json": "56db0f5507482f7822700ec8cc6e7f9768f7daa406da1721ec22bd6a034cf0a8",
+        "300750-ma10-30.direct.json": "b5491ee2888991634eb113e82a9a973539c71e866d2f07e2afe6262fbd29d1ba",
+        "300750-ma10-30.post.json": "5c6bf631e14482f234d54e2f66234a813b450970cbb8788c8af374b4e2b1ce64",
+        "300750-ma10-30.history.json": "0702e1cbab4a5dabe058710fdb2d1ac092b32d181827a380852fc785736fccc3"
+      }
+    },
+    {
+      "case": "300750-ma20-60-cost",
+      "full_offline_direct_POST_GET_exact": true,
+      "data_mode": "dataframe",
+      "data_hash": "d74df6e804446ebf97cf34d155893b8abb259dd92faa4cfa524d9c8e1545be5d",
+      "evidence_files": {
+        "300750-ma20-60-cost.result.json": "e97f0164621f20b47c3f99d1b489d493322459e459737250a394f31cc880d37e",
+        "300750-ma20-60-cost.direct.json": "70c55188d3e43c6fc108ff2c78393332ba090297230ff9f31ec67bcceb79f339",
+        "300750-ma20-60-cost.post.json": "efe8f16c5bc37d8b6a7a983c316c9efdb5b6bbbcca6bcb7909961e5fbb0a8cac",
+        "300750-ma20-60-cost.history.json": "789dff5ce3ea29a03697d9b2fa7d7bb0c74ff12a8402513f30e136c542d5e80e"
+      }
+    }
+  ],
+  "source_ancestry_preserved": {
+    "d7ba01c63eed07b23fff6939753d7ee591c140fb": true,
+    "540a00f604044bd046cd3935f4df9d018063b44b": true,
+    "87785788fed0a4f08bf5bd5b7a39a57010318666": true
+  }
+}

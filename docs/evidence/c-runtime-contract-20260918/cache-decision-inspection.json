@@ -1,0 +1,21 @@
+{
+  "scope": "read-only source inspection and C contract decisions; no new runtime tests",
+  "issue_comment": "https://github.com/27ye/ai-quant-platform/issues/15#issuecomment-5723849963",
+  "d_sha": "85b7617149fbff67189e52f6527c9921ff09d388",
+  "pr10_draft": true,
+  "b_sha": "a7cab6c5c1988e592773611ff282a9a26f98700f",
+  "b_commit_files": [
+    "docs/V2_B_DATA_CONTRACT.md"
+  ],
+  "inspected_file": "backend/app/services/market_data_service.py",
+  "source_matches_git_object": true,
+  "sha256": "39e650f74d9e213aaf10ee79e74839724cf927680e0aef6d76bab290425009c7",
+  "findings": {
+    "upsert_daily_commit_line": 243,
+    "upsert_daily_sync_commit_line": 308,
+    "sync_calls_two_repository_writes_separately": true,
+    "provenance_uses_wrapper_provider_name": true
+  },
+  "new_provider_implemented_by_c": false,
+  "new_runtime_acceptance_passed": false
+}
