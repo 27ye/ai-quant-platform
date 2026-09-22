@@ -7,6 +7,7 @@ import type {
   KlineItem,
   ScoreData,
   StockBrief,
+  StockInfo,
 } from '../types/api'
 
 const STOCK_LIST: StockBrief[] = [
@@ -30,6 +31,28 @@ export function mockSearch(keyword: string): ApiResponse<StockBrief[]> {
       )
     : STOCK_LIST
   return { code: 0, message: 'success', data }
+}
+
+// GET /stocks/{code}：mock 仅冻结 600519 详情，其余按契约报不存在（由拦截器映射）
+export function mockStockInfo(stockCode: string): ApiResponse<StockInfo> {
+  const hit = STOCK_LIST.find((item) => item.stock_code === stockCode)
+  if (!hit || stockCode !== '600519') {
+    return {
+      code: 40002,
+      message: 'stock not found',
+      data: null,
+    } as unknown as ApiResponse<StockInfo>
+  }
+  return {
+    code: 0,
+    message: 'success',
+    data: {
+      ...hit,
+      industry: '白酒',
+      total_market_cap: 1567352311333.8,
+      float_market_cap: 1567352311333.8,
+    },
+  }
 }
 
 // 固定种子的伪随机数，保证每次刷新数据一致，方便演示和调试
@@ -156,7 +179,9 @@ export function mockScore(stockCode: string): ApiResponse<ScoreData> {
 }
 
 export function mockBacktest(payload: BacktestRequest): ApiResponse<BacktestData> {
-  const kline = buildKline(180, 20260902, 1350)
+  // V3 F5：strategy=macd 用不同种子模拟另一策略的权益路径（后端接线前的契约演示）
+  const isMacd = payload.strategy === 'macd'
+  const kline = buildKline(180, isMacd ? 20260903 : 20260902, isMacd ? 1280 : 1350)
   const initialCash = payload.parameters?.initial_cash ?? 100000
   // 模拟简单策略：价格涨跌驱动权益，initial_cash 起步的绝对权益
   let equity = initialCash
@@ -185,7 +210,7 @@ export function mockBacktest(payload: BacktestRequest): ApiResponse<BacktestData
   if (payload.parameters) {
     const firstClose = kline[0].close
     let peak = -Infinity
-    data.backtest_id = 12
+    data.backtest_id = isMacd ? 13 : 12
     data.semantics_version = 'v2_windowed'
     data.benchmark_curve = kline.map((row) => ({
       trade_date: row.trade_date,

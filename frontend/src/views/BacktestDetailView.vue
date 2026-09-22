@@ -82,17 +82,26 @@ function metricClass(value: number | null): string {
   return ''
 }
 
-// 生效参数（v2 只含白名单五字段）
+// 生效参数（白名单随策略：MA 五字段 / MACD 六字段，按存在字段展示）
 const paramRows = computed(() => {
-  const p = detail.value?.effective_parameters
+  const p = detail.value?.effective_parameters as Record<string, number> | null | undefined
   if (!p) return []
-  return [
-    { label: '短均线', value: `${p.ma_short_period} 日` },
-    { label: '长均线', value: `${p.ma_long_period} 日` },
-    { label: '初始资金', value: p.initial_cash.toLocaleString() },
-    { label: '交易成本', value: `${(p.transaction_cost * 100).toFixed(3)}%` },
-    { label: '滑点', value: `${(p.slippage * 100).toFixed(3)}%` },
-  ]
+  const rows: Array<{ label: string; value: string }> = []
+  if (p.ma_short_period != null) rows.push({ label: '短均线', value: `${p.ma_short_period} 日` })
+  if (p.ma_long_period != null) rows.push({ label: '长均线', value: `${p.ma_long_period} 日` })
+  if (p.macd_fast_period != null) {
+    rows.push({ label: 'MACD 快线', value: `${p.macd_fast_period} 日` })
+  }
+  if (p.macd_slow_period != null) {
+    rows.push({ label: 'MACD 慢线', value: `${p.macd_slow_period} 日` })
+  }
+  if (p.macd_signal_period != null) {
+    rows.push({ label: 'MACD 信号线', value: `${p.macd_signal_period} 日` })
+  }
+  rows.push({ label: '初始资金', value: p.initial_cash.toLocaleString() })
+  rows.push({ label: '交易成本', value: `${(p.transaction_cost * 100).toFixed(3)}%` })
+  rows.push({ label: '滑点', value: `${(p.slippage * 100).toFixed(3)}%` })
+  return rows
 })
 
 // 成交记录表
@@ -117,10 +126,11 @@ const metaRows = computed(() => {
   const short = (hash?: string | null) =>
     hash ? `${hash.slice(0, 8)}…${hash.slice(-8)}` : '—'
   const rows: Array<{ label: string; value: string }> = []
-  if (meta.actual_start_date) {
+  // 请求区间来自 data_meta.requested_*；实际区间已在页头用顶层 start/end 展示
+  if (meta.requested_start_date && meta.requested_end_date) {
     rows.push({
-      label: '实际区间',
-      value: `${meta.actual_start_date} ~ ${meta.actual_end_date ?? '—'}`,
+      label: '请求区间',
+      value: `${meta.requested_start_date} ~ ${meta.requested_end_date}`,
     })
   }
   if (meta.rows != null) rows.push({ label: '行情行数', value: String(meta.rows) })
@@ -140,7 +150,10 @@ const metaRows = computed(() => {
 })
 
 function goBack() {
-  router.back()
+  // 新标签直接打开时没有历史记录，回退会退出站点；回到该股票的回测历史
+  if (window.history.length > 1) router.back()
+  else if (detail.value) router.replace(`/stock/${detail.value.stock_code}/backtests`)
+  else router.replace('/')
 }
 </script>
 
@@ -148,7 +161,6 @@ function goBack() {
   <main class="bt-detail">
     <header class="page-header">
       <div class="header-left">
-        <a class="back-link" @click="goBack">← 返回</a>
         <h1 class="page-title">回测 #{{ backtestId }}</h1>
         <template v-if="detail">
           <span
@@ -290,7 +302,7 @@ function goBack() {
               </tbody>
             </table>
           </div>
-          <p v-else class="no-trades">该区间无成交</p>
+          <p v-else class="no-trades">暂无成交记录</p>
         </el-card>
 
         <!-- 数据元信息 -->

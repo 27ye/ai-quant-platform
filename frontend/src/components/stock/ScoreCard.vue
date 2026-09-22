@@ -14,11 +14,16 @@ const ITEMS = [
 ] as const
 
 const items = computed(() =>
-  ITEMS.map((item) => ({
-    ...item,
-    value: props.data[item.key] ?? 0,
-    percent: Math.round(((props.data[item.key] ?? 0) / item.max) * 100),
-  })),
+  ITEMS.map((item) => {
+    // 预热期分项为 null：显式展示「—」，不能当 0 分误导
+    const raw = props.data[item.key]
+    return {
+      ...item,
+      raw,
+      display: raw == null ? '—' : String(raw),
+      percent: raw == null ? 0 : Math.round((raw / item.max) * 100),
+    }
+  }),
 )
 
 // 等级颜色：红强、金中性、绿弱、灰更弱（A 股语义），level 为 C 定义的中文等级
@@ -58,8 +63,9 @@ const levelType = computed(() => {
           color="var(--accent)"
           :stroke-width="6"
           class="bar"
+          :class="{ 'bar-empty': item.raw == null }"
         />
-        <span class="bar-value">{{ item.value }}/{{ item.max }}</span>
+        <span class="bar-value">{{ item.display }}/{{ item.max }}</span>
       </div>
     </div>
 
@@ -123,6 +129,11 @@ const levelType = computed(() => {
   color: var(--text-faint);
   font-size: 12px;
   text-align: right;
+}
+
+/* 预热期无分项：进度条淡化为底槽，不暗示 0 分 */
+.bar-empty :deep(.el-progress-bar__inner) {
+  background: var(--border-strong);
 }
 
 .reasons {

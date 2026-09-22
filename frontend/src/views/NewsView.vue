@@ -161,7 +161,7 @@ watch(stockCode, load, { immediate: true })
 
 .page-title {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--text-main);
   letter-spacing: 0.01em;

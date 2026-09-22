@@ -16,6 +16,13 @@ export interface StockBrief {
   stock_name: string
 }
 
+// GET /stocks/{stock_code} 详情（实时 provider，不依赖本地目录同步）
+export interface StockInfo extends StockBrief {
+  industry: string | null
+  total_market_cap: number | null
+  float_market_cap: number | null
+}
+
 // GET /stocks/{stock_code}/kline（日期 YYYY-MM-DD，百分比用小数）
 export interface KlineItem {
   trade_date: string
@@ -89,10 +96,18 @@ export interface AIAnalysisData {
 export type SourceMode = 'live' | 'cache' | 'frozen' | 'unknown'
 export type SnapshotStatus = 'complete' | 'legacy_missing'
 
+// ============ V3 F4 最小契约（V3_DEVELOPMENT_PLAN §5.2，A 提前给 D）============
+// 列表与详情兼容新增两字段；旧记录两列均为 NULL 时后端读取为 standard，不回填
+export type AIAnalysisMode = 'standard' | 'custom_backtest'
+
 // GET /ai/reports 列表项（仅摘要，不含完整上下文）
 export interface AIReportSummary {
   report_id: number
   stock_code: string
+  /** V3：报告模式；旧记录映射为 standard */
+  analysis_mode: AIAnalysisMode
+  /** V3：custom_backtest 模式关联的回测 ID，standard 为 null */
+  backtest_id: number | null
   quant_score: number | null
   trend: TrendValue
   summary: string
@@ -173,6 +188,10 @@ export interface AIReportDetail extends AIAnalysisData {
   report_id: number
   created_at: string
   data_as_of: string | null
+  /** V3：报告模式；旧记录映射为 standard */
+  analysis_mode: AIAnalysisMode
+  /** V3：custom_backtest 模式关联的回测 ID，standard 为 null */
+  backtest_id: number | null
   source_mode: SourceMode
   prompt_version: string | null
   context_schema_version: string | null
@@ -207,6 +226,9 @@ export interface BacktestData {
 
 // ============ V2 参数化回测（契约已定稿：C 于 Issue #11 确认）============
 
+/** V3 F5：回测请求的策略选择（§5.1 契约：省略 strategy 完整保留 V2 语义） */
+export type BacktestStrategy = 'ma_cross' | 'macd'
+
 /**
  * 回测参数白名单（POST /backtests 请求体 parameters 字段，V1 冻结演示不含此块）
  * C 定稿口径：页面内部可用 short/long/commission 变量，提交时映射为以下字段名；
@@ -226,12 +248,30 @@ export interface BacktestParameters {
   slippage: number
 }
 
+/**
+ * V3 F5 MACD 参数白名单（§5.1 契约：strategy=macd 时按此白名单校验）
+ * 默认 12/26/9；约束 2 ≤ fast < slow ≤ 120、2 ≤ signal ≤ 120；
+ * 非整数/布尔/字符串/NaN/Infinity/显式 null/未知字段/MA 专有字段均取数前 40001
+ */
+export interface MacdParameters {
+  macd_fast_period: number
+  macd_slow_period: number
+  macd_signal_period: number
+  /** 共同参数仅 initial_cash、transaction_cost、slippage，范围沿用现有约束 */
+  initial_cash: number
+  transaction_cost: number
+  slippage: number
+}
+
 /** 回测请求体：日期为顶层字段（YYYY-MM-DD，首尾包含，允许单日，最长五个日历年） */
 export interface BacktestRequest {
   stock_code: string
+  /** V3 F5：省略 = 完整保留 V2 语义；ma_cross 不改变旧行为；macd 要求明确起止日期 */
+  strategy?: BacktestStrategy
   start_date?: string
   end_date?: string
-  parameters?: BacktestParameters
+  /** 白名单随策略选择：ma_cross → BacktestParameters；macd → MacdParameters */
+  parameters?: BacktestParameters | MacdParameters
 }
 
 /** 成交记录（V2 响应 trades 数组元素；买入行 round_trip_* 为 null，卖出行含双边成本） */
@@ -355,13 +395,19 @@ export interface PaginatedBacktests {
  * c_data_hash 是 C 输入快照的 SHA-256——两者分开，不可混用）
  */
 export interface BacktestDataMeta {
+  /** 调用方请求的窗口（如实回显，不被静默改写） */
   requested_start_date?: string
   requested_end_date?: string
-  actual_start_date?: string
-  actual_end_date?: string
+  /** 实际使用的首末 bar，与顶层 start_date/end_date 相等（契约中不存在 actual_*） */
+  computed_start_date?: string
+  computed_end_date?: string
   rows?: number
   rows_in_window?: number
+  /** 预热实际取用的行情行数 */
+  warmup_rows?: number
   warmup_required_days?: number | null
+  /** 行情来源说明（如 MarketDataSource.query_daily (warmup window)） */
+  data_source?: string
   window_owner?: string
   frame_digest?: string | null
   c_data_hash?: string | null
@@ -384,10 +430,10 @@ export interface BacktestWarmup {
 export interface BacktestDetail extends BacktestSummary {
   /** 预热区间起点（v2_windowed；v1_legacy 为 null） */
   warmup_start_date: string | null
-  /** 请求参数（v2 只含白名单五字段） */
-  parameters: BacktestParameters | null
+  /** 请求参数（白名单随策略：MA 五字段 / MACD 六字段） */
+  parameters: BacktestParameters | MacdParameters | null
   /** 实际生效参数快照 */
-  effective_parameters: BacktestParameters | null
+  effective_parameters: BacktestParameters | MacdParameters | null
   /** equity 为账户绝对权益；累计收益率 = equity / initial_cash - 1 */
   equity_curve: Array<{ trade_date: string; equity: number }> | null
   benchmark_curve: BenchmarkCurvePoint[] | null
@@ -396,6 +442,8 @@ export interface BacktestDetail extends BacktestSummary {
   data_meta: BacktestDataMeta | null
   /** 当前持仓状态 0/1 */
   current_position: 0 | 1 | null
+  /** 策略算法版本（VARCHAR(20) 摘要；旧记录为 null，不造值） */
+  strategy_version?: string | null
   /** snapshot_status=missing 时附原因 */
   snapshot_missing_reason?: string | null
   c_result_available?: boolean

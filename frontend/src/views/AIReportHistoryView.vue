@@ -74,7 +74,6 @@ watch(
   <main class="history-page">
     <header class="page-header">
       <div class="header-left">
-        <router-link class="back-link" :to="`/stock/${stockCode}`">← 返回工作台</router-link>
         <h1 class="page-title">AI 报告历史</h1>
         <span class="stock-chip">{{ stockCode }}</span>
       </div>
@@ -107,7 +106,11 @@ watch(
           v-for="(item, index) in items"
           :key="item.report_id"
           class="report-item"
+          role="link"
+          tabindex="0"
+          :aria-label="`打开 AI 报告 ${item.report_id}`"
           @click="openDetail(item.report_id)"
+          @keydown.enter.prevent="openDetail(item.report_id)"
         >
           <div class="item-main">
             <div class="item-top">
@@ -172,18 +175,6 @@ watch(
   align-items: baseline;
   gap: 12px;
   min-width: 0;
-}
-
-.back-link {
-  color: var(--text-faint);
-  font-size: 12px;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: color 0.15s ease;
-}
-
-.back-link:hover {
-  color: var(--accent);
 }
 
 .page-title {

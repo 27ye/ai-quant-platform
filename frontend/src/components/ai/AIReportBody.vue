@@ -49,15 +49,17 @@ const trendClass = computed(() => {
     <div class="two-col">
       <section class="col">
         <h4>优势</h4>
-        <ul class="adv-list">
+        <ul v-if="data.advantages.length > 0" class="adv-list">
           <li v-for="item in data.advantages" :key="item">{{ item }}</li>
         </ul>
+        <p v-else class="list-empty">—</p>
       </section>
       <section class="col">
         <h4>风险</h4>
-        <ul class="risk-list">
+        <ul v-if="data.risks.length > 0" class="risk-list">
           <li v-for="item in data.risks" :key="item">{{ item }}</li>
         </ul>
+        <p v-else class="list-empty">—</p>
       </section>
     </div>
 
@@ -217,6 +219,12 @@ section p {
   height: 4px;
   border-radius: 50%;
   background: var(--text-faint);
+}
+
+.list-empty {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 13px;
 }
 
 .adv-list li::before {
