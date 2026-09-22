@@ -68,6 +68,12 @@ async function load() {
 }
 
 watch(reportId, load, { immediate: true })
+
+function safeBack() {
+  // 新标签直接打开时没有历史记录，回退会退出站点
+  if (window.history.length > 1) router.back()
+  else router.replace('/')
+}
 </script>
 
 <template>
@@ -88,7 +94,7 @@ watch(reportId, load, { immediate: true })
     <el-card v-else-if="notFound" shadow="never" class="panel">
       <el-result icon="warning" title="报告不存在" sub-title="该报告可能已被删除，或链接有误">
         <template #extra>
-          <el-button type="primary" @click="router.back()">返回</el-button>
+          <el-button type="primary" @click="safeBack">返回</el-button>
         </template>
       </el-result>
     </el-card>

@@ -106,7 +106,11 @@ watch(
           v-for="(item, index) in items"
           :key="item.report_id"
           class="report-item"
+          role="link"
+          tabindex="0"
+          :aria-label="`打开 AI 报告 ${item.report_id}`"
           @click="openDetail(item.report_id)"
+          @keydown.enter.prevent="openDetail(item.report_id)"
         >
           <div class="item-main">
             <div class="item-top">

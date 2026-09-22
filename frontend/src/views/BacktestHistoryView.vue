@@ -144,7 +144,11 @@ watch(
           :key="item.backtest_id"
           class="bt-item"
           :class="{ selected: selectedIds.includes(item.backtest_id) }"
+          role="link"
+          tabindex="0"
+          :aria-label="`打开回测 ${item.backtest_id} 详情`"
           @click="openDetail(item.backtest_id)"
+          @keydown.enter.prevent="openDetail(item.backtest_id)"
         >
           <el-checkbox
             :model-value="selectedIds.includes(item.backtest_id)"

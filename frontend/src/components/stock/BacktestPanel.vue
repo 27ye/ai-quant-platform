@@ -269,7 +269,7 @@ function resetForm() {
     <!-- 参数表单 -->
     <div v-if="formOpen" class="form">
       <div class="field field-full">
-        <label class="field-label">策略（V3：MACD 为新策略，请求带 strategy 字段）</label>
+        <label class="field-label">策略</label>
         <el-radio-group v-model="strategy" size="small">
           <el-radio-button value="ma_cross">双均线 MA</el-radio-button>
           <el-radio-button value="macd">MACD</el-radio-button>
@@ -497,9 +497,9 @@ function resetForm() {
 }
 
 .tag-v2 {
-  border: 1px solid rgba(212, 169, 88, 0.4);
-  background: rgba(212, 169, 88, 0.08);
-  color: rgba(212, 169, 88, 0.9);
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+  background: var(--warn-bg);
+  color: var(--warn);
 }
 
 .tag-v1 {
@@ -572,9 +572,9 @@ function resetForm() {
 .errors {
   margin: 10px 0 0;
   padding: 8px 12px 8px 28px;
-  border: 1px solid rgba(255, 77, 79, 0.35);
+  border: 1px solid color-mix(in srgb, var(--up) 40%, transparent);
   border-radius: 6px;
-  background: rgba(255, 77, 79, 0.06);
+  background: color-mix(in srgb, var(--up) 8%, transparent);
   color: var(--up);
   font-size: 12px;
   line-height: 1.7;
@@ -590,7 +590,7 @@ function resetForm() {
 /* ---- 结果 ---- */
 .stale-hint {
   margin: 0 0 8px;
-  color: rgba(230, 180, 80, 0.9);
+  color: var(--warn);
   font-size: 11px;
 }
 
@@ -716,6 +716,17 @@ function resetForm() {
   .metrics,
   .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  /* 超窄屏：参数单列，日期区间选择器强制不撑破容器 */
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .date-picker :deep(.el-range-editor.el-input__wrapper) {
+    width: 100%;
   }
 }
 </style>

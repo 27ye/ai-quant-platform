@@ -39,6 +39,8 @@ const series = computed(() => {
 
 const chartEl = ref<HTMLElement | null>(null)
 let chart: echarts.ECharts | null = null
+// 容器尺寸变化（窗口拖拽、对照页窄屏换栏）时重绘，与 KlineChart 同口径
+let resizeObserver: ResizeObserver | null = null
 
 function render() {
   if (!chart) return
@@ -126,6 +128,8 @@ onMounted(() => {
   if (chartEl.value) {
     chart = echarts.init(chartEl.value)
     render()
+    resizeObserver = new ResizeObserver(() => chart?.resize())
+    resizeObserver.observe(chartEl.value)
   }
 })
 
@@ -134,6 +138,8 @@ watch(series, render)
 watch(() => [theme.theme, theme.accent], render)
 
 onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
   chart?.dispose()
   chart = null
 })

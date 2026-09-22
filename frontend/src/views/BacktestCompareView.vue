@@ -257,7 +257,10 @@ function curveState(d: BacktestDetail): 'ok' | 'missing' | 'invalid-cash' {
 }
 
 function goBack() {
-  router.back()
+  // 新标签直接打开时没有历史记录，router.back() 会退出站点；这种情况回历史页/首页
+  if (window.history.length > 1) router.back()
+  else if (detailA.value) router.replace(`/stock/${detailA.value.stock_code}/backtests`)
+  else router.replace('/')
 }
 </script>
 
@@ -346,6 +349,7 @@ function goBack() {
         <!-- 基本信息 -->
         <el-card shadow="never" class="panel">
           <template #header><span class="card-title">基本信息</span></template>
+          <div class="table-scroll">
           <table class="cmp-table">
             <thead>
               <tr>
@@ -362,11 +366,13 @@ function goBack() {
               </tr>
             </tbody>
           </table>
+          </div>
         </el-card>
 
         <!-- 参数差异 -->
         <el-card shadow="never" class="panel">
           <template #header><span class="card-title">参数对照</span></template>
+          <div class="table-scroll">
           <table v-if="!paramsMissing" class="cmp-table">
             <thead>
               <tr>
@@ -383,12 +389,14 @@ function goBack() {
               </tr>
             </tbody>
           </table>
+          </div>
           <p v-else class="missing-note">两条记录均未保存参数快照，无法对照参数</p>
         </el-card>
 
         <!-- 指标对照（保留 null 为「—」，不做优胜判断） -->
         <el-card shadow="never" class="panel">
           <template #header><span class="card-title">指标对照</span></template>
+          <div class="table-scroll">
           <table class="cmp-table">
             <thead>
               <tr>
@@ -405,6 +413,7 @@ function goBack() {
               </tr>
             </tbody>
           </table>
+          </div>
         </el-card>
 
         <!-- 并排权益曲线：一份结果一张图，不叠加、不对齐窗口 -->
@@ -536,19 +545,19 @@ function goBack() {
 }
 
 .caveat-banner {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 10px 14px;
-  border: 1px solid rgba(230, 180, 80, 0.4);
-  border-radius: 8px;
-  background: rgba(230, 180, 80, 0.06);
-}
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 10px 14px;
+    border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+    border-radius: 8px;
+    background: var(--warn-bg);
+  }
 
-.caveat-item {
-  color: rgba(230, 180, 80, 0.95);
-  font-size: 12px;
-}
+  .caveat-item {
+    color: var(--warn);
+    font-size: 12px;
+  }
 
 .caveat-item + .caveat-item::before {
   content: '·';
@@ -556,12 +565,19 @@ function goBack() {
   opacity: 0.6;
 }
 
-/* 对照表：标签列窄，A/B 两列等宽 */
-.cmp-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
+/* 窄屏表格横向滚动，避免挤压日期/哈希列 */
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 对照表：标签列窄，A/B 两列等宽 */
+  .cmp-table {
+    width: 100%;
+    min-width: 420px;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
 
 .cmp-table th {
   color: var(--text-faint);

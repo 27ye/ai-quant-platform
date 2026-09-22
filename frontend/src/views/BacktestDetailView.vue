@@ -149,7 +149,10 @@ const metaRows = computed(() => {
 })
 
 function goBack() {
-  router.back()
+  // 新标签直接打开时没有历史记录，回退会退出站点；回到该股票的回测历史
+  if (window.history.length > 1) router.back()
+  else if (detail.value) router.replace(`/stock/${detail.value.stock_code}/backtests`)
+  else router.replace('/')
 }
 </script>
 
