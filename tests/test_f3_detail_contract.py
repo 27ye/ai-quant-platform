@@ -196,3 +196,32 @@ def test_legacy_record_reports_its_missing_snapshot_instead_of_fabricating_one()
     assert "c_algorithm_version" not in detail
     # F3 renders this reason, so it must be present and explicit.
     assert detail["snapshot_missing_reason"]
+
+
+def test_requested_actual_and_computed_dates_are_three_distinct_things():
+    """A's mapping (C, PR #23 review): request info is not the actual trading window.
+
+    C measured that a request spanning non-trading days (2025-07-05..2026-08-30) comes
+    back with actual 2025-07-07..2025-08-28. The contract is:
+
+    * ``data_meta.requested_start_date`` / ``requested_end_date`` - what the caller asked
+      for, reported as asked and never silently rewritten;
+    * top-level ``start_date`` / ``end_date`` - the actual first/last bars used, equal to
+      ``data_meta.computed_start_date`` / ``computed_end_date``;
+    * there is **no** ``actual_*`` field anywhere, so reading one yields nothing - which is
+      how A's compare view ended up rendering an empty actual window. B adds no second
+      field family for this (C: "B 无需新增另一套字段").
+    """
+    with _session() as session:
+        repository = BacktestRepository(session)
+        detail = repository.get(_save_windowed(session))
+
+    meta = detail["data_meta"]
+    assert meta["requested_start_date"] == "2025-06-01"  # asked for
+    assert detail["start_date"] == "2025-06-03"  # actually used
+    assert meta["computed_start_date"] == detail["start_date"]
+    assert meta["computed_end_date"] == detail["end_date"]
+    assert meta["requested_start_date"] != detail["start_date"]
+    # The whole "actual_*" family is absent, by design.
+    assert not [key for key in detail if key.startswith("actual_")]
+    assert not [key for key in meta if key.startswith("actual_")]
