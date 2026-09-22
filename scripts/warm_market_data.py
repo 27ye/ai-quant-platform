@@ -17,6 +17,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import inspect
 import sys
 import time
 from datetime import date, timedelta
@@ -110,10 +111,26 @@ def main() -> int:
     results = []
     try:
         repository = MarketDataRepository(db)
+        # Warm-up must obey the same completed-day boundary as the request path
+        # (``dependencies.get_market_data_source``). Without it this script can fetch and
+        # persist an unfinished intraday bar, which then has to be purged as a "dirty
+        # tail" (observed on 2026-09-22: a 09-22 intraday bar was written while the
+        # completed day was 09-21).
+        #
+        # Both the boundary helper and the ``completed_through`` parameter arrive with
+        # the runtime boundary integration, so feature-detect them: on a tree without
+        # them the script keeps its previous behaviour (and cannot enforce the boundary
+        # at all, because the service has no notion of it yet).
+        boundary_kwargs = {}
+        if "completed_through" in inspect.signature(MarketDataService.__init__).parameters:
+            last_completed = getattr(calendar, "last_completed_trade_date", None)
+            if callable(last_completed):
+                boundary_kwargs["completed_through"] = last_completed
         service = MarketDataService(
             stock_service=StockService(),
             repository=repository,
             trading_days=count_trading_days,
+            **boundary_kwargs,
         )
         for round_index in range(1, args.rounds + 1):
             print(f"--- pass {round_index}/{args.rounds} ({args.start_date}..{args.end_date})")
