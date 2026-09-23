@@ -135,9 +135,26 @@ class StockCatalogRepository:
             if inserts:
                 self._session.execute(insert(StockBasic), inserts)
             if updates:
+                # Refresh renamed codes through the Core table statement.
+                #
+                # The ORM form (``update(StockBasic)`` + executemany) is rejected by
+                # SQLAlchemy 2.0 whenever the statement carries extra WHERE criteria:
+                # "bulk synchronize of persistent objects not supported when using
+                # bulk update with additional WHERE criteria". Turning synchronisation
+                # off does not help either - it moves the failure to "per-row ORM Bulk
+                # UPDATE by Primary Key requires that records contain primary key
+                # values", because these params are named ``code``/``name``.
+                #
+                # This branch runs whenever a code already exists with a changed name,
+                # i.e. on every refresh of a populated catalog - which is why the
+                # insert-only tests never reached it and the API answered
+                # 500/50002 on merged main 83bcbd11.
+                #
+                # Nothing here needs the identity map refreshed: the existing codes
+                # are read as column tuples, not ORM entities.
                 self._session.execute(
-                    update(StockBasic)
-                    .where(StockBasic.stock_code == bindparam("code"))
+                    StockBasic.__table__.update()
+                    .where(StockBasic.__table__.c.stock_code == bindparam("code"))
                     .values(stock_name=bindparam("name")),
                     updates,
                 )
