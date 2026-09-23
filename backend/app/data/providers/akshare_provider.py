@@ -1,5 +1,6 @@
 import json
 import math
+import re
 import threading
 import time
 from datetime import date, datetime, timedelta
@@ -71,6 +72,16 @@ class AKShareStockProvider(StockDataProvider):
     #: eastmoney hosts fail after retries (identical endpoints and field口径).
     delayed_base_url = "https://push2delay.eastmoney.com"
     tencent_kline_url = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+    #: Tencent realtime quote, last-resort fallback for stock info when both
+    #: eastmoney quote hosts are unreachable (carries name + caps, no industry).
+    tencent_quote_url = "https://qt.gtimg.cn/q"
+    #: Sina full-A-share list node, last-resort catalog source (paged, 100/page).
+    sina_catalog_url = (
+        "http://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/"
+        "Market_Center.getHQNodeData"
+    )
+    sina_catalog_page_size = 100
+    sina_catalog_page_delay_seconds = 0.15
     tencent_retry_attempts = 2
     #: Cap on concurrently-running (possibly hung) background AKShare calls, so
     #: repeated timeouts cannot accumulate unbounded daemon threads.
@@ -248,6 +259,17 @@ class AKShareStockProvider(StockDataProvider):
         except (*_TRANSIENT_ERRORS, StockDataProviderError) as exc:
             reasons.append(f"delayed host: {type(exc).__name__}: {exc}")
 
+        # Both eastmoney hosts are blocked: cross-source Sina full-market list
+        # is the last resort for a searchable catalog.
+        try:
+            items = self._catalog_from_sina()
+            if items:
+                self.last_catalog_source = "sina.Market_Center.getHQNodeData"
+                return items
+            reasons.append("sina returned no rows")
+        except (*_TRANSIENT_ERRORS, StockDataProviderError) as exc:
+            reasons.append(f"sina: {type(exc).__name__}: {exc}")
+
         raise StockDataProviderError(
             "stock catalog unavailable (" + "; ".join(reasons) + ")"
         )
@@ -333,6 +355,74 @@ class AKShareStockProvider(StockDataProvider):
             for code, name in sorted(collected.items())
         ]
 
+    def _catalog_from_sina(self) -> List[Dict[str, str]]:
+        """Cross-source catalog fallback: Sina ``hs_a`` node, 100 rows/page.
+
+        Only reached after both eastmoney hosts have failed. The node covers
+        SH/SZ/BJ A-shares (~5.5k rows in 2026, so <=56 pages). Pages are
+        walked with a small polite delay; each page gets bounded retries.
+        A short page marks the end of the node. Code/name validation is
+        delegated to :meth:`_normalize_catalog_rows`, so the 口径 matches the
+        eastmoney sources exactly.
+        """
+        import requests
+
+        collected: Dict[str, str] = {}
+        for page in range(1, self.catalog_max_pages + 1):
+            payload: Any = None
+            last_exc: Optional[Exception] = None
+            for _ in range(self.tencent_retry_attempts):
+                try:
+                    response = requests.get(
+                        self.sina_catalog_url,
+                        params={
+                            "page": str(page),
+                            "num": str(self.sina_catalog_page_size),
+                            "sort": "symbol",
+                            "asc": "1",
+                            "node": "hs_a",
+                            "symbol": "",
+                            "_s_r_a": "init",
+                        },
+                        timeout=self.fallback_timeout_seconds,
+                    )
+                    if response.status_code != 200:
+                        # Deterministic contract violation: fail the whole sync
+                        # immediately instead of reusing a stale page payload.
+                        raise StockDataProviderError(
+                            f"sina catalog page {page} HTTP {response.status_code}"
+                        )
+                    payload = response.json()
+                except StockDataProviderError:
+                    raise
+                except Exception as exc:
+                    last_exc = exc
+                else:
+                    break
+            else:
+                raise StockDataProviderError(
+                    f"sina catalog page {page} failed after retries: {last_exc}"
+                ) from last_exc
+
+            if not isinstance(payload, list):
+                raise StockDataProviderError("sina catalog payload is not a list")
+            for item in self._normalize_catalog_rows(
+                (row.get("code"), row.get("name"))
+                for row in payload
+                if isinstance(row, dict)
+            ):
+                collected[item["stock_code"]] = item["stock_name"]
+
+            # Short page means the node is exhausted.
+            if len(payload) < self.sina_catalog_page_size:
+                break
+            time.sleep(self.sina_catalog_page_delay_seconds)
+
+        return [
+            {"stock_code": code, "stock_name": name}
+            for code, name in sorted(collected.items())
+        ]
+
     @staticmethod
     def _normalize_catalog_rows(pairs: Iterable) -> List[Dict[str, str]]:
         """Normalize ``(code, name)`` pairs, dropping blank/invalid codes."""
@@ -364,7 +454,12 @@ class AKShareStockProvider(StockDataProvider):
             raise
         except _TRANSIENT_ERRORS as exc:
             # Same-source delayed-quote host fallback (identical eastmoney fields).
-            return self._stock_info_from_delay_host(stock_code, exc)
+            try:
+                return self._stock_info_from_delay_host(stock_code, exc)
+            except StockDataProviderError as delay_exc:
+                # Both eastmoney hosts failed: cross-source Tencent quote is
+                # the last resort (name + market caps; industry unavailable).
+                return self._stock_info_from_tencent(stock_code, delay_exc)
         except Exception as exc:
             raise StockDataProviderError(
                 f"AKShare info request failed for {stock_code}: {exc}"
@@ -455,6 +550,82 @@ class AKShareStockProvider(StockDataProvider):
             "industry": self._cell_text(data.get("f127")),
             "total_market_cap": self._cell_float(data.get("f116")),
             "float_market_cap": self._cell_float(data.get("f117")),
+        }
+
+    def _stock_info_from_tencent(
+        self, stock_code: str, cause: Exception
+    ) -> Dict[str, Any]:
+        """Last-resort stock info from Tencent's realtime quote endpoint.
+
+        Only reached after the eastmoney primary host and the same-source
+        delayed host have both failed. The GBK quote string carries the name
+        (field 1), code (field 2) and total/float market caps in 100M CNY
+        (fields 44/45); caps are converted to CNY to match the eastmoney
+        f116/f117 口径. Tencent has no industry field, which is returned as
+        ``None`` (unknown) so downstream never mistakes it for a provided
+        empty value. HTTP status, envelope structure, field types and
+        stock identity are all validated; any anomaly maps to 50001.
+        """
+        import requests
+
+        def failure(reason: str) -> StockDataProviderError:
+            return StockDataProviderError(
+                f"AKShare info request failed for {stock_code}: {cause} "
+                f"(Tencent quote fallback also failed: {reason})"
+            )
+
+        if stock_code.startswith("6"):
+            symbol = f"sh{stock_code}"
+        elif stock_code.startswith(("0", "3")):
+            symbol = f"sz{stock_code}"
+        elif stock_code.startswith(("4", "8")):
+            symbol = f"bj{stock_code}"
+        else:
+            raise failure("unsupported stock market prefix")
+
+        try:
+            response = requests.get(
+                self.tencent_quote_url,
+                params={"q": symbol},
+                timeout=self.fallback_timeout_seconds,
+            )
+            if response.status_code != 200:
+                raise failure(f"HTTP {response.status_code}")
+            response.encoding = "gbk"
+            quote_text = response.text
+        except StockDataProviderError:
+            raise
+        except Exception as exc:
+            raise failure(f"{type(exc).__name__}: {exc}") from exc
+
+        match = re.search(r'="([^"]*)"', quote_text)
+        if not match:
+            raise failure("malformed quote envelope")
+        fields = match.group(1).split("~")
+        if len(fields) <= 45:
+            raise failure("quote has too few fields")
+        name = fields[1].strip()
+        code = fields[2].strip().zfill(6)
+        if not name or code != stock_code:
+            # Never return a different stock's identity.
+            raise failure(f"identity mismatch (requested {stock_code}, got {code})")
+
+        def cap_in_cny(index: int) -> Optional[float]:
+            try:
+                value_yi = float(fields[index])
+            except (TypeError, ValueError):
+                return None
+            if not math.isfinite(value_yi) or value_yi < 0:
+                return None
+            # Tencent quotes market caps in 100M CNY; eastmoney uses CNY.
+            return round(value_yi * 1e8, 2)
+
+        return {
+            "stock_code": code,
+            "stock_name": name,
+            "industry": None,
+            "total_market_cap": cap_in_cny(44),
+            "float_market_cap": cap_in_cny(45),
         }
 
     def _daily_kline_from_tencent(
