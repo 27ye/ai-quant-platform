@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Dict, List, Optional, Sequence
 
-from sqlalchemy import bindparam, func, insert, or_, select, update
+from sqlalchemy import bindparam, func, insert, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
