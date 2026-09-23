@@ -369,6 +369,7 @@ class AKShareStockProvider(StockDataProvider):
 
         collected: Dict[str, str] = {}
         for page in range(1, self.catalog_max_pages + 1):
+            payload: Any = None
             last_exc: Optional[Exception] = None
             for _ in range(self.tencent_retry_attempts):
                 try:
@@ -386,16 +387,18 @@ class AKShareStockProvider(StockDataProvider):
                         timeout=self.fallback_timeout_seconds,
                     )
                     if response.status_code != 200:
+                        # Deterministic contract violation: fail the whole sync
+                        # immediately instead of reusing a stale page payload.
                         raise StockDataProviderError(
-                            f"sina catalog HTTP {response.status_code}"
+                            f"sina catalog page {page} HTTP {response.status_code}"
                         )
                     payload = response.json()
-                    break
-                except StockDataProviderError as exc:
-                    last_exc = exc
-                    break
+                except StockDataProviderError:
+                    raise
                 except Exception as exc:
                     last_exc = exc
+                else:
+                    break
             else:
                 raise StockDataProviderError(
                     f"sina catalog page {page} failed after retries: {last_exc}"
@@ -559,7 +562,8 @@ class AKShareStockProvider(StockDataProvider):
         (field 1), code (field 2) and total/float market caps in 100M CNY
         (fields 44/45); caps are converted to CNY to match the eastmoney
         f116/f117 口径. Tencent has no industry field, which is returned as
-        an empty string. HTTP status, envelope structure, field types and
+        ``None`` (unknown) so downstream never mistakes it for a provided
+        empty value. HTTP status, envelope structure, field types and
         stock identity are all validated; any anomaly maps to 50001.
         """
         import requests
@@ -619,7 +623,7 @@ class AKShareStockProvider(StockDataProvider):
         return {
             "stock_code": code,
             "stock_name": name,
-            "industry": "",
+            "industry": None,
             "total_market_cap": cap_in_cny(44),
             "float_market_cap": cap_in_cny(45),
         }

@@ -533,3 +533,181 @@ def test_stock_info_error_reports_the_fallback_reason(monkeypatch):
     assert "delayed-host fallback also failed" in message
     assert "rc=-1" in message
 
+
+def _tencent_quote_response(code="600519", name="贵州茅台", total_yi="16065.17", float_yi="16065.17"):
+    """Build a fake Tencent realtime-quote response (GBK text envelope)."""
+    fields = [""] * 50
+    fields[1] = name
+    fields[2] = code
+    fields[44] = total_yi  # total market cap in 100M CNY
+    fields[45] = float_yi  # float market cap in 100M CNY
+    symbol = ("sh" if code.startswith("6") else "sz") + code
+
+    class _Response:
+        status_code = 200
+        encoding = "utf-8"
+        text = 'v_' + symbol + '="' + "~".join(fields) + '";'
+
+    return _Response()
+
+
+def test_stock_info_falls_back_to_tencent_quote_with_none_industry(monkeypatch):
+    """Tencent last resort: name + caps (yi→CNY); industry is None (unknown),
+    never a fake empty string."""
+    import requests
+
+    monkeypatch.setattr(AKShareStockProvider, "retry_delay_seconds", 0)
+    monkeypatch.setitem(
+        sys.modules,
+        "akshare",
+        _fake_akshare(
+            stock_individual_info_em=lambda **k: (_ for _ in ()).throw(ConnectionError("down"))
+        ),
+    )
+
+    def get(url, **kwargs):
+        if "eastmoney" in url:
+            raise ConnectionError("delayed host down")
+        return _tencent_quote_response()
+
+    monkeypatch.setattr(requests, "get", get)
+
+    info = AKShareStockProvider().get_stock_info("600519")
+
+    assert info["stock_code"] == "600519"
+    assert info["stock_name"] == "贵州茅台"
+    assert info["industry"] is None
+    assert info["total_market_cap"] == pytest.approx(16065.17e8)
+    assert info["float_market_cap"] == pytest.approx(16065.17e8)
+
+
+def test_stock_info_tencent_fallback_rejects_identity_mismatch(monkeypatch):
+    import requests
+
+    monkeypatch.setattr(AKShareStockProvider, "retry_delay_seconds", 0)
+    monkeypatch.setitem(
+        sys.modules,
+        "akshare",
+        _fake_akshare(
+            stock_individual_info_em=lambda **k: (_ for _ in ()).throw(ConnectionError("down"))
+        ),
+    )
+
+    def get(url, **kwargs):
+        if "eastmoney" in url:
+            raise ConnectionError("delayed host down")
+        return _tencent_quote_response(code="000001", name="平安银行")
+
+    monkeypatch.setattr(requests, "get", get)
+
+    with pytest.raises(StockDataProviderError, match="identity mismatch"):
+        AKShareStockProvider().get_stock_info("600519")
+
+
+def _catalog_get_routing(sina_handler):
+    """requests.get mock: eastmoney clist always down; sina served by page."""
+
+    def get(url, **kwargs):
+        if "eastmoney" in url:
+            raise ConnectionError("delayed host down")
+        page = int(kwargs["params"]["page"])
+        return sina_handler(page)
+
+    return get
+
+
+def _broken_spot(monkeypatch):
+    monkeypatch.setattr(AKShareStockProvider, "retry_delay_seconds", 0)
+    monkeypatch.setitem(
+        sys.modules,
+        "akshare",
+        _fake_akshare(
+            stock_zh_a_spot_em=lambda **k: (_ for _ in ()).throw(ConnectionError("down"))
+        ),
+    )
+
+
+def test_sina_catalog_non200_maps_to_provider_error(monkeypatch):
+    """Regression: sina HTTP 503 must map to StockDataProviderError (50001
+    contract), not leak an UnboundLocalError."""
+    import requests
+
+    _broken_spot(monkeypatch)
+    monkeypatch.setattr(
+        requests,
+        "get",
+        _catalog_get_routing(lambda page: _response_with({}, status_code=503)),
+    )
+
+    with pytest.raises(StockDataProviderError, match="sina catalog page 1 HTTP 503"):
+        AKShareStockProvider().fetch_stock_catalog()
+
+
+def test_sina_catalog_page2_failure_does_not_return_partial(monkeypatch):
+    """A mid-walk failure must fail the whole sync, never return a silently
+    shortened catalog."""
+    import requests
+
+    _broken_spot(monkeypatch)
+    monkeypatch.setattr(AKShareStockProvider, "sina_catalog_page_size", 2)
+    monkeypatch.setattr(AKShareStockProvider, "sina_catalog_page_delay_seconds", 0)
+
+    def sina(page):
+        if page == 1:
+            return _response_with([
+                {"code": "600519", "name": "贵州茅台"},
+                {"code": "000001", "name": "平安银行"},
+            ])
+        return _response_with({}, status_code=503)
+
+    monkeypatch.setattr(requests, "get", _catalog_get_routing(sina))
+
+    with pytest.raises(StockDataProviderError, match="page 2 HTTP 503"):
+        AKShareStockProvider().fetch_stock_catalog()
+
+
+def test_sina_catalog_fallback_success_until_short_page(monkeypatch):
+    import requests
+
+    _broken_spot(monkeypatch)
+    monkeypatch.setattr(AKShareStockProvider, "sina_catalog_page_size", 2)
+    monkeypatch.setattr(AKShareStockProvider, "sina_catalog_page_delay_seconds", 0)
+
+    pages = {
+        1: [
+            {"code": "600519", "name": "贵州茅台"},
+            {"code": "000001", "name": "平安银行"},
+        ],
+        2: [{"code": "300750", "name": "宁德时代"}],  # short page ends the walk
+    }
+
+    monkeypatch.setattr(
+        requests,
+        "get",
+        _catalog_get_routing(lambda page: _response_with(pages[page])),
+    )
+
+    provider = AKShareStockProvider()
+    items = provider.fetch_stock_catalog()
+
+    assert items == [
+        {"stock_code": "000001", "stock_name": "平安银行"},
+        {"stock_code": "300750", "stock_name": "宁德时代"},
+        {"stock_code": "600519", "stock_name": "贵州茅台"},
+    ]
+    assert provider.last_catalog_source == "sina.Market_Center.getHQNodeData"
+
+
+def test_sina_catalog_rejects_non_list_payload(monkeypatch):
+    import requests
+
+    _broken_spot(monkeypatch)
+    monkeypatch.setattr(
+        requests,
+        "get",
+        _catalog_get_routing(lambda page: _response_with({"error": "bad"})),
+    )
+
+    with pytest.raises(StockDataProviderError, match="not a list"):
+        AKShareStockProvider().fetch_stock_catalog()
+
