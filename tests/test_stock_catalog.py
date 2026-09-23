@@ -3,12 +3,13 @@
 from datetime import datetime, timezone
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from backend.app.core.errors import CatalogNotSyncedError, InvalidParameterError
 from backend.app.data.providers.base import StockDataProvider, StockDataProviderError
 from backend.app.db.migrations import apply_migrations
+from backend.app.models.stock_basic import StockBasic
 from backend.app.schemas.stock import StockBasicSchema
 from backend.app.services import stock_catalog_service as catalog_module
 from backend.app.services.stock_catalog_service import (
@@ -265,3 +266,27 @@ def test_repository_search_normalizes_schema():
         rows = repository.search("茅台")
         assert isinstance(rows[0], StockBasicSchema)
         assert rows[0].stock_code == "600519"
+
+
+def test_upsert_refreshes_renamed_existing_rows():
+    """A refresh must update renamed codes instead of failing.
+
+    The bulk-update branch only runs when a code already exists with a changed
+    name, so insert-only tests never exercised it. SQLAlchemy 2.0 rejects an
+    ORM-enabled bulk UPDATE that carries extra WHERE criteria unless ORM
+    synchronisation is disabled, which made every refresh of a populated
+    catalog fail with 500/50002 (found on merged main 83bcbd11).
+    """
+    with _session() as session:
+        repository = StockCatalogRepository(session)
+        repository.upsert_many(
+            [StockBasicSchema(stock_code="000002", stock_name="万科A")]
+        )
+        # Same code, different name (Sina writes 万 科Ａ for the same stock).
+        repository.upsert_many(
+            [StockBasicSchema(stock_code="000002", stock_name="万 科Ａ")]
+        )
+        stored = dict(
+            session.execute(select(StockBasic.stock_code, StockBasic.stock_name)).all()
+        )
+        assert stored["000002"] == "万 科Ａ"
